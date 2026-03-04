@@ -1,0 +1,37 @@
+{
+  "_comment": "Copy this file to workspaces.json and fill in your values. Supports multiple Notion workspaces.",
+  "default": "primary",
+  "workspaces": [
+    {
+      "id": "primary",
+      "name": "Nexus — Dan Deenik",
+      "token": "ntn_your_integration_secret_here",
+      "databases": {
+        "profile":       "b0e5a566-965b-42dd-a7a4-256957e5b196",
+        "expenses":      "fee01210-8f0c-4d09-ab7d-f7caa68d6138",
+        "contracts":     "240d284d-0daa-4d31-85be-d4ccab12cbf7",
+        "signals":       "fe00287c-7449-454c-a9ed-4eec699e13cb",
+        "cashflow":      "3841c101-523f-4696-b622-e58c0f1618b3",
+        "companies":     "94fa68ba-ed96-4722-adf3-07d2ac3abc5d",
+        "opportunities": "bddacedc-e9c5-4bcb-a974-56bfb04a6f1c",
+        "history":       "885597af-702a-44ad-9a17-fdfbd54fba71"
+      }
+    },
+    {
+      "_comment": "Add more workspaces below (e.g. for a second client or test environment)",
+      "id": "workspace2",
+      "name": "Second Workspace",
+      "token": "ntn_another_token_here",
+      "databases": {
+        "profile":       "",
+        "expenses":      "",
+        "contracts":     "",
+        "signals":       "",
+        "cashflow":      "",
+        "companies":     "",
+        "opportunities": "",
+        "history":       ""
+      }
+    }
+  ]
+}

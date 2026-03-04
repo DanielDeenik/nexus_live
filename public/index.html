@@ -1,0 +1,3036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>⬡ Nexus Live</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060810;--bg2:#0d1117;--bg3:#161b24;--bg4:#1e2530;
+  --acc:#4fffb0;--acc2:#4facfe;--acc3:#f9ca24;--acc4:#ff6b6b;--acc5:#ff9f43;
+  --txt:#e8eaf0;--txt2:#8892a4;--txt3:#4a5568;
+  --hot:#ff4444;--warm:#f9ca24;--mon:#4facfe;--cold:#667080;
+  --border:rgba(255,255,255,0.07);
+  --r:10px;--r2:6px;
+  --sidebar:230px;
+}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;font-size:14px;display:flex;min-height:100vh;overflow:hidden}
+
+/* ── Sidebar ─────────────────────────────────── */
+#sidebar{
+  width:var(--sidebar);min-width:var(--sidebar);height:100vh;
+  background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;
+  padding:0;overflow:hidden;
+}
+.sb-brand{padding:20px 16px 16px;border-bottom:1px solid var(--border)}
+.sb-brand .logo{font-size:20px;font-weight:700;color:var(--acc);letter-spacing:-0.5px}
+.sb-brand .sub{font-size:10px;color:var(--txt2);margin-top:2px;text-transform:uppercase;letter-spacing:1px}
+.sb-pulse{padding:10px 16px;border-bottom:1px solid var(--border);font-size:11px;color:var(--txt2)}
+.sb-pulse .bal{font-size:16px;font-weight:700;color:var(--acc);display:block;margin-bottom:2px}
+.sb-pulse .status-dot{width:6px;height:6px;border-radius:50%;background:var(--hot);display:inline-block;margin-right:5px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+nav{flex:1;padding:8px 0;overflow-y:auto}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:10px 16px;
+  cursor:pointer;border-radius:0;transition:all 0.15s;color:var(--txt2);
+  font-size:13px;font-weight:500;border-left:3px solid transparent;
+}
+.nav-item:hover{background:rgba(79,255,176,0.06);color:var(--txt)}
+.nav-item.active{background:rgba(79,255,176,0.1);color:var(--acc);border-left-color:var(--acc)}
+.nav-item .icon{font-size:16px;width:20px;text-align:center}
+.sb-footer{padding:12px 16px;border-top:1px solid var(--border);font-size:10px;color:var(--txt3)}
+.sync-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(79,255,176,0.1);color:var(--acc);padding:2px 6px;border-radius:20px;font-size:10px}
+
+/* ── Main ────────────────────────────────────── */
+#main{margin-left:var(--sidebar);flex:1;height:100vh;overflow-y:auto;padding:24px}
+
+/* ── Page header ─────────────────────────────── */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.page-title{font-size:20px;font-weight:700}
+.page-actions{display:flex;gap:8px}
+
+/* ── Cards / Grids ───────────────────────────── */
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.card.accent{border-color:rgba(79,255,176,0.2)}
+.card-label{font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.card-value{font-size:24px;font-weight:700;color:var(--acc)}
+.card-sub{font-size:12px;color:var(--txt2);margin-top:4px}
+.card-trend{font-size:12px;font-weight:600}
+.card-trend.up{color:var(--acc)}
+.card-trend.down{color:var(--acc4)}
+.metric-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.metric-card .label{font-size:11px;color:var(--txt2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px}
+.metric-card .value{font-size:22px;font-weight:700}
+.metric-card .value.green{color:var(--acc)}
+.metric-card .value.yellow{color:var(--acc3)}
+.metric-card .value.red{color:var(--acc4)}
+.metric-card .value.blue{color:var(--acc2)}
+
+/* ── Buttons ─────────────────────────────────── */
+.btn{padding:8px 16px;border-radius:var(--r2);border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.15s}
+.btn-acc{background:var(--acc);color:#000}
+.btn-acc:hover{background:#38e89e}
+.btn-ghost{background:var(--bg4);color:var(--txt);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--bg3);border-color:var(--acc)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-danger{background:rgba(255,107,107,0.15);color:var(--acc4);border:1px solid rgba(255,107,107,0.3)}
+
+/* ── Dropdowns ───────────────────────────────── */
+.dropdown-row{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+select.nx-select{background:var(--bg4);color:var(--txt);border:1px solid var(--border);border-radius:var(--r2);padding:7px 12px;font-size:13px;cursor:pointer;outline:none}
+select.nx-select:focus{border-color:var(--acc)}
+label.nx-label{font-size:12px;color:var(--txt2);font-weight:500}
+
+/* ── Charts ──────────────────────────────────── */
+.chart-wrap{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:16px;position:relative}
+.chart-title{font-size:13px;font-weight:600;margin-bottom:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:0.5px}
+canvas{max-width:100%}
+
+/* ── Heatmap ─────────────────────────────────── */
+.heatmap-wrap{overflow-x:auto}
+.heatmap-table{border-collapse:collapse;width:100%;font-size:12px}
+.heatmap-table th{padding:5px 8px;color:var(--txt2);font-weight:500;text-align:center;white-space:nowrap}
+.heatmap-table td{padding:4px 6px;text-align:center;border-radius:4px;transition:all 0.2s;cursor:default;min-width:52px;font-size:11px;font-weight:600}
+.heatmap-table td:hover{outline:2px solid var(--acc)}
+.heatmap-row-label{text-align:left!important;color:var(--txt2);padding-right:10px!important;white-space:nowrap;font-weight:500}
+
+/* ── BMW Radar ───────────────────────────────── */
+#radar-wrap{display:flex;gap:20px;align-items:flex-start}
+#radar-svg-container{flex:0 0 560px}
+#radar-side{flex:1;min-width:0}
+.radar-legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.radar-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txt2)}
+.radar-legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.radar-filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.filter-chip{
+  padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:var(--bg4);color:var(--txt2);transition:all 0.15s;
+}
+.filter-chip.active{background:rgba(79,255,176,0.15);border-color:var(--acc);color:var(--acc)}
+.opp-list{display:flex;flex-direction:column;gap:8px}
+.opp-item{
+  background:var(--bg4);border:1px solid var(--border);border-radius:var(--r2);
+  padding:10px 12px;display:flex;align-items:center;gap:10px;
+}
+.opp-score{
+  width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;flex-shrink:0;
+}
+.opp-body{flex:1;min-width:0}
+.opp-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.opp-meta{font-size:11px;color:var(--txt2);margin-top:2px}
+.opp-rate{font-size:14px;font-weight:700;color:var(--acc3);flex-shrink:0}
+
+/* ── Tooltip (D3 radar) ──────────────────────── */
+#radar-tooltip{
+  position:fixed;background:rgba(13,17,23,0.96);border:1px solid var(--border);
+  border-radius:var(--r2);padding:10px 12px;font-size:12px;pointer-events:none;
+  z-index:999;display:none;max-width:200px;box-shadow:0 4px 20px rgba(0,0,0,0.4);
+}
+#radar-tooltip .tt-name{font-weight:700;font-size:13px;margin-bottom:4px}
+#radar-tooltip .tt-row{color:var(--txt2);margin-bottom:2px}
+
+/* ── Expenses ────────────────────────────────── */
+.exp-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.exp-table{width:100%;border-collapse:collapse;font-size:13px}
+.exp-table th{padding:8px 10px;color:var(--txt2);font-weight:500;text-align:left;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase}
+.exp-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04)}
+.exp-table tr:hover td{background:rgba(255,255,255,0.02)}
+.cat-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
+.del-btn{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px}
+.del-btn:hover{color:var(--acc4);background:rgba(255,107,107,0.1)}
+
+/* ── Forecast ────────────────────────────────── */
+.scen-tabs{display:flex;gap:6px;margin-bottom:16px}
+.scen-tab{
+  padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:var(--bg4);color:var(--txt2);transition:all 0.15s;
+}
+.scen-tab.active{background:rgba(79,255,176,0.15);border-color:var(--acc);color:var(--acc)}
+
+/* ── Wet DBA ─────────────────────────────────── */
+.gauge-wrap{display:flex;justify-content:center;margin-bottom:20px}
+.wda-factors{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.wda-factor{background:var(--bg4);border:1px solid var(--border);border-radius:var(--r2);padding:10px 14px;display:flex;align-items:center;gap:10px}
+.wda-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.wda-label{flex:1;font-size:13px;font-weight:500}
+.wda-score{font-size:16px;font-weight:700}
+.wda-bar-wrap{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.wda-bar{height:100%;border-radius:2px;transition:width 0.5s}
+
+/* ── Advisor ─────────────────────────────────── */
+.adv-cards{display:flex;flex-direction:column;gap:12px}
+.adv-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.adv-card.ok{border-left:3px solid var(--acc)}
+.adv-card.watch{border-left:3px solid var(--acc3)}
+.adv-card.act{border-left:3px solid var(--acc4)}
+.adv-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.adv-icon{font-size:20px}
+.adv-title{font-size:14px;font-weight:700}
+.adv-finding{font-size:13px;color:var(--txt2);margin-bottom:8px;line-height:1.5}
+.adv-actions{font-size:12px;color:var(--txt);background:var(--bg4);padding:8px 10px;border-radius:var(--r2);line-height:1.6}
+
+/* ── Settings ────────────────────────────────── */
+.settings-form{display:flex;flex-direction:column;gap:16px}
+.form-section{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.form-section-title{font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-field{display:flex;flex-direction:column;gap:5px}
+.form-field label{font-size:12px;color:var(--txt2);font-weight:500}
+.form-field input,.form-field select{
+  background:var(--bg4);border:1px solid var(--border);color:var(--txt);
+  padding:8px 10px;border-radius:var(--r2);font-size:13px;outline:none;
+}
+.form-field input:focus,.form-field select:focus{border-color:var(--acc)}
+
+/* ── Modal ───────────────────────────────────── */
+#modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:none;align-items:center;justify-content:center}
+#modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:24px;max-width:460px;width:90%;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:16px}
+.modal-form{display:flex;flex-direction:column;gap:12px}
+.modal-form label{font-size:12px;color:var(--txt2)}
+.modal-form input,.modal-form select{width:100%;background:var(--bg4);border:1px solid var(--border);color:var(--txt);padding:8px 10px;border-radius:var(--r2);font-size:13px;outline:none}
+.modal-form input:focus,.modal-form select:focus{border-color:var(--acc)}
+.modal-row{display:flex;gap:8px}
+.modal-row>*{flex:1}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* ── Toast ───────────────────────────────────── */
+#toasts{position:fixed;top:16px;right:16px;z-index:500;display:flex;flex-direction:column;gap:6px}
+.toast{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);
+  padding:10px 14px;font-size:13px;animation:slide-in 0.2s ease;
+  max-width:280px;box-shadow:0 4px 16px rgba(0,0,0,0.4);
+}
+.toast.ok{border-left:3px solid var(--acc)}
+.toast.err{border-left:3px solid var(--acc4)}
+@keyframes slide-in{from{transform:translateX(100%);opacity:0}to{transform:none;opacity:1}}
+
+/* ── Loading ─────────────────────────────────── */
+#loading-overlay{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.spinner{width:40px;height:40px;border:3px solid var(--bg3);border-top-color:var(--acc);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:var(--txt2);font-size:13px}
+
+/* ── Misc ────────────────────────────────────── */
+.page{display:none}
+.page.active{display:block}
+.section-title{font-size:13px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px}
+.empty-state{text-align:center;padding:40px;color:var(--txt2);font-size:13px}
+.empty-state .icon{font-size:32px;margin-bottom:10px}
+.tag-list{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.tag{padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;background:rgba(79,255,176,0.1);color:var(--acc)}
+table.hist-table{width:100%;border-collapse:collapse;font-size:12px}
+table.hist-table th{padding:7px 10px;color:var(--txt2);border-bottom:1px solid var(--border);text-align:left;font-size:11px;text-transform:uppercase}
+table.hist-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.04)}
+.status-hot{color:var(--hot);font-weight:700}
+.status-warm{color:var(--warm);font-weight:700}
+.status-mon{color:var(--mon);font-weight:700}
+.status-cold{color:var(--cold);font-weight:600}
+.zone-stable{color:var(--acc)}
+.zone-trans{color:var(--acc2)}
+.zone-caution{color:var(--acc3)}
+.zone-alert{color:var(--acc4)}
+
+/* ── Contracts page ──────────────────────────── */
+.contracts-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:1100px){.contracts-layout{grid-template-columns:1fr}}
+.contract-card{
+  background:var(--bg4);border:1px solid var(--border);border-radius:var(--r2);
+  padding:12px 14px;margin-bottom:8px;border-left:3px solid var(--acc2);
+}
+.contract-card.status-active{border-left-color:var(--acc)}
+.contract-card.status-expired{border-left-color:var(--txt3)}
+.contract-card.status-draft{border-left-color:var(--acc3)}
+.contract-card .cc-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.contract-card .cc-meta{font-size:11px;color:var(--txt2);display:flex;gap:10px;flex-wrap:wrap}
+.contract-card .cc-rate{font-size:14px;font-weight:700;color:var(--acc3);margin-left:auto;flex-shrink:0}
+
+/* Upload zone */
+.upload-zone{
+  border:2px dashed var(--border);border-radius:var(--r);padding:32px 20px;text-align:center;
+  cursor:pointer;transition:all 0.2s;color:var(--txt2);
+  background:var(--bg4);
+}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--acc);background:rgba(79,255,176,0.05);color:var(--txt)}
+.upload-zone .uz-icon{font-size:32px;margin-bottom:10px}
+.upload-zone .uz-label{font-size:14px;font-weight:600;margin-bottom:4px}
+.upload-zone .uz-sub{font-size:12px;color:var(--txt3)}
+
+/* Assessment panel */
+.assess-panel{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:18px}
+.assess-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.assess-grade{
+  width:60px;height:60px;border-radius:12px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;
+}
+.assess-grade.STRONG{background:rgba(79,255,176,0.15);color:var(--acc)}
+.assess-grade.GOOD{background:rgba(249,202,36,0.15);color:var(--acc3)}
+.assess-grade.ACCEPTABLE{background:rgba(79,172,254,0.15);color:var(--acc2)}
+.assess-grade.REVIEW{background:rgba(255,107,107,0.15);color:var(--acc4)}
+.assess-score-ring{font-size:24px;font-weight:800;line-height:1}
+.assess-grade-label{font-size:9px;letter-spacing:0.5px;margin-top:1px}
+.assess-signals{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.assess-signal{
+  display:flex;align-items:flex-start;gap:8px;font-size:12px;padding:8px 10px;
+  border-radius:var(--r2);line-height:1.5;
+}
+.assess-signal.ok{background:rgba(79,255,176,0.06);color:var(--txt);border-left:2px solid var(--acc)}
+.assess-signal.warn{background:rgba(255,107,107,0.06);color:var(--txt);border-left:2px solid var(--acc4)}
+.assess-bar-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;font-size:11px}
+.assess-bar{height:5px;border-radius:3px;margin-bottom:8px;background:var(--bg4)}
+.assess-bar-fill{height:100%;border-radius:3px;background:var(--acc);transition:width 0.6s ease}
+.assess-mini-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px}
+.assess-mini{background:var(--bg4);border-radius:var(--r2);padding:10px;text-align:center}
+.assess-mini .am-val{font-size:16px;font-weight:700;margin-bottom:2px}
+.assess-mini .am-lbl{font-size:10px;color:var(--txt2);text-transform:uppercase}
+
+/* Tab strip for Add Contract form */
+.form-tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)}
+.form-tab{
+  padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;color:var(--txt2);
+  border-bottom:2px solid transparent;transition:all 0.15s;
+}
+.form-tab.active{color:var(--acc);border-bottom-color:var(--acc)}
+.form-tab-panel{display:none}.form-tab-panel.active{display:block}
+
+/* ── Feed page ───────────────────────────────── */
+.feed-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px;font-size:12px;color:var(--txt2)}
+.feed-tier-bar{display:flex;gap:6px;flex-wrap:wrap}
+.tier-chip{
+  padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;
+  border:1px solid transparent;transition:all 0.15s;
+}
+.tier-chip.HOT{background:rgba(255,68,68,0.15);color:var(--hot);border-color:rgba(255,68,68,0.3)}
+.tier-chip.WARM{background:rgba(249,202,36,0.15);color:var(--warm);border-color:rgba(249,202,36,0.3)}
+.tier-chip.MONITOR{background:rgba(79,172,254,0.15);color:var(--mon);border-color:rgba(79,172,254,0.3)}
+.tier-chip.COLD{background:rgba(102,112,128,0.1);color:var(--cold);border-color:rgba(102,112,128,0.3)}
+.tier-chip.active.HOT{background:rgba(255,68,68,0.3)}
+.tier-chip.active.WARM{background:rgba(249,202,36,0.3)}
+.tier-chip.active.MONITOR{background:rgba(79,172,254,0.3)}
+.tier-chip.active.COLD{background:rgba(102,112,128,0.25)}
+.feed-items{display:flex;flex-direction:column;gap:10px}
+.feed-card{
+  background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);
+  padding:14px 16px;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;
+  transition:border-color 0.15s;
+}
+.feed-card:hover{border-color:rgba(79,255,176,0.2)}
+.feed-card.HOT{border-left:3px solid var(--hot)}
+.feed-card.WARM{border-left:3px solid var(--warm)}
+.feed-card.MONITOR{border-left:3px solid var(--mon)}
+.feed-card.COLD{border-left:3px solid var(--cold)}
+.feed-score{
+  width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:800;flex-shrink:0;
+}
+.feed-score.HOT{background:rgba(255,68,68,0.15);color:var(--hot)}
+.feed-score.WARM{background:rgba(249,202,36,0.15);color:var(--warm)}
+.feed-score.MONITOR{background:rgba(79,172,254,0.15);color:var(--mon)}
+.feed-score.COLD{background:rgba(102,112,128,0.1);color:var(--cold)}
+.feed-body{}
+.feed-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.feed-company{font-size:12px;color:var(--txt2);margin-bottom:6px}
+.feed-snippet{font-size:12px;color:var(--txt2);line-height:1.5;margin-bottom:6px}
+.feed-matches{display:flex;flex-wrap:wrap;gap:4px}
+.feed-match-tag{padding:2px 6px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(79,255,176,0.08);color:var(--acc)}
+.feed-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.feed-source{font-size:10px;color:var(--txt3)}
+.feed-date{font-size:10px;color:var(--txt3);margin-top:2px}
+
+/* ── Simulate page ───────────────────────────── */
+.sim-layout{display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
+@media(max-width:1100px){.sim-layout{grid-template-columns:1fr}}
+.sim-panel{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.sim-panel-title{font-size:12px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px}
+.sim-field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.sim-field{display:flex;flex-direction:column;gap:4px}
+.sim-field label{font-size:11px;color:var(--txt2);font-weight:500}
+.sim-field input,.sim-field select{
+  background:var(--bg4);border:1px solid var(--border);color:var(--txt);
+  padding:7px 10px;border-radius:var(--r2);font-size:13px;outline:none;
+}
+.sim-field input:focus,.sim-field select:focus{border-color:var(--acc)}
+.sim-divider{border:none;border-top:1px solid var(--border);margin:14px 0}
+.sim-results{}
+.sim-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.sim-metric{background:var(--bg4);border-radius:var(--r2);padding:12px 14px;text-align:center}
+.sim-metric .sm-val{font-size:20px;font-weight:700;margin-bottom:2px}
+.sim-metric .sm-lbl{font-size:10px;color:var(--txt2);text-transform:uppercase}
+.sim-rec{background:var(--bg4);border-radius:var(--r2);padding:12px 14px;margin-bottom:16px;font-size:12px;line-height:1.7;color:var(--txt2)}
+.sim-rec strong{color:var(--acc)}
+.sim-tax-compare{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.sim-tax-box{background:var(--bg4);border-radius:var(--r2);padding:12px 14px}
+.sim-tax-box .stb-title{font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;margin-bottom:8px}
+.sim-tax-row{display:flex;justify-content:space-between;font-size:12px;padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.sim-tax-row.total{font-weight:700;color:var(--acc);border-top:1px solid var(--border);margin-top:4px;padding-top:6px;border-bottom:none}
+.crossover-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(79,255,176,0.1);border:1px solid rgba(79,255,176,0.2);color:var(--acc);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Connecting to Notion…</div>
+</div>
+
+<!-- Sidebar -->
+<aside id="sidebar">
+  <div class="sb-brand">
+    <div class="logo">⬡ Nexus Live</div>
+    <div class="sub" id="ws-name">Freelancer OS</div>
+  </div>
+  <!-- Workspace selector (hidden when only 1 workspace) -->
+  <div id="ws-selector-wrap" style="padding:8px 10px;border-bottom:1px solid var(--border);display:none">
+    <select class="nx-select" id="ws-select" onchange="switchWorkspace(this.value)" style="width:100%;font-size:12px"></select>
+  </div>
+  <div class="sb-pulse" id="sb-pulse">
+    <span class="bal" id="sb-balance">€—</span>
+    <span><span class="status-dot" id="sb-dot"></span><span id="sb-status">Loading…</span></span>
+  </div>
+  <nav id="nav">
+    <div class="nav-item active" data-page="cmd"><span class="icon">🎯</span>Command Center</div>
+    <div class="nav-item" data-page="expenses"><span class="icon">💳</span>Expenses</div>
+    <div class="nav-item" data-page="forecast"><span class="icon">📊</span>Forecast</div>
+    <div class="nav-item" data-page="wetdba"><span class="icon">⚖️</span>Wet DBA</div>
+    <div class="nav-item" data-page="radar"><span class="icon">🌐</span>Market Radar</div>
+    <div class="nav-item" data-page="advisor"><span class="icon">🤖</span>AI Advisor</div>
+    <div class="nav-item" data-page="contracts"><span class="icon">📄</span>Contracts</div>
+    <div class="nav-item" data-page="settings"><span class="icon">⚙️</span>Profile & Rates</div>
+    <div class="nav-item" data-page="feed"><span class="icon">🔍</span>Live Feed</div>
+    <div class="nav-item" data-page="simulate"><span class="icon">🧮</span>Simulate</div>
+    <div class="nav-item" data-page="status"><span class="icon">🔌</span>DB Status</div>
+  </nav>
+  <div class="sb-footer">
+    <span class="sync-badge" id="sync-badge">⬡ Live</span>
+    <span id="last-sync" style="margin-left:6px">—</span>
+  </div>
+</aside>
+
+<!-- Main content -->
+<main id="main">
+
+  <!-- ── Command Center ── -->
+  <div class="page active" id="page-cmd">
+    <div class="page-header">
+      <div class="page-title" id="cmd-title">🎯 Command Center</div>
+      <div class="page-actions">
+        <button class="btn btn-ghost btn-sm" onclick="reloadAll()">↻ Sync</button>
+        <button class="btn btn-acc btn-sm" onclick="openAddCashflow()">+ Month</button>
+      </div>
+    </div>
+    <div class="grid-4" id="cmd-metrics"></div>
+    <div class="grid-2">
+      <div class="chart-wrap" id="balance-chart-wrap">
+        <div class="dropdown-row">
+          <span class="chart-title" style="margin:0">Balance Trajectory</span>
+          <div style="flex:1"></div>
+          <select class="nx-select" id="ts-metric" onchange="renderTimeSeriesChart()">
+            <option value="closingBalance">Closing Balance</option>
+            <option value="grossRevenue">Gross Revenue</option>
+            <option value="netAfterTax">Net After Tax</option>
+            <option value="monthlyBurn">Monthly Burn</option>
+            <option value="seasonScore">Season Score</option>
+            <option value="decisionScore">Decision Score</option>
+          </select>
+          <select class="nx-select" id="ts-period" onchange="renderTimeSeriesChart()">
+            <option value="6">6 months</option>
+            <option value="12">12 months</option>
+            <option value="24">24 months</option>
+            <option value="all">All time</option>
+          </select>
+        </div>
+        <canvas id="ts-chart" height="220"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Cashflow Zones</div>
+        <canvas id="zone-chart" height="220"></canvas>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div id="cmd-contracts"></div>
+      <div id="cmd-top-opps"></div>
+    </div>
+  </div>
+
+  <!-- ── Expenses ── -->
+  <div class="page" id="page-expenses">
+    <div class="page-header">
+      <div class="page-title">💳 Expenses</div>
+      <div class="page-actions">
+        <button class="btn btn-ghost btn-sm" onclick="reloadAll()">↻ Sync</button>
+        <button class="btn btn-acc btn-sm" onclick="openAddExpense()">+ Add Expense</button>
+      </div>
+    </div>
+    <div class="exp-stats" id="exp-stats"></div>
+    <div class="grid-2">
+      <div class="chart-wrap">
+        <div class="chart-title">Monthly Spend by Category (Heatmap)</div>
+        <div class="heatmap-wrap" id="exp-heatmap"></div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Category Breakdown</div>
+        <canvas id="exp-donut" height="220"></canvas>
+      </div>
+    </div>
+    <div class="chart-wrap" style="margin-top:16px">
+      <div class="dropdown-row">
+        <span class="chart-title" style="margin:0">Expense Log</span>
+        <div style="flex:1"></div>
+        <select class="nx-select" id="exp-filter-cat" onchange="renderExpenseTable()">
+          <option value="">All Categories</option>
+        </select>
+        <select class="nx-select" id="exp-filter-yr" onchange="renderExpenseTable()">
+          <option value="">All Years</option>
+        </select>
+      </div>
+      <div id="exp-table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ── Forecast ── -->
+  <div class="page" id="page-forecast">
+    <div class="page-header">
+      <div class="page-title">📊 Cashflow Forecast</div>
+      <div class="page-actions">
+        <button class="btn btn-ghost btn-sm" onclick="reloadAll()">↻ Sync</button>
+        <button class="btn btn-acc btn-sm" onclick="openAddCashflow()">+ Add Month</button>
+      </div>
+    </div>
+    <div class="dropdown-row">
+      <span class="nx-label">Metric:</span>
+      <select class="nx-select" id="fc-metric" onchange="renderForecastChart()">
+        <option value="closingBalance">Closing Balance</option>
+        <option value="grossRevenue">Gross Revenue</option>
+        <option value="netAfterTax">Net After Tax</option>
+        <option value="monthlyBurn">Monthly Burn</option>
+        <option value="taxReserve">Tax Reserve</option>
+        <option value="wiseSnapshot">Wise Snapshot</option>
+      </select>
+      <span class="nx-label" style="margin-left:8px">Period:</span>
+      <select class="nx-select" id="fc-period" onchange="renderForecastChart()">
+        <option value="6">6 months</option>
+        <option value="12">12 months</option>
+        <option value="24">24 months</option>
+        <option value="all">All time</option>
+      </select>
+      <span class="nx-label" style="margin-left:8px">Compare:</span>
+      <select class="nx-select" id="fc-compare" onchange="renderForecastChart()">
+        <option value="none">None</option>
+        <option value="monthlyBurn">vs Monthly Burn</option>
+        <option value="taxReserve">vs Tax Reserve</option>
+        <option value="grossRevenue">vs Gross Revenue</option>
+      </select>
+    </div>
+    <div class="chart-wrap" style="margin-bottom:16px">
+      <canvas id="fc-chart" height="260"></canvas>
+    </div>
+    <div class="grid-4" id="fc-metrics"></div>
+    <div class="chart-wrap">
+      <div class="chart-title">Sensitivity — Rate × Gap Heatmap (NL Tax)</div>
+      <div id="sensitivity-heatmap" class="heatmap-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ── Wet DBA ── -->
+  <div class="page" id="page-wetdba">
+    <div class="page-header">
+      <div class="page-title">⚖️ Wet DBA Risk Monitor</div>
+    </div>
+    <div class="grid-2">
+      <div>
+        <div class="gauge-wrap">
+          <svg id="wda-gauge" width="260" height="180" viewBox="0 0 260 180"></svg>
+        </div>
+        <div id="wda-situation" class="card" style="margin-bottom:16px"></div>
+      </div>
+      <div>
+        <div class="section-title">Risk Factors</div>
+        <div id="wda-factors" class="wda-factors"></div>
+        <div id="wda-actions" class="card"></div>
+      </div>
+    </div>
+    <div class="chart-wrap" style="margin-top:16px">
+      <div class="chart-title">Historical Risk Score</div>
+      <canvas id="wda-history-chart" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- ── Market Radar ── -->
+  <div class="page" id="page-radar">
+    <div class="page-header">
+      <div class="page-title">🌐 Market Radar</div>
+      <div class="page-actions">
+        <button class="btn btn-ghost btn-sm" onclick="reloadAll()">↻ Sync</button>
+      </div>
+    </div>
+    <div id="radar-wrap">
+      <div id="radar-svg-container"></div>
+      <div id="radar-side">
+        <div class="section-title">Filter</div>
+        <div class="radar-filter-row" id="radar-filters">
+          <div class="filter-chip active" data-filter="all">All</div>
+          <div class="filter-chip" data-filter="HOT 🔥">HOT 🔥</div>
+          <div class="filter-chip" data-filter="WARM 🟡">WARM 🟡</div>
+          <div class="filter-chip" data-filter="MONITOR 👁">MONITOR 👁</div>
+          <div class="filter-chip" data-filter="COLD ❄️">COLD ❄️</div>
+        </div>
+        <div class="radar-legend" id="radar-legend"></div>
+        <div class="section-title" style="margin-bottom:8px">Top Opportunities</div>
+        <div class="opp-list" id="opp-list"></div>
+        <div class="section-title" style="margin-top:16px;margin-bottom:8px">Seasonality Signals</div>
+        <div class="chart-wrap" style="padding:12px">
+          <canvas id="signals-chart" height="160"></canvas>
+        </div>
+        <!-- Signals detail table: contractorRatio, budgetOpenScore, sourceUrl -->
+        <div id="signals-detail-table" style="margin-top:10px;display:none">
+          <div style="font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Signal Detail</div>
+          <div id="signals-detail-rows" style="font-size:11px;color:var(--txt2)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── AI Advisor ── -->
+  <div class="page" id="page-advisor">
+    <div class="page-header">
+      <div class="page-title">🤖 AI Advisor</div>
+      <div class="page-actions">
+        <button class="btn btn-ghost btn-sm" onclick="reloadAll()">↻ Sync</button>
+      </div>
+    </div>
+    <div id="adv-cards" class="adv-cards"></div>
+  </div>
+
+  <!-- ── Settings ── -->
+  <div class="page" id="page-settings">
+    <div class="page-header">
+      <div class="page-title">⚙️ Profile & Rates</div>
+      <div class="page-actions">
+        <button class="btn btn-ghost btn-sm" onclick="reloadAll()">↻ Sync</button>
+        <button class="btn btn-acc btn-sm" onclick="saveSettings()">Save to Notion</button>
+      </div>
+    </div>
+    <div id="settings-content"></div>
+  </div>
+
+  <!-- ── DB Status ── -->
+  <div class="page" id="page-status">
+    <div class="page-header">
+      <div class="page-title">🔌 Database Status</div>
+      <div class="page-actions">
+        <button class="btn btn-acc btn-sm" onclick="refreshStatus()">↻ Recheck</button>
+      </div>
+    </div>
+    <div id="status-content">
+      <div class="empty-state"><div class="icon">🔌</div>Running connectivity check…</div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-label">How to fix "Database not found"</div>
+      <div style="font-size:13px;color:var(--txt2);line-height:1.8;margin-top:6px">
+        1. Open the Notion database<br>
+        2. Click <strong style="color:var(--txt)">Share</strong> in the top-right<br>
+        3. Search for your integration name and click <strong style="color:var(--txt)">Invite</strong><br>
+        4. Repeat for each database marked ✗ below<br>
+        5. Click <strong style="color:var(--acc)">Recheck</strong> above
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Contracts ── -->
+  <div class="page" id="page-contracts">
+    <div class="page-header">
+      <div class="page-title">📄 Contracts</div>
+      <div class="page-actions">
+        <button class="btn btn-ghost btn-sm" onclick="reloadAll()">↻ Sync Notion</button>
+        <button class="btn btn-acc btn-sm" onclick="showContractForm()">+ New Contract</button>
+      </div>
+    </div>
+
+    <div class="contracts-layout">
+      <!-- Left: existing contracts + add form -->
+      <div>
+        <!-- Existing contracts list -->
+        <div class="sim-panel" style="margin-bottom:16px">
+          <div class="sim-panel-title" style="margin-bottom:12px">Active Contracts</div>
+          <div id="contracts-list">
+            <div class="empty-state"><div class="spinner" style="margin:16px auto"></div></div>
+          </div>
+        </div>
+
+        <!-- Add contract panel -->
+        <div class="sim-panel" id="contract-form-panel">
+          <div class="sim-panel-title" style="margin-bottom:0">Add New Contract</div>
+          <!-- Tab strip -->
+          <div class="form-tabs" style="margin-top:14px">
+            <div class="form-tab active" onclick="switchContractTab('manual',this)">✏️ Manual Input</div>
+            <div class="form-tab" onclick="switchContractTab('pdf',this)">📎 Upload PDF</div>
+          </div>
+
+          <!-- Manual tab -->
+          <div class="form-tab-panel active" id="ctab-manual">
+            <div class="sim-field-row">
+              <div class="sim-field" style="grid-column:1/-1">
+                <label>Contract / Document Name *</label>
+                <input id="cf-name" placeholder="e.g. JPSB — ING Asset Management 2026">
+              </div>
+            </div>
+            <div class="sim-field-row">
+              <div class="sim-field"><label>Client (End Company)</label><input id="cf-client" placeholder="ING Asset Management"></div>
+              <div class="sim-field"><label>Agency / Counterparty</label><input id="cf-agency" placeholder="JPSB Group"></div>
+            </div>
+            <div class="sim-field-row">
+              <div class="sim-field" style="grid-column:1/-1">
+                <label>Contact at Agency (JPSB / Recruiter)</label>
+                <input id="cf-contact" placeholder="e.g. Sophie de Vries">
+              </div>
+            </div>
+            <div class="sim-field-row">
+              <div class="sim-field"><label>Hourly Rate (€)</label><input id="cf-rate-eur" type="number" step="5" placeholder="115"></div>
+              <div class="sim-field"><label>Day Rate (CAD)</label><input id="cf-rate-cad" type="number" step="10" placeholder="—"></div>
+            </div>
+            <div class="sim-field-row">
+              <div class="sim-field"><label>Effective Date</label><input id="cf-start" type="date"></div>
+              <div class="sim-field"><label>End Date</label><input id="cf-end" type="date"></div>
+            </div>
+            <div class="sim-field-row">
+              <div class="sim-field"><label>Payment Terms (days)</label><input id="cf-payment" type="number" placeholder="30"></div>
+              <div class="sim-field"><label>Status</label>
+                <select id="cf-status">
+                  <option value="Active">Active</option>
+                  <option value="Draft">Draft</option>
+                  <option value="Expired">Expired</option>
+                  <option value="Renewed">Renewed</option>
+                </select>
+              </div>
+            </div>
+            <div class="sim-field-row">
+              <div class="sim-field"><label>Governing Law</label><input id="cf-law" placeholder="Netherlands"></div>
+              <div class="sim-field"><label>Notice Period</label><input id="cf-notice" placeholder="30 days"></div>
+            </div>
+            <div class="sim-field" style="margin-bottom:10px">
+              <label>Key Obligations / Scope</label>
+              <input id="cf-obligations" placeholder="Fund operations, regulatory reporting…">
+            </div>
+            <div class="sim-field" style="margin-bottom:10px">
+              <label>Key Risks</label>
+              <input id="cf-risks" placeholder="e.g. Liability cap, IP assignment, non-compete…">
+            </div>
+            <div class="sim-field" style="margin-bottom:14px;display:flex;align-items:center;gap:8px">
+              <input id="cf-insurance" type="checkbox" style="width:16px;height:16px;cursor:pointer;flex-shrink:0">
+              <label for="cf-insurance" style="cursor:pointer;font-size:12px;color:var(--txt2)">Insurance Required (CAD contracts)</label>
+            </div>
+            <div class="sim-field" style="margin-bottom:14px">
+              <label>Notes</label>
+              <input id="cf-notes" placeholder="Optional notes">
+            </div>
+            <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
+              <button class="btn btn-ghost btn-sm" onclick="runContractAssessment()">🧮 Assess Before Saving</button>
+              <button class="btn btn-acc" onclick="submitNewContract(false)">💾 Save to Notion</button>
+            </div>
+          </div>
+
+          <!-- PDF upload tab -->
+          <div class="form-tab-panel" id="ctab-pdf">
+            <div class="upload-zone" id="pdf-drop-zone"
+                 onclick="document.getElementById('pdf-file-input').click()"
+                 ondragover="event.preventDefault();this.classList.add('drag-over')"
+                 ondragleave="this.classList.remove('drag-over')"
+                 ondrop="handlePdfDrop(event)">
+              <div class="uz-icon">📎</div>
+              <div class="uz-label">Drop PDF contract here or click to browse</div>
+              <div class="uz-sub">PDF up to 20MB — extracts rate, dates, parties automatically</div>
+            </div>
+            <input type="file" id="pdf-file-input" accept=".pdf" style="display:none" onchange="handlePdfFile(this.files[0])">
+            <div id="pdf-parse-status" style="margin-top:12px;font-size:12px;color:var(--txt2);display:none"></div>
+            <!-- Extracted fields preview (shown after parse) -->
+            <div id="pdf-extracted-fields" style="display:none;margin-top:14px">
+              <div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:10px;text-transform:uppercase">
+                Extracted Fields — Review & Edit
+              </div>
+              <div style="font-size:11px;color:var(--txt3);margin-bottom:10px" id="pdf-confidence-bar"></div>
+              <div class="sim-field-row">
+                <div class="sim-field" style="grid-column:1/-1">
+                  <label>Document Name</label><input id="pf-name">
+                </div>
+              </div>
+              <div class="sim-field-row">
+                <div class="sim-field"><label>Client</label><input id="pf-client"></div>
+                <div class="sim-field"><label>Agency</label><input id="pf-agency"></div>
+              </div>
+              <div class="sim-field-row">
+                <div class="sim-field" style="grid-column:1/-1">
+                  <label>Contact at Agency (JPSB / Recruiter)</label><input id="pf-contact">
+                </div>
+              </div>
+              <div class="sim-field-row">
+                <div class="sim-field"><label>Hourly Rate (€)</label><input id="pf-rate-eur" type="number" step="5"></div>
+                <div class="sim-field"><label>Day Rate (CAD)</label><input id="pf-rate-cad" type="number" step="10"></div>
+              </div>
+              <div class="sim-field-row">
+                <div class="sim-field"><label>Effective Date</label><input id="pf-start" type="date"></div>
+                <div class="sim-field"><label>End Date</label><input id="pf-end" type="date"></div>
+              </div>
+              <div class="sim-field-row">
+                <div class="sim-field"><label>Payment Terms (days)</label><input id="pf-payment" type="number"></div>
+                <div class="sim-field"><label>Governing Law</label><input id="pf-law"></div>
+              </div>
+              <div class="sim-field-row">
+                <div class="sim-field" style="grid-column:1/-1">
+                  <label>Notice Period</label><input id="pf-notice" placeholder="e.g. 30 days">
+                </div>
+              </div>
+              <div class="sim-field" style="margin-bottom:10px">
+                <label>Key Obligations (from PDF)</label>
+                <input id="pf-obligations">
+              </div>
+              <div class="sim-field" style="margin-bottom:14px">
+                <label>Key Risks (from PDF)</label>
+                <input id="pf-risks">
+              </div>
+              <!-- Raw text preview toggle -->
+              <details style="margin-bottom:14px">
+                <summary style="font-size:11px;color:var(--txt3);cursor:pointer">Show extracted raw text</summary>
+                <pre id="pdf-raw-text" style="font-size:10px;color:var(--txt3);margin-top:8px;white-space:pre-wrap;max-height:200px;overflow-y:auto;background:var(--bg4);padding:10px;border-radius:var(--r2)"></pre>
+              </details>
+              <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
+                <button class="btn btn-ghost btn-sm" onclick="runContractAssessmentFromPdf()">🧮 Assess Before Saving</button>
+                <button class="btn btn-acc" onclick="submitNewContract(true)">💾 Save to Notion</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: ML Assessment panel -->
+      <div id="contract-assess-pane">
+        <div class="assess-panel">
+          <div style="text-align:center;padding:40px 20px;color:var(--txt2)">
+            <div style="font-size:36px;margin-bottom:12px">📊</div>
+            <div style="font-size:14px">Fill in contract details then click<br><strong style="color:var(--acc)">🧮 Assess Before Saving</strong><br>to run the ML assessment</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Live Feed ── -->
+  <div class="page" id="page-feed">
+    <div class="page-header">
+      <div class="page-title">🔍 Live Job Feed</div>
+      <div class="page-actions">
+        <button class="btn btn-ghost btn-sm" id="feed-refresh-btn" onclick="triggerFeedRefresh()">↻ Refresh Sources</button>
+      </div>
+    </div>
+    <!-- Meta bar -->
+    <div class="feed-meta" id="feed-meta-bar">
+      <span id="feed-last-fetch">Loading…</span>
+      <span style="color:var(--txt3)">•</span>
+      <div class="feed-tier-bar" id="feed-tier-bar"></div>
+    </div>
+    <!-- Tier filter chips -->
+    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap" id="feed-filter-row">
+      <span class="tier-chip HOT active" onclick="toggleFeedTier('HOT',this)">🔥 HOT</span>
+      <span class="tier-chip WARM active" onclick="toggleFeedTier('WARM',this)">⚡ WARM</span>
+      <span class="tier-chip MONITOR active" onclick="toggleFeedTier('MONITOR',this)">👁 MONITOR</span>
+      <span class="tier-chip COLD" onclick="toggleFeedTier('COLD',this)">❄️ COLD</span>
+    </div>
+    <!-- Feed items -->
+    <div class="feed-items" id="feed-items">
+      <div class="empty-state"><div class="icon">🔍</div>Click Refresh Sources to load the job feed</div>
+    </div>
+  </div>
+
+  <!-- ── Simulate ── -->
+  <div class="page" id="page-simulate">
+    <div class="page-header">
+      <div class="page-title">🧮 Role Simulator</div>
+      <div class="page-actions">
+        <button class="btn btn-ghost btn-sm" onclick="resetSimulator()">↺ Reset</button>
+        <button class="btn btn-acc btn-sm" onclick="runSimulation()">▶ Run Forecast</button>
+      </div>
+    </div>
+
+    <div class="sim-layout">
+      <!-- Left panel: inputs -->
+      <div>
+        <div class="sim-panel" style="margin-bottom:14px">
+          <div class="sim-panel-title">📄 Current Contract (Baseline)</div>
+          <div class="sim-field-row">
+            <div class="sim-field"><label>Hourly Rate (€)</label><input id="si-b-rate" type="number" step="5" placeholder="115"></div>
+            <div class="sim-field"><label>Agency Margin (%)</label><input id="si-b-margin" type="number" step="0.5" placeholder="0"></div>
+          </div>
+          <div class="sim-field-row">
+            <div class="sim-field"><label>Work Days / Month</label><input id="si-b-days" type="number" placeholder="20"></div>
+            <div class="sim-field"><label>Monthly Burn (€)</label><input id="si-b-burn" type="number" step="100" placeholder="3200"></div>
+          </div>
+          <div class="sim-field-row">
+            <div class="sim-field"><label>Contract End Date</label><input id="si-b-end" type="date"></div>
+            <div class="sim-field"><label>Current Balance (€)</label><input id="si-b-balance" type="number" step="100" placeholder="18000"></div>
+          </div>
+        </div>
+
+        <div class="sim-panel">
+          <div class="sim-panel-title">🆕 New Opportunity (Scenario)</div>
+          <div class="sim-field-row">
+            <div class="sim-field"><label>Hourly Rate (€)</label><input id="si-c-rate" type="number" step="5" placeholder="130"></div>
+            <div class="sim-field"><label>Agency Margin (%)</label><input id="si-c-margin" type="number" step="0.5" placeholder="10"></div>
+          </div>
+          <div class="sim-field-row">
+            <div class="sim-field"><label>Work Days / Month</label><input id="si-c-days" type="number" placeholder="20"></div>
+            <div class="sim-field"><label>Monthly Burn (€)</label><input id="si-c-burn" type="number" step="100" placeholder="3200"></div>
+          </div>
+          <div class="sim-field-row">
+            <div class="sim-field"><label>Earliest Start Date</label><input id="si-c-start" type="date"></div>
+            <div class="sim-field"><label>Payment Lag (days)</label><input id="si-c-lag" type="number" placeholder="30"></div>
+          </div>
+          <hr class="sim-divider">
+          <div class="sim-panel-title" style="margin-bottom:10px">Duration Bands</div>
+          <div class="sim-field-row">
+            <div class="sim-field"><label>Min Duration (mo)</label><input id="si-c-min" type="number" placeholder="3"></div>
+            <div class="sim-field"><label>Likely Duration (mo)</label><input id="si-c-likely" type="number" placeholder="6"></div>
+          </div>
+          <div class="sim-field-row">
+            <div class="sim-field"><label>Max Duration (mo)</label><input id="si-c-max" type="number" placeholder="12"></div>
+            <div class="sim-field"><label>Renewal Probability</label>
+              <select id="si-c-renewal">
+                <option value="0.2">20% — Unlikely</option>
+                <option value="0.4">40% — Possible</option>
+                <option value="0.6" selected>60% — Likely</option>
+                <option value="0.8">80% — Very Likely</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right panel: results -->
+      <div id="sim-results-pane">
+        <div class="empty-state" style="padding:80px 40px">
+          <div class="icon" style="font-size:48px">🧮</div>
+          <div style="margin-top:16px;font-size:14px">Fill in both scenarios and click<br><strong style="color:var(--acc)">▶ Run Forecast</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Radar tooltip -->
+<div id="radar-tooltip">
+  <div class="tt-name" id="tt-name"></div>
+  <div class="tt-row" id="tt-industry"></div>
+  <div class="tt-row" id="tt-status"></div>
+  <div class="tt-row" id="tt-budget"></div>
+</div>
+
+<!-- Modal -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Add Expense</div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toasts"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  NEXUS LIVE — v4.0
+//  All data from Notion via /api/* proxy
+// ═══════════════════════════════════════════════════════════
+
+'use strict';
+
+// ─── Global State ────────────────────────────────────────────
+let NX = {
+  config: {}, expenses: [], contracts: [], signals: [],
+  cashflow: [], companies: [], opportunities: [], history: [],
+  errors: {}, loaded: false,
+};
+let charts = {};
+let radarFilter = 'all';
+let currentWorkspace = 'primary';
+
+// ─── API helpers ──────────────────────────────────────────────
+function wsParam() { return `ws=${encodeURIComponent(currentWorkspace)}`; }
+
+async function apiFetch(path, opts = {}) {
+  const url = path.includes('?') ? `${path}&${wsParam()}` : `${path}?${wsParam()}`;
+  const r = await fetch(url, opts);
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    throw new Error(body.error || `${path} → HTTP ${r.status}`);
+  }
+  return r.json();
+}
+async function apiPost(path, body) {
+  const url = path.includes('?') ? `${path}&${wsParam()}` : `${path}?${wsParam()}`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const b = await r.json().catch(() => ({}));
+    throw new Error(b.error || `POST ${path} → HTTP ${r.status}`);
+  }
+  return r.json();
+}
+async function apiPatch(path, body) {
+  const url = path.includes('?') ? `${path}&${wsParam()}` : `${path}?${wsParam()}`;
+  const r = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const b = await r.json().catch(() => ({}));
+    throw new Error(b.error || `PATCH ${path} → HTTP ${r.status}`);
+  }
+  return r.json();
+}
+async function apiDelete(path) {
+  const url = path.includes('?') ? `${path}&${wsParam()}` : `${path}?${wsParam()}`;
+  const r = await fetch(url, { method: 'DELETE' });
+  if (!r.ok) {
+    const b = await r.json().catch(() => ({}));
+    throw new Error(b.error || `DELETE ${path} → HTTP ${r.status}`);
+  }
+  return r.json();
+}
+
+// ─── Workspace initialisation ──────────────────────────────────
+async function initWorkspaces() {
+  try {
+    const workspaces = await fetch('/api/workspaces').then(r => r.json());
+    const sel = document.getElementById('ws-select');
+    sel.innerHTML = workspaces.map(ws =>
+      `<option value="${ws.id}" ${ws.default ? 'selected' : ''}>${ws.name}</option>`
+    ).join('');
+    const def = workspaces.find(w => w.default) || workspaces[0];
+    if (def) {
+      currentWorkspace = def.id;
+      document.getElementById('ws-name').textContent = def.name;
+    }
+    // Only show selector if there's more than one workspace
+    if (workspaces.length > 1) {
+      document.getElementById('ws-selector-wrap').style.display = 'block';
+    }
+  } catch (e) {
+    console.warn('Could not load workspaces:', e.message);
+  }
+}
+
+async function switchWorkspace(id) {
+  currentWorkspace = id;
+  const sel = document.getElementById('ws-select');
+  const name = sel.options[sel.selectedIndex]?.text || id;
+  document.getElementById('ws-name').textContent = name;
+  await reloadAll();
+}
+
+// ─── Load All (resilient — partial failures don't block the UI) ──
+const ENDPOINTS = ['config','expenses','contracts','signals','cashflow','companies','opportunities','history'];
+
+async function loadAll() {
+  setLoading('Fetching from Notion…');
+
+  const results = await Promise.allSettled(
+    ENDPOINTS.map(ep => apiFetch(`/api/${ep}`))
+  );
+
+  const errors = {};
+  const [config, expenses, contracts, signals, cashflow, companies, opportunities, history] = results.map((r, i) => {
+    if (r.status === 'fulfilled') return r.value;
+    errors[ENDPOINTS[i]] = r.reason.message;
+    return ENDPOINTS[i] === 'config' ? {} : [];
+  });
+
+  NX = { config, expenses, contracts, signals, cashflow, companies, opportunities, history, errors, loaded: true };
+
+  document.getElementById('last-sync').textContent = new Date().toLocaleTimeString();
+  hideLoading();
+
+  // Surface errors as toasts (grouped to avoid spam)
+  const failed = Object.keys(errors);
+  if (failed.length) {
+    toast(`⚠ ${failed.length} source(s) failed: ${failed.join(', ')} — check DB Status page`, 'err');
+  }
+
+  renderAll();
+}
+
+async function reloadAll() {
+  toast('Syncing with Notion…', 'ok');
+  await loadAll();
+}
+
+// ─── Loading overlay ──────────────────────────────────────────
+function setLoading(msg) {
+  const el = document.getElementById('loading-overlay');
+  el.style.display = 'flex';
+  document.getElementById('loading-text').textContent = msg;
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').style.display = 'none';
+}
+
+// ─── Toast ────────────────────────────────────────────────────
+function toast(msg, type = 'ok') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ─── Number formatting ────────────────────────────────────────
+const fmtE = v => v == null ? '—' : '€' + Math.round(v).toLocaleString('nl-NL');
+const fmtN = v => v == null ? '—' : Math.round(v).toLocaleString('nl-NL');
+const fmtPct = v => v == null ? '—' : v.toFixed(1) + '%';
+
+// ─── Chart helpers ────────────────────────────────────────────
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+// ─── Color for category ──────────────────────────────────────
+const CAT_COLORS = {
+  Housing:'#3b82f6', Food:'#f59e0b', Transport:'#8b5cf6',
+  Healthcare:'#10b981', Equipment:'#f97316', Subscriptions:'#ec4899',
+  Professional:'#ef4444', Insurance:'#6b7280', Other:'#64748b',
+};
+function catColor(cat) { return CAT_COLORS[cat] || '#64748b'; }
+
+// ─── Status color ─────────────────────────────────────────────
+function statusColor(s) {
+  if (!s) return '#667080';
+  if (s.includes('HOT')) return '#ff4444';
+  if (s.includes('WARM')) return '#f9ca24';
+  if (s.includes('MONITOR')) return '#4facfe';
+  return '#667080';
+}
+
+// ─── Sector mapping for radar ─────────────────────────────────
+const SECTORS = [
+  { name: 'Capital Markets', color: '#4fffb0' },
+  { name: 'Asset Mgmt',      color: '#4facfe' },
+  { name: 'Pension',         color: '#f9ca24' },
+  { name: 'Banking',         color: '#ff6b6b' },
+  { name: 'Insurance',       color: '#ff9f43' },
+];
+function getSectorIdx(company) {
+  const t = (company.tags || []).join(' ').toLowerCase();
+  const ind = (company.industry || '').toLowerCase();
+  if (ind.includes('capital') || ind.includes('trading') || t.includes('capital')) return 0;
+  if (ind.includes('asset') || ind.includes('fund') || ind.includes('investment')) return 1;
+  if (ind.includes('pension') || ind.includes('life')) return 2;
+  if (ind.includes('bank') || ind.includes('fintech') || t.includes('banking')) return 3;
+  if (ind.includes('insur')) return 4;
+  if (t.includes('esg')) return 1;
+  return Math.abs(hashStr(company.name || '')) % 5;
+}
+function hashStr(s) { let h=0; for(let c of s) h=Math.imul(31,h)+c.charCodeAt(0)|0; return h; }
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER ALL
+// ═══════════════════════════════════════════════════════════
+function renderAll() {
+  updateSidebarPulse();
+  renderCmd();
+  renderExpenses();
+  renderForecast();
+  renderWetDba();
+  renderRadar();
+  renderAdvisor();
+  renderSettings();
+}
+
+// ─── Sidebar Pulse ────────────────────────────────────────────
+function updateSidebarPulse() {
+  const cf = NX.cashflow;
+  const latest = cf.length ? cf[cf.length - 1] : null;
+  const bal = latest ? latest.closingBalance : null;
+  document.getElementById('sb-balance').textContent = fmtE(bal);
+  const zone = latest?.zone || 'TRANSITIONAL';
+  const dot = document.getElementById('sb-dot');
+  const colors = { 'STABLE CRUISE': '#4fffb0', 'TRANSITIONAL': '#4facfe', 'CAUTION': '#f9ca24', 'HIGH ALERT': '#ff4444' };
+  dot.style.background = colors[zone] || '#4facfe';
+  document.getElementById('sb-status').textContent = zone;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  COMMAND CENTER
+// ═══════════════════════════════════════════════════════════
+function renderCmd() {
+  const cfg = NX.config;
+  const cf = NX.cashflow;
+  const latest = cf.length ? cf[cf.length - 1] : null;
+  const prev = cf.length > 1 ? cf[cf.length - 2] : null;
+
+  const bal = latest?.closingBalance ?? null;
+  const prevBal = prev?.closingBalance ?? null;
+  const balDelta = bal != null && prevBal != null ? bal - prevBal : null;
+  const monthlyBurn = latest?.monthlyBurn ?? cfg.burn ?? 3200;
+  const runway = bal != null && monthlyBurn > 0 ? (bal / monthlyBurn).toFixed(1) : null;
+  const grossRev = latest?.grossRevenue ?? null;
+  const seasonScore = latest?.seasonScore ?? null;
+
+  const metrics = [
+    { label: 'Wise Balance', value: fmtE(bal), sub: balDelta != null ? (balDelta >= 0 ? '↑ +' : '↓ ') + fmtE(Math.abs(balDelta)) + ' vs prev' : 'No data', color: bal > 20000 ? 'green' : bal > 10000 ? 'yellow' : 'red' },
+    { label: 'Monthly Burn', value: fmtE(monthlyBurn), sub: 'Avg spend/mo', color: 'blue' },
+    { label: 'Runway', value: runway ? runway + ' mo' : '—', sub: 'At current burn', color: runway > 6 ? 'green' : runway > 3 ? 'yellow' : 'red' },
+    { label: 'Season Score', value: seasonScore != null ? Math.round(seasonScore) + '/100' : '—', sub: 'Hiring density', color: seasonScore > 70 ? 'green' : seasonScore > 40 ? 'yellow' : 'red' },
+  ];
+  document.getElementById('cmd-metrics').innerHTML = metrics.map(m => `
+    <div class="metric-card">
+      <div class="label">${m.label}</div>
+      <div class="value ${m.color}">${m.value}</div>
+      <div style="font-size:11px;color:var(--txt2);margin-top:4px">${m.sub}</div>
+    </div>`).join('');
+
+  // Title
+  document.getElementById('cmd-title').textContent = `🎯 ${cfg.name || 'Command Center'}`;
+
+  // Contracts panel
+  const active = NX.contracts.filter(c => c.status === 'Active');
+  document.getElementById('cmd-contracts').innerHTML = `
+    <div class="card">
+      <div class="section-title">Active Contracts (${active.length})</div>
+      ${active.length === 0 ? '<div class="empty-state">No active contracts in Notion</div>' :
+      active.map(c => `
+        <div style="background:var(--bg4);border-radius:6px;padding:10px 12px;margin-bottom:8px">
+          <div style="font-size:13px;font-weight:700">${c.name}</div>
+          <div style="font-size:11px;color:var(--txt2);margin-top:3px">${c.client || '—'} · ${c.docType || '—'}</div>
+          <div style="display:flex;gap:12px;margin-top:6px">
+            <span style="font-size:12px;color:var(--acc)">€${c.hourlyRateEur || '—'}/hr</span>
+            <span style="font-size:12px;color:var(--txt2)">Until ${c.endDate || '—'}</span>
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+  // Top opps panel
+  const topOpps = NX.opportunities.slice(0, 3);
+  document.getElementById('cmd-top-opps').innerHTML = `
+    <div class="card">
+      <div class="section-title">Top Opportunities</div>
+      ${topOpps.length === 0 ? '<div class="empty-state">No opportunities in Notion</div>' :
+      topOpps.map(o => `
+        <div style="background:var(--bg4);border-radius:6px;padding:10px 12px;margin-bottom:8px;display:flex;gap:10px;align-items:center">
+          <div style="width:32px;height:32px;border-radius:50%;background:rgba(79,202,36,0.15);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--acc);flex-shrink:0">${Math.round(o.matchScore || 0)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.roleTitle || 'Role'}</div>
+            <div style="font-size:11px;color:var(--txt2)">${o.company || '—'} · ${o.action || '—'}</div>
+          </div>
+          <div style="font-size:13px;font-weight:700;color:var(--acc3)">${o.dayRateEur ? fmtE(o.dayRateEur) + '/d' : '—'}</div>
+        </div>`).join('')}
+    </div>`;
+
+  renderTimeSeriesChart();
+  renderZoneChart();
+}
+
+// ─── Time Series Chart ────────────────────────────────────────
+function renderTimeSeriesChart() {
+  destroyChart('ts');
+  const cf = NX.cashflow;
+  if (!cf.length) return;
+  const metric = document.getElementById('ts-metric')?.value || 'closingBalance';
+  const period = document.getElementById('ts-period')?.value || '6';
+  const n = period === 'all' ? cf.length : Math.min(parseInt(period), cf.length);
+  const data = cf.slice(-n);
+  const labels = data.map(m => m.label || m.date?.slice(0,7) || '');
+  const values = data.map(m => m[metric] ?? null);
+  const metricLabels = {
+    closingBalance:'Closing Balance',grossRevenue:'Gross Revenue',netAfterTax:'Net After Tax',
+    monthlyBurn:'Monthly Burn',taxReserve:'Tax Reserve',seasonScore:'Season Score',
+    wiseSnapshot:'Wise Snapshot',decisionScore:'Decision Score'
+  };
+  const color = metric === 'monthlyBurn' ? '#ff6b6b' : metric === 'seasonScore' ? '#f9ca24' : '#4fffb0';
+  const ctx = document.getElementById('ts-chart');
+  if (!ctx) return;
+  charts.ts = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: metricLabels[metric] || metric,
+        data: values,
+        borderColor: color,
+        backgroundColor: color + '18',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        pointBackgroundColor: color,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: ctx => metric.includes('Score') ? Math.round(ctx.raw) + '/100' : fmtE(ctx.raw)
+      }}},
+      scales: {
+        x: { ticks: { color: '#8892a4', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#8892a4', font: { size: 11 }, callback: v => metric.includes('Score') ? v : fmtE(v) }, grid: { color: 'rgba(255,255,255,0.06)' } }
+      }
+    }
+  });
+}
+
+// ─── Zone Donut Chart ─────────────────────────────────────────
+function renderZoneChart() {
+  destroyChart('zone');
+  const cf = NX.cashflow;
+  if (!cf.length) return;
+  const zones = ['STABLE CRUISE','TRANSITIONAL','CAUTION','HIGH ALERT'];
+  const counts = zones.map(z => cf.filter(m => m.zone === z).length);
+  const colors = ['#4fffb0','#4facfe','#f9ca24','#ff4444'];
+  const ctx = document.getElementById('zone-chart');
+  if (!ctx) return;
+  charts.zone = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: zones, datasets: [{ data: counts, backgroundColor: colors.map(c => c + 'cc'), borderColor: colors, borderWidth: 1.5 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: '#8892a4', font: { size: 11 }, padding: 10 } } }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  EXPENSES
+// ═══════════════════════════════════════════════════════════
+function renderExpenses() {
+  const exps = NX.expenses;
+  // Stats
+  const total = exps.reduce((s, e) => s + (e.amountEur || 0), 0);
+  const months = [...new Set(exps.map(e => e.date?.slice(0, 7)).filter(Boolean))];
+  const avgPerMonth = months.length ? total / months.length : 0;
+  const byCat = {};
+  exps.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + (e.amountEur || 0); });
+  const topCat = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
+
+  document.getElementById('exp-stats').innerHTML = `
+    <div class="metric-card"><div class="label">Total Logged</div><div class="value blue">${fmtE(total)}</div></div>
+    <div class="metric-card"><div class="label">Avg / Month</div><div class="value yellow">${fmtE(avgPerMonth)}</div></div>
+    <div class="metric-card"><div class="label">Top Category</div><div class="value" style="font-size:16px;color:${catColor(topCat?.[0])}">${topCat?.[0] || '—'}</div><div style="font-size:12px;color:var(--txt2)">${fmtE(topCat?.[1])}</div></div>
+    <div class="metric-card"><div class="label">Transactions</div><div class="value">${exps.length}</div></div>`;
+
+  renderExpHeatmap();
+  renderExpDonut();
+  renderExpenseTable();
+
+  // Populate year filter dynamically from data
+  const years = [...new Set(exps.map(e => e.year || e.date?.slice(0,4)).filter(Boolean))].sort().reverse();
+  const yrSel = document.getElementById('exp-filter-yr');
+  if (yrSel) {
+    const cur = yrSel.value;
+    yrSel.innerHTML = '<option value="">All Years</option>' + years.map(y => `<option value="${y}" ${y==cur?'selected':''}>${y}</option>`).join('');
+  }
+
+  // Populate category filter dynamically from data
+  const cats = [...new Set(exps.map(e => e.category).filter(Boolean))].sort();
+  const catSel = document.getElementById('exp-filter-cat');
+  if (catSel) {
+    const cur = catSel.value;
+    catSel.innerHTML = '<option value="">All Categories</option>' +
+      cats.map(c => `<option value="${c}" ${c === cur ? 'selected' : ''}>${c}</option>`).join('');
+  }
+}
+
+function renderExpHeatmap() {
+  const exps = NX.expenses;
+  const cats = Object.keys(CAT_COLORS);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const MONTH_MAP = { Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12 };
+
+  // Build matrix
+  const matrix = {};
+  let maxVal = 0;
+  exps.forEach(e => {
+    if (!e.date) return;
+    const mo = new Date(e.date).toLocaleString('en',{month:'short'});
+    const cat = e.category || 'Other';
+    if (!matrix[cat]) matrix[cat] = {};
+    matrix[cat][mo] = (matrix[cat][mo] || 0) + (e.amountEur || 0);
+    maxVal = Math.max(maxVal, matrix[cat][mo]);
+  });
+
+  function heatColor(v) {
+    if (!v) return 'var(--bg4)';
+    const t = Math.min(v / (maxVal || 1), 1);
+    const r = Math.round(6 + t * 249), g = Math.round(8 + t * 52), b = Math.round(16 + t * 0);
+    const r2 = Math.round(79 + t * (255-79)), g2 = Math.round(255 - t*211), b2 = Math.round(176 - t*132);
+    return `rgb(${Math.round(r*(1-t)+r2*t)},${Math.round(g*(1-t)+g2*t)},${Math.round(b*(1-t)+b2*t)})`;
+  }
+
+  let html = `<table class="heatmap-table"><thead><tr><th class="heatmap-row-label">Category</th>`;
+  months.forEach(m => html += `<th>${m}</th>`);
+  html += '</tr></thead><tbody>';
+
+  cats.forEach(cat => {
+    html += `<tr><td class="heatmap-row-label" style="color:${catColor(cat)}">${cat}</td>`;
+    months.forEach(m => {
+      const v = matrix[cat]?.[m] || 0;
+      const bg = heatColor(v);
+      const fg = v > maxVal * 0.5 ? '#000' : 'var(--txt)';
+      html += `<td style="background:${bg};color:${fg}" title="${cat} ${m}: ${fmtE(v)}">${v > 0 ? fmtE(v).replace('€','') : ''}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('exp-heatmap').innerHTML = html;
+}
+
+function renderExpDonut() {
+  destroyChart('expDonut');
+  const byCat = {};
+  NX.expenses.forEach(e => { byCat[e.category || 'Other'] = (byCat[e.category || 'Other'] || 0) + (e.amountEur || 0); });
+  const sorted = Object.entries(byCat).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const ctx = document.getElementById('exp-donut');
+  if (!ctx || !sorted.length) return;
+  charts.expDonut = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: sorted.map(([k])=>k),
+      datasets: [{ data: sorted.map(([,v])=>v), backgroundColor: sorted.map(([k])=>catColor(k)+'cc'), borderColor: sorted.map(([k])=>catColor(k)), borderWidth: 1.5 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position:'bottom', labels:{ color:'#8892a4',font:{size:11},padding:8 } }, tooltip:{ callbacks:{ label: c => `${c.label}: ${fmtE(c.raw)}` } } }
+    }
+  });
+}
+
+function renderExpenseTable() {
+  const catFilter = document.getElementById('exp-filter-cat')?.value || '';
+  const yrFilter  = document.getElementById('exp-filter-yr')?.value  || '';
+  let exps = NX.expenses.filter(e =>
+    (!catFilter || e.category === catFilter) &&
+    (!yrFilter  || String(e.year || e.date?.slice(0,4)) === String(yrFilter))
+  );
+  if (!exps.length) {
+    document.getElementById('exp-table-wrap').innerHTML = '<div class="empty-state"><div class="icon">🧾</div>No expenses found</div>';
+    return;
+  }
+  let html = `<table class="exp-table"><thead><tr>
+    <th>Description</th><th>Date</th><th>Amount</th><th>Category</th><th>Source</th><th></th>
+  </tr></thead><tbody>`;
+  exps.slice(0, 100).forEach(e => {
+    html += `<tr>
+      <td>${e.description || '—'}</td>
+      <td style="color:var(--txt2)">${e.date || '—'}</td>
+      <td style="font-weight:700;color:var(--acc)">${fmtE(e.amountEur)}</td>
+      <td><span class="cat-pill" style="background:${catColor(e.category)}22;color:${catColor(e.category)}">${e.category || 'Other'}</span></td>
+      <td style="color:var(--txt2);font-size:12px">${e.source || '—'}</td>
+      <td><button class="del-btn" onclick="deleteExpense('${e.id}')">🗑</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('exp-table-wrap').innerHTML = html;
+}
+
+async function deleteExpense(id) {
+  if (!confirm('Delete this expense?')) return;
+  try {
+    await apiDelete('/api/expenses/' + id);
+    NX.expenses = NX.expenses.filter(e => e.id !== id);
+    renderExpenses();
+    toast('Expense deleted', 'ok');
+  } catch (e) { toast('Delete failed: ' + e.message, 'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FORECAST
+// ═══════════════════════════════════════════════════════════
+function renderForecast() {
+  renderForecastChart();
+  renderForecastMetrics();
+  renderSensitivityHeatmap();
+}
+
+function renderForecastChart() {
+  destroyChart('fc');
+  const cf = NX.cashflow;
+  if (!cf.length) return;
+  const metric = document.getElementById('fc-metric')?.value || 'closingBalance';
+  const period = document.getElementById('fc-period')?.value || '12';
+  const compare = document.getElementById('fc-compare')?.value || 'none';
+  const n = period === 'all' ? cf.length : Math.min(parseInt(period), cf.length);
+  const data = cf.slice(-n);
+  const labels = data.map(m => m.label || m.date?.slice(0,7) || '');
+  const values = data.map(m => m[metric] ?? null);
+  const metricColors = {
+    closingBalance:'#4fffb0', grossRevenue:'#4facfe', netAfterTax:'#a78bfa',
+    monthlyBurn:'#ff6b6b', taxReserve:'#f59e0b', wiseSnapshot:'#4fffb0',
+  };
+  const color = metricColors[metric] || '#4fffb0';
+  const datasets = [{
+    label: metric, data: values, borderColor: color,
+    backgroundColor: color + '18', fill: true, tension: 0.35, pointRadius: 3,
+  }];
+  if (compare !== 'none') {
+    const c2vals = data.map(m => m[compare] ?? null);
+    const c2col = metricColors[compare] || '#ff6b6b';
+    datasets.push({ label: compare, data: c2vals, borderColor: c2col, backgroundColor: 'transparent', borderDash: [5,3], tension: 0.35, pointRadius: 2 });
+  }
+  const ctx = document.getElementById('fc-chart');
+  if (!ctx) return;
+  charts.fc = new Chart(ctx, {
+    type: 'line', data: { labels, datasets },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      interaction: { mode:'index', intersect:false },
+      plugins: { legend:{ labels:{ color:'#8892a4',font:{size:11} } }, tooltip:{ callbacks:{ label: c => fmtE(c.raw) } } },
+      scales: {
+        x:{ ticks:{ color:'#8892a4',font:{size:11} }, grid:{ color:'rgba(255,255,255,0.04)' } },
+        y:{ ticks:{ color:'#8892a4',font:{size:11},callback:v=>fmtE(v) }, grid:{ color:'rgba(255,255,255,0.06)' } }
+      }
+    }
+  });
+}
+
+function renderForecastMetrics() {
+  const cf = NX.cashflow;
+  if (!cf.length) { document.getElementById('fc-metrics').innerHTML = ''; return; }
+  const latest = cf[cf.length-1];
+  const first = cf[0];
+  const netTotal = cf.reduce((s,m)=>s+(m.netAfterTax||0),0);
+  const taxTotal = cf.reduce((s,m)=>s+(m.taxReserve||0),0);
+  const metrics = [
+    { label:'Latest Balance', value:fmtE(latest.closingBalance), color:'green' },
+    { label:'Net After Tax (total)', value:fmtE(netTotal), color:'blue' },
+    { label:'Tax Reserved (total)', value:fmtE(taxTotal), color:'yellow' },
+    { label:'Months Tracked', value:cf.length, color:'' },
+  ];
+  document.getElementById('fc-metrics').innerHTML = metrics.map(m =>
+    `<div class="metric-card"><div class="label">${m.label}</div><div class="value ${m.color}">${m.value}</div></div>`
+  ).join('');
+}
+
+function renderSensitivityHeatmap() {
+  const cfg = NX.config;
+  // Use config values with sensible fallbacks only as last resort
+  const burn = cfg.burn ?? 3200;
+  const baseRate = cfg.hourlyRate ?? 100;
+  // Generate rate range centered on current rate (±40%), rounded to nearest 5
+  const rMin = Math.max(50, Math.round((baseRate * 0.6) / 5) * 5);
+  const rMax = Math.round((baseRate * 1.4) / 5) * 5;
+  const step = Math.round((rMax - rMin) / 7 / 5) * 5 || 10;
+  const rates = [];
+  for (let r = rMin; r <= rMax && rates.length < 8; r += step) rates.push(r);
+  const gaps = [0,1,2,3,4,5,6];
+  // NL tax calc using config values (no inline fallbacks where config is available)
+  const mkbPct  = cfg.mkbPct  ?? 12.7;
+  const zvwPct  = cfg.zvwPct  ?? 4.85;
+  const startBal = cfg.wiseBalance ?? 0;
+  function nlTax(grossAnnual) {
+    let tax = 0;
+    const band3 = Math.max(0, grossAnnual - 73031);
+    const band2 = Math.max(0, Math.min(grossAnnual, 73031) - 38441);
+    const band1 = Math.min(grossAnnual, 38441);
+    tax = band3 * 0.495 + band2 * 0.3756 + band1 * 0.3575;
+    const mkb = grossAnnual * mkbPct / 100;
+    return tax - mkb - zvwPct * grossAnnual / 100;
+  }
+  function sim(rate, gapMo) {
+    const start = startBal;
+    const daysPerMo = 20, moPerYr = 12;
+    const grossMo = rate * daysPerMo;
+    const taxMo = nlTax(grossMo * 12) / 12;
+    const netMo = grossMo - taxMo - burn;
+    let bal = start - burn * gapMo;
+    for (let i = 0; i < 14; i++) bal += (i < gapMo ? -burn : netMo);
+    return bal;
+  }
+  let max = -Infinity, min = Infinity;
+  const grid = rates.map(r => gaps.map(g => sim(r,g)));
+  grid.forEach(row => row.forEach(v => { max = Math.max(max,v); min = Math.min(min,v); }));
+  function cellColor(v) {
+    const t = Math.max(0, Math.min(1, (v - min) / (max - min)));
+    const r = Math.round(255 - t*176), g = Math.round(40 + t*215), b = Math.round(40 + t*136);
+    return `rgb(${r},${g},${b})`;
+  }
+  let html = `<table class="heatmap-table"><thead><tr><th class="heatmap-row-label">Rate →<br>Gap ↓</th>`;
+  rates.forEach(r => html += `<th>€${r}/hr</th>`);
+  html += '</tr></thead><tbody>';
+  gaps.forEach((g, gi) => {
+    html += `<tr><td class="heatmap-row-label">${g} mo gap</td>`;
+    rates.forEach((r, ri) => {
+      const v = grid[ri][gi];
+      const bg = cellColor(v);
+      const fg = v < (max + min) / 2 ? '#fff' : '#000';
+      html += `<td style="background:${bg};color:${fg}" title="Rate €${r}/hr · Gap ${g}mo: ${fmtE(v)}">${fmtE(v)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('sensitivity-heatmap').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  WET DBA
+// ═══════════════════════════════════════════════════════════
+function renderWetDba() {
+  const cfg = NX.config;
+  const rate = cfg.hourlyRate || 115;
+  const cf = NX.cashflow;
+
+  // Score calculation
+  const factors = [
+    { label:'Rate Tier', icon:'💶', score: rate > 75 ? 25 : rate > 50 ? 15 : 5, max:25, desc: rate > 75 ? 'HIGH (>€75/hr) — commands attention' : 'Moderate rate tier' },
+    { label:'Single Client Risk', icon:'🔗', score: NX.contracts.filter(c=>c.status==='Active').length===1 ? 20 : 10, max:20, desc: NX.contracts.filter(c=>c.status==='Active').length===1 ? 'Single active client — concentration risk' : 'Multiple clients — diversified' },
+    { label:'Contract Formalization', icon:'📄', score: NX.contracts.some(c=>c.status==='Active') ? 5 : 15, max:15, desc: NX.contracts.some(c=>c.status==='Active') ? 'Contracts in place — good' : 'No active contract found' },
+    { label:'Substitution Clause', icon:'🔄', score:10, max:15, desc:'Review contracts for substitution provisions' },
+    { label:'Multi-Client Activity', icon:'👥', score: NX.opportunities.filter(o=>o.status&&!o.status.includes('Declined')).length > 2 ? 5 : 12, max:15, desc:'Track opportunity pipeline to show independence' },
+    { label:'Invoice Structure', icon:'🧾', score:8, max:10, desc:'Ensure invoice references SOW not time-and-material' },
+  ];
+  const total = factors.reduce((s,f)=>s+f.score,0);
+  const maxScore = factors.reduce((s,f)=>s+f.max,0);
+  const score = Math.round((total / maxScore) * 100);
+  const risk = score < 33 ? 'LOW' : score < 66 ? 'MEDIUM' : 'HIGH';
+  const riskColor = { LOW:'#4fffb0', MEDIUM:'#f9ca24', HIGH:'#ff4444' }[risk];
+
+  // Arc gauge
+  const svg = document.getElementById('wda-gauge');
+  const r = 90, cx = 130, cy = 140;
+  const startAngle = Math.PI, endAngle = 2 * Math.PI;
+  const scoreAngle = startAngle + (score/100) * Math.PI;
+  const arcPath = (sa, ea, radius) => {
+    const x1 = cx + radius * Math.cos(sa), y1 = cy + radius * Math.sin(sa);
+    const x2 = cx + radius * Math.cos(ea), y2 = cy + radius * Math.sin(ea);
+    return `M ${x1} ${y1} A ${radius} ${radius} 0 ${ea - sa > Math.PI ? 1 : 0} 1 ${x2} ${y2}`;
+  };
+  svg.innerHTML = `
+    <path d="${arcPath(Math.PI, 2*Math.PI, r)}" fill="none" stroke="var(--bg4)" stroke-width="18" stroke-linecap="round"/>
+    <path d="${arcPath(Math.PI, scoreAngle, r)}" fill="none" stroke="${riskColor}" stroke-width="18" stroke-linecap="round"/>
+    <text x="${cx}" y="${cy-8}" text-anchor="middle" fill="${riskColor}" font-size="32" font-weight="700">${score}</text>
+    <text x="${cx}" y="${cy+14}" text-anchor="middle" fill="${riskColor}" font-size="14" font-weight="700">${risk} RISK</text>
+    <text x="${cx}" y="${cy+32}" text-anchor="middle" fill="var(--txt2)" font-size="11">Wet DBA Score</text>
+    <text x="42" y="${cy+28}" text-anchor="middle" fill="var(--acc)" font-size="10">LOW</text>
+    <text x="${cx}" y="${cy+46}" text-anchor="middle" fill="var(--acc3)" font-size="10">MED</text>
+    <text x="218" y="${cy+28}" text-anchor="middle" fill="var(--hot)" font-size="10">HIGH</text>`;
+
+  document.getElementById('wda-situation').innerHTML = `
+    <div class="card-label">Situation</div>
+    <div style="font-size:13px;line-height:1.6;color:var(--txt2)">
+      ${cfg.name || 'You'} at <strong style="color:var(--acc)">€${rate}/hr</strong> via
+      ${cfg.agency || 'agency'} for ${cfg.client || 'client'}.
+      Score <strong style="color:${riskColor}">${score}/100 — ${risk} risk</strong>.
+      ${risk === 'HIGH' ? '⚠ Immediate review advised.' : risk === 'MEDIUM' ? '🟡 Monitor and diversify client base.' : '✅ Profile is broadly compliant.'}
+    </div>`;
+
+  document.getElementById('wda-factors').innerHTML = factors.map(f => `
+    <div class="wda-factor">
+      <div class="wda-icon" style="background:rgba(79,255,176,0.1)">${f.icon}</div>
+      <div style="flex:1">
+        <div class="wda-label">${f.label}</div>
+        <div style="font-size:11px;color:var(--txt2);margin-top:2px">${f.desc}</div>
+        <div class="wda-bar-wrap" style="margin-top:6px">
+          <div class="wda-bar" style="width:${(f.score/f.max*100)}%;background:${f.score/f.max > 0.6 ? 'var(--acc4)' : 'var(--acc)'}"></div>
+        </div>
+      </div>
+      <div class="wda-score" style="color:${f.score/f.max > 0.6 ? 'var(--acc4)' : 'var(--acc)'}">${f.score}</div>
+    </div>`).join('');
+
+  document.getElementById('wda-actions').innerHTML = `
+    <div class="card-label">Action Plan</div>
+    <div style="font-size:12px;line-height:1.8;color:var(--txt2)">
+      ${risk === 'HIGH'
+        ? '① Diversify client base immediately<br>② Add substitution clause to contract<br>③ Seek formal Belastingdienst ruling (WBBA)<br>④ Consider transitioning to holding structure'
+        : risk === 'MEDIUM'
+        ? '① Target 2nd active client within 60 days<br>② Document working independence explicitly<br>③ Ensure SOW references deliverables not hours<br>④ Annual review with tax advisor'
+        : '① Maintain current client diversity<br>② Annual contract review<br>③ Keep documentation of independence'}
+    </div>`;
+
+  // WDA history chart (using cashflow decision scores)
+  destroyChart('wdaHist');
+  const cf6 = NX.cashflow.slice(-12);
+  if (cf6.length) {
+    const ctx = document.getElementById('wda-history-chart');
+    if (ctx) charts.wdaHist = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: cf6.map(m=>m.label||''), datasets: [{
+        label:'Decision Score', data: cf6.map(m=>m.decisionScore||0),
+        backgroundColor: cf6.map(m=>(m.decisionScore||0)>66?'#ff444488':(m.decisionScore||0)>33?'#f9ca2488':'#4fffb088'),
+        borderRadius:4,
+      }]},
+      options: { responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false} },
+        scales:{ x:{ticks:{color:'#8892a4',font:{size:11}},grid:{color:'rgba(255,255,255,0.04)'}}, y:{min:0,max:100,ticks:{color:'#8892a4',font:{size:11}},grid:{color:'rgba(255,255,255,0.06)'}} }
+      }
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MARKET RADAR — BMW Trend Radar
+// ═══════════════════════════════════════════════════════════
+function renderRadar() {
+  drawBMWRadar(NX.companies);
+  renderOppList();
+  renderSignalsChart();
+  renderSignalsDetail();
+  renderRadarLegend();
+}
+
+function drawBMWRadar(companies) {
+  const container = document.getElementById('radar-svg-container');
+  container.innerHTML = '';
+  const W = 560, H = 560, cx = W/2, cy = H/2, maxR = 240;
+
+  const rings = [
+    { name:'HOT 🔥',    r:60,  fill:'rgba(255,68,68,0.18)',   label:'#ff4444' },
+    { name:'WARM 🟡',   r:120, fill:'rgba(249,202,36,0.12)',  label:'#f9ca24' },
+    { name:'MONITOR 👁',r:180, fill:'rgba(79,172,254,0.08)',  label:'#4facfe' },
+    { name:'COLD ❄️',   r:240, fill:'rgba(100,112,128,0.06)', label:'#667080' },
+  ];
+
+  const svg = d3.select(container).append('svg')
+    .attr('width', W).attr('height', H)
+    .style('background', 'var(--bg3)')
+    .style('border-radius', '10px')
+    .style('border', '1px solid var(--border)');
+
+  const g = svg.append('g').attr('transform', `translate(${cx},${cy})`);
+
+  // Background glow
+  const defs = svg.append('defs');
+  SECTORS.forEach((s, i) => {
+    const grad = defs.append('radialGradient').attr('id', `sg${i}`);
+    grad.append('stop').attr('offset','0%').attr('stop-color', s.color).attr('stop-opacity','0.08');
+    grad.append('stop').attr('offset','100%').attr('stop-color', s.color).attr('stop-opacity','0');
+  });
+
+  // Rings (outer → inner)
+  rings.slice().reverse().forEach(ring => {
+    g.append('circle').attr('r', ring.r)
+      .attr('fill', ring.fill).attr('stroke', 'rgba(255,255,255,0.08)').attr('stroke-width', 1);
+  });
+
+  // Sector dividers
+  SECTORS.forEach((s, i) => {
+    const angle = (i * (2*Math.PI/5)) - Math.PI/2;
+    g.append('line')
+      .attr('x1', 0).attr('y1', 0)
+      .attr('x2', Math.cos(angle)*maxR).attr('y2', Math.sin(angle)*maxR)
+      .attr('stroke', 'rgba(255,255,255,0.12)').attr('stroke-width', 1);
+  });
+
+  // Sector fills (subtle)
+  SECTORS.forEach((s, i) => {
+    const a0 = (i * (2*Math.PI/5)) - Math.PI/2;
+    const a1 = ((i+1) * (2*Math.PI/5)) - Math.PI/2;
+    const arc = d3.arc().innerRadius(0).outerRadius(maxR).startAngle(a0 + Math.PI/2).endAngle(a1 + Math.PI/2);
+    g.append('path').attr('d', arc()).attr('fill', s.color).attr('fill-opacity', 0.03);
+  });
+
+  // Ring labels
+  rings.forEach(ring => {
+    g.append('text').attr('x', ring.r - 24).attr('y', -5)
+      .attr('fill', ring.label).attr('font-size', '9.5px').attr('opacity', 0.8)
+      .text(ring.name);
+  });
+
+  // Sector labels
+  SECTORS.forEach((s, i) => {
+    const midAngle = ((i + 0.5) * (2*Math.PI/5)) - Math.PI/2;
+    const lr = maxR + 28;
+    g.append('text')
+      .attr('x', Math.cos(midAngle) * lr)
+      .attr('y', Math.sin(midAngle) * lr)
+      .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+      .attr('fill', s.color).attr('font-size', '11px').attr('font-weight', '700')
+      .text(s.name);
+  });
+
+  // Center label
+  g.append('text').attr('y', -6).attr('text-anchor','middle').attr('fill','var(--acc)').attr('font-size','13px').attr('font-weight','700').text('NL Market');
+  g.append('text').attr('y', 10).attr('text-anchor','middle').attr('fill','var(--txt2)').attr('font-size','10px').text('Radar');
+
+  // Plot companies
+  const statusToRing = { 'HOT 🔥':0, 'WARM 🟡':1, 'MONITOR 👁':2, 'COLD ❄️':3 };
+  const activeFilter = radarFilter;
+
+  const filtered = activeFilter === 'all' ? companies : companies.filter(c => c.status === activeFilter);
+
+  // If no companies, show placeholder dots for each sector
+  if (!filtered.length) {
+    const placeholders = [
+      { name:'Capital Markets', sectorIdx:0, status:'HOT 🔥', budgetScore:75 },
+      { name:'Asset Management', sectorIdx:1, status:'WARM 🟡', budgetScore:60 },
+      { name:'Pension Funds', sectorIdx:2, status:'WARM 🟡', budgetScore:55 },
+      { name:'Banking', sectorIdx:3, status:'MONITOR 👁', budgetScore:50 },
+      { name:'Insurance', sectorIdx:4, status:'COLD ❄️', budgetScore:30 },
+    ];
+    placeholders.forEach(p => plotDot(g, p, rings, statusToRing, SECTORS, true));
+    g.append('text').attr('y', 220).attr('text-anchor','middle').attr('fill','var(--txt2)').attr('font-size','11px').text('Add companies to Notion to populate radar');
+    return;
+  }
+
+  filtered.forEach(company => plotDot(g, { ...company, sectorIdx: getSectorIdx(company) }, rings, statusToRing, SECTORS, false));
+}
+
+function plotDot(g, company, rings, statusToRing, sectors, isPlaceholder) {
+  const sectorIdx = company.sectorIdx ?? getSectorIdx(company);
+  const ringIdx   = statusToRing[company.status] ?? 2;
+  const nSectors  = sectors.length;
+  const ringInnerR = ringIdx === 0 ? 4 : rings[ringIdx-1].r + 4;
+  const ringOuterR = rings[ringIdx].r - 4;
+  const ringMidR   = (ringInnerR + ringOuterR) / 2;
+  const sectorMid  = ((sectorIdx + 0.5) * (2*Math.PI/nSectors)) - Math.PI/2;
+  const jA = (Math.random() - 0.5) * (1.1 * Math.PI / nSectors);
+  const jR = (Math.random() - 0.5) * (ringOuterR - ringInnerR) * 0.35;
+  const angle = sectorMid + jA;
+  const r = ringMidR + jR;
+  const x = Math.cos(angle) * r, y = Math.sin(angle) * r;
+  const dotR = 5 + ((company.budgetScore || 50) / 100) * 7;
+  const color = sectors[sectorIdx % sectors.length].color;
+
+  const circle = g.append('circle').attr('cx', x).attr('cy', y).attr('r', dotR)
+    .attr('fill', color).attr('fill-opacity', isPlaceholder ? 0.3 : 0.75)
+    .attr('stroke', isPlaceholder ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.5)')
+    .attr('stroke-width', 1.5).style('cursor', 'pointer');
+
+  if (!isPlaceholder) {
+    const tt = document.getElementById('radar-tooltip');
+    circle.on('mouseover', function(event) {
+      document.getElementById('tt-name').textContent = company.name || '—';
+      document.getElementById('tt-industry').textContent = '🏢 ' + (company.industry || '—');
+      document.getElementById('tt-status').textContent = '📊 ' + (company.status || '—');
+      document.getElementById('tt-budget').textContent = '💰 Budget score: ' + (company.budgetScore || '—');
+      tt.style.display = 'block';
+      tt.style.left = (event.clientX + 12) + 'px';
+      tt.style.top  = (event.clientY - 10) + 'px';
+    }).on('mousemove', function(event) {
+      tt.style.left = (event.clientX + 12) + 'px';
+      tt.style.top  = (event.clientY - 10) + 'px';
+    }).on('mouseout', () => { document.getElementById('radar-tooltip').style.display = 'none'; });
+  }
+  // Short name label for dots
+  if (!isPlaceholder && company.name) {
+    g.append('text').attr('x', x).attr('y', y + dotR + 10)
+      .attr('text-anchor','middle').attr('fill', 'rgba(255,255,255,0.6)').attr('font-size','9px')
+      .text(company.name.split(' ')[0].slice(0,8));
+  }
+}
+
+function renderRadarLegend() {
+  document.getElementById('radar-legend').innerHTML = SECTORS.map(s =>
+    `<div class="radar-legend-item"><div class="radar-legend-dot" style="background:${s.color}"></div>${s.name}</div>`
+  ).join('') + `
+    <div class="radar-legend-item"><div class="radar-legend-dot" style="background:#ff4444"></div>HOT</div>
+    <div class="radar-legend-item"><div class="radar-legend-dot" style="background:#f9ca24"></div>WARM</div>
+    <div class="radar-legend-item"><div class="radar-legend-dot" style="background:#4facfe"></div>MONITOR</div>`;
+}
+
+function renderOppList() {
+  const opps = NX.opportunities.filter(o => o.status !== 'Declined ❌').slice(0, 5);
+  document.getElementById('opp-list').innerHTML = !opps.length
+    ? '<div class="empty-state">No opportunities yet</div>'
+    : opps.map(o => {
+        const score = Math.round(o.matchScore || 0);
+        const bg = score > 70 ? 'rgba(79,255,176,0.15)' : score > 40 ? 'rgba(249,202,36,0.15)' : 'rgba(100,120,150,0.15)';
+        const fc = score > 70 ? '#4fffb0' : score > 40 ? '#f9ca24' : '#8892a4';
+        return `<div class="opp-item">
+          <div class="opp-score" style="background:${bg};color:${fc}">${score}</div>
+          <div class="opp-body">
+            <div class="opp-title">${o.roleTitle || '—'}</div>
+            <div class="opp-meta">${o.company || '—'} · ${o.status || '—'} · ${o.contractLength || 'Any'}</div>
+            ${o.skillsRequired?.length ? `<div class="opp-meta" style="margin-top:2px;color:var(--txt3)">🔧 ${(Array.isArray(o.skillsRequired)?o.skillsRequired:[o.skillsRequired]).slice(0,4).join(', ')}</div>` : ''}
+          </div>
+          <div class="opp-rate">${o.dayRateEur ? fmtE(o.dayRateEur) + '/d' : '—'}</div>
+        </div>`;
+      }).join('');
+}
+
+function renderSignalsChart() {
+  destroyChart('signals');
+  const signals = NX.signals.filter(s => s.hiringIndex != null);
+  if (!signals.length) return;
+  const byMonth = {};
+  signals.forEach(s => {
+    const key = `${s.year}-${String(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(s.month)+1).padStart(2,'0')}`;
+    if (!byMonth[key]) byMonth[key] = [];
+    byMonth[key].push(s.hiringIndex);
+  });
+  const sorted = Object.entries(byMonth).sort((a,b)=>a[0].localeCompare(b[0])).slice(-12);
+  const ctx = document.getElementById('signals-chart');
+  if (!ctx) return;
+  charts.signals = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: sorted.map(([k])=>k),
+      datasets:[{
+        label:'Hiring Index', data: sorted.map(([,vs])=>vs.reduce((a,b)=>a+b,0)/vs.length),
+        borderColor:'#4fffb0',backgroundColor:'#4fffb018',fill:true,tension:0.4,pointRadius:3,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#8892a4',font:{size:9}},grid:{color:'rgba(255,255,255,0.03)'}},
+        y:{min:0,max:100,ticks:{color:'#8892a4',font:{size:9}},grid:{color:'rgba(255,255,255,0.04)'}}
+      }
+    }
+  });
+}
+
+// ── Signals detail table (contractorRatio, budgetOpenScore, sourceUrl) ──────
+function renderSignalsDetail() {
+  const tbl  = document.getElementById('signals-detail-table');
+  const rows = document.getElementById('signals-detail-rows');
+  if (!tbl || !rows) return;
+  const signals = NX.signals.filter(s =>
+    s.contractorRatio != null || s.budgetOpenScore != null || s.sourceUrl);
+  if (!signals.length) { tbl.style.display = 'none'; return; }
+  tbl.style.display = 'block';
+  rows.innerHTML = signals.slice(-6).reverse().map(s => {
+    const url = s.sourceUrl
+      ? `<a href="${escHtml(s.sourceUrl)}" target="_blank" rel="noopener" style="color:var(--acc);text-decoration:none">↗</a>`
+      : '';
+    return `<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--bg4)">
+      <span style="width:60px;flex-shrink:0;color:var(--txt3)">${s.month||''} ${s.year||''}</span>
+      ${s.contractorRatio  != null ? `<span>🔧 ${Math.round(s.contractorRatio*100)}% contr.</span>` : ''}
+      ${s.budgetOpenScore  != null ? `<span>💰 Budget ${s.budgetOpenScore}</span>` : ''}
+      ${s.anomalyFlag      ? `<span style="color:#f72585">⚠ Anomaly</span>` : ''}
+      ${url}
+    </div>`;
+  }).join('');
+}
+
+// Radar filter chips
+document.addEventListener('click', e => {
+  if (!e.target.classList.contains('filter-chip')) return;
+  const parent = document.getElementById('radar-filters');
+  if (!parent || !parent.contains(e.target)) return;
+  parent.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  e.target.classList.add('active');
+  radarFilter = e.target.dataset.filter;
+  drawBMWRadar(NX.companies);
+});
+
+// ═══════════════════════════════════════════════════════════
+//  AI ADVISOR
+// ═══════════════════════════════════════════════════════════
+function renderAdvisor() {
+  const cfg = NX.config;
+  const cf = NX.cashflow;
+  const latest = cf.length ? cf[cf.length-1] : null;
+  const bal = latest?.closingBalance;
+  const burn = cfg.burn || 3200;
+  const runway = bal && burn ? bal / burn : null;
+  const active = NX.contracts.filter(c => c.status === 'Active');
+  const contractEnd = active[0]?.endDate;
+  const daysToEnd = contractEnd ? Math.round((new Date(contractEnd) - new Date()) / 86400000) : null;
+  const topOpps = NX.opportunities.filter(o => (o.matchScore || 0) >= 70).length;
+  const signals = NX.signals;
+  const latestSignal = signals.length ? signals[0] : null;
+  const hiringTrend = signals.slice(0,3).reduce((s,sg)=>s+(sg.hiringIndex||0),0)/Math.max(1,Math.min(3,signals.length));
+
+  const cards = [
+    {
+      icon:'💰', title:'Cashflow Health',
+      type: bal > 25000 ? 'ok' : bal > 12000 ? 'watch' : 'act',
+      finding: bal != null
+        ? `Current balance ${fmtE(bal)} gives ${runway?.toFixed(1) || '—'} months runway at ${fmtE(burn)}/mo burn. ${bal > 20000 ? 'Strong position.' : bal > 10000 ? 'Monitor closely.' : 'Action required.'}`
+        : 'No cashflow data yet. Add months in Forecast to enable this insight.',
+      actions: bal < 15000
+        ? '① Reduce discretionary spend by 15%\n② Invoice immediately if any pending\n③ Explore parallel contract opportunities'
+        : bal < 25000
+        ? '① Maintain tax reserve discipline\n② Review burn rate categories\n③ Set up auto-transfer to buffer account'
+        : '① Consider increasing day rate at next renewal\n② Pre-fund Q2 tax reserve now\n③ Evaluate pension contributions',
+    },
+    {
+      icon:'⚖️', title:'Contract & Wet DBA',
+      type: daysToEnd != null && daysToEnd < 60 ? 'act' : daysToEnd != null && daysToEnd < 120 ? 'watch' : 'ok',
+      finding: active.length
+        ? `${active.length} active contract(s). ${daysToEnd != null ? `End date in ${daysToEnd} days.` : ''} ${daysToEnd < 60 ? '⚠ Start renewal/pipeline immediately.' : daysToEnd < 120 ? 'Begin outreach planning.' : 'Well positioned.'}`
+        : 'No active contracts found. Ensure your contracts are logged in Notion with status "Active".',
+      actions: daysToEnd != null && daysToEnd < 60
+        ? '① Contact agency today re renewal\n② Activate top 3 pipeline opportunities\n③ Brief LinkedIn headline update\n④ Prepare new SOW / rate increase'
+        : '① Schedule quarterly contract review\n② Update Notion contract end dates\n③ Keep pipeline active (target 3+ warm leads)',
+    },
+    {
+      icon:'🌐', title:'Market Timing',
+      type: hiringTrend > 65 ? 'ok' : hiringTrend > 40 ? 'watch' : 'act',
+      finding: `Average hiring index ${Math.round(hiringTrend)}/100 over recent signals. ${topOpps} opportunities scoring ≥70 match. ${hiringTrend > 65 ? 'Market is HOT — ideal for rate increase.' : hiringTrend > 40 ? 'Market is moderate — selective outreach.' : 'Market is soft — focus on retention.'}`,
+      actions: hiringTrend > 65
+        ? '① Test rate increase of €10-15/hr on next engagement\n② Prioritize Capital Markets & Asset Mgmt signals\n③ Initiate warm outreach to HOT companies\n④ Update LinkedIn with recent project outcomes'
+        : '① Focus on account expansion within current client\n② Build case studies for Q3 pipeline\n③ Monitor monthly hiring index for uptick\n④ Strengthen referral network',
+    },
+    {
+      icon:'🏦', title:'Tax & NL Structure',
+      type: 'watch',
+      finding: `MKB aftrek ${cfg.mkbPct || 12.7}%, ZVW ${cfg.zvwPct || 4.85}%. ${cfg.hourlyRate > 100 ? 'At €'+cfg.hourlyRate+'/hr you are in the 49.5% top bracket — MKB reduces exposure significantly.' : 'Current rate keeps you in middle bracket.'}`,
+      actions: '① Maximise MKB aftrek (ensure qualifying hours logged)\n② Build Q2 BTW reserve (21% on invoices)\n③ Consult tax advisor re holdingstructuur at €'+cfg.hourlyRate+'+/hr\n④ Check Zelfstandigenaftrek eligibility (min 1225 hrs/yr)',
+    },
+    {
+      icon:'📈', title:'Rate Benchmarking',
+      type: cfg.hourlyRate >= 115 ? 'ok' : cfg.hourlyRate >= 90 ? 'watch' : 'act',
+      finding: `Current rate ${fmtE(cfg.hourlyRate)}/hr (${fmtE((cfg.hourlyRate||115)*8)}/day). ${NX.history.length > 0 ? 'Based on '+NX.history.length+' historical projects.' : 'Add project history for rate trend analysis.'} NL FO Consultant market median: €110-130/hr.`,
+      actions: cfg.hourlyRate < 100
+        ? '① Research current market rates via LinkedIn/Indeed\n② Add €10/hr increment at next contract renewal\n③ Quantify value delivered in current engagement\n④ Reference regulation-driven demand (DORA, SFDR)'
+        : '① Benchmark against SimCorp Dimension specialists (€130-160/hr)\n② Position next renewal as Senior/Lead role\n③ Target direct contracts (vs agency) to capture 15-20% margin\n④ Document key wins for negotiation brief',
+    },
+  ];
+
+  document.getElementById('adv-cards').innerHTML = cards.map(c => `
+    <div class="adv-card ${c.type}">
+      <div class="adv-header">
+        <div class="adv-icon">${c.icon}</div>
+        <div class="adv-title">${c.title}</div>
+        <div style="margin-left:auto;font-size:11px;font-weight:700;
+          color:${c.type==='ok'?'var(--acc)':c.type==='watch'?'var(--acc3)':'var(--acc4)'};
+          background:${c.type==='ok'?'rgba(79,255,176,0.1)':c.type==='watch'?'rgba(249,202,36,0.1)':'rgba(255,107,107,0.1)'};
+          padding:3px 8px;border-radius:20px">${c.type.toUpperCase()}</div>
+      </div>
+      <div class="adv-finding">${c.finding}</div>
+      <div class="adv-actions" style="white-space:pre-line">${c.actions}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════════════════════════
+function renderSettings() {
+  const cfg = NX.config;
+  document.getElementById('settings-content').innerHTML = `
+    <div class="settings-form">
+      <div class="form-section">
+        <div class="form-section-title">Identity</div>
+        <div class="form-grid">
+          <div class="form-field"><label>Full Name</label><input id="s-name" value="${cfg.name||''}"></div>
+          <div class="form-field"><label>Invoice Currency</label>
+            <select id="s-currency">${['EUR','CAD','USD','GBP'].map(c=>`<option ${cfg.currency===c?'selected':''}>${c}</option>`).join('')}</select>
+          </div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Rate & Contract</div>
+        <div class="form-grid">
+          <div class="form-field"><label>Hourly Rate (EUR)</label><input id="s-rate" type="number" value="${cfg.hourlyRate||115}"></div>
+          <div class="form-field"><label>Day Rate (EUR)</label><input id="s-dayrate" type="number" value="${cfg.dayRate||920}"></div>
+          <div class="form-field"><label>Agency</label><input id="s-agency" value="${cfg.agency||''}"></div>
+          <div class="form-field"><label>Current Client</label><input id="s-client" value="${cfg.client||''}"></div>
+          <div class="form-field"><label>Contract End Date</label><input id="s-end" type="date" value="${cfg.contractEnd||''}"></div>
+          <div class="form-field"><label>Payment Lag Days</label><input id="s-lag" type="number" value="${cfg.payLagDays||21}"></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">NL Tax Parameters</div>
+        <div class="form-grid">
+          <div class="form-field"><label>Monthly Burn (EUR)</label><input id="s-burn" type="number" value="${cfg.burn||3200}"></div>
+          <div class="form-field"><label>Wise Balance (EUR)</label><input id="s-balance" type="number" value="${cfg.wiseBalance||18000}"></div>
+          <div class="form-field"><label>MKB Aftrek %</label><input id="s-mkb" type="number" step="0.1" value="${cfg.mkbPct||12.7}"></div>
+          <div class="form-field"><label>ZVW %</label><input id="s-zvw" type="number" step="0.1" value="${cfg.zvwPct||4.85}"></div>
+          <div class="form-field"><label>Tax Reserve %</label><input id="s-taxres" type="number" step="0.5" value="${cfg.taxReservePct||35}"></div>
+          <div class="form-field"><label>FX Buffer %</label><input id="s-fxbuf" type="number" step="0.5" value="${cfg.fxBuffer||3}"></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Skills (from Profile DB)</div>
+        <div style="font-size:12px;color:var(--txt2);margin-bottom:6px">Edit skills directly in Notion → Profile — Dan Deenik</div>
+        <div class="tag-list">${(cfg.skills||[]).map(s=>`<span class="tag" style="background:${s.tier===1?'rgba(79,255,176,0.15)':s.tier===2?'rgba(79,172,254,0.15)':'rgba(100,120,150,0.1)'}">${s.label}</span>`).join('')}</div>
+      </div>
+    </div>`;
+}
+
+async function saveSettings() {
+  const updates = {};
+  const fields = [
+    ['s-name',    'Full Name',          'text'],
+    ['s-rate',    'Hourly Rate EUR',    'number'],
+    ['s-dayrate', 'Day Rate EUR',       'number'],
+    ['s-currency','Invoice Currency',   'text'],
+    ['s-burn',    'Monthly Burn EUR',   'number'],
+    ['s-balance', 'Wise Balance EUR',   'number'],
+    ['s-agency',  'Agency',             'text'],
+    ['s-client',  'Current Client',     'text'],
+    ['s-end',     'Contract End Date',  'text'],
+    ['s-lag',     'Payment Lag Days',   'number'],
+    ['s-mkb',     'MKB Pct',            'number'],
+    ['s-zvw',     'ZVW Pct',            'number'],
+    ['s-taxres',  'Tax Reserve Pct',    'number'],
+    ['s-fxbuf',   'FX Buffer Pct',      'number'],
+  ];
+  for (const [id, param] of fields) {
+    const el = document.getElementById(id);
+    if (el && el.value !== '') updates[param] = el.value;
+  }
+  if (!Object.keys(updates).length) { toast('No changes to save', 'err'); return; }
+  try {
+    const result = await apiPatch('/api/config', updates);
+    toast(`Saved ${result.updated.length} setting(s) to Notion ✓`, 'ok');
+    if (result.skipped > 0) toast(`${result.skipped} field(s) not found in Profile DB`, 'err');
+    await reloadAll();
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONTRACTS PAGE
+// ═══════════════════════════════════════════════════════════
+let contractAssessChart = null;
+
+function renderContractsPage() {
+  const contracts = NX.contracts || [];
+  if (!contracts.length) {
+    document.getElementById('contracts-list').innerHTML =
+      '<div class="empty-state"><div class="icon">📄</div>No contracts in Notion yet</div>';
+    return;
+  }
+  const statusOrder = { Active: 0, Draft: 1, Renewed: 2, Expired: 3 };
+  const sorted = [...contracts].sort((a, b) =>
+    (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9));
+
+  document.getElementById('contracts-list').innerHTML = sorted.map(c => {
+    const rate = c.hourlyRateEur ? `€${c.hourlyRateEur}/hr` : c.dayRateCad ? `CAD ${c.dayRateCad}/day` : '—';
+    const dates = [c.effectiveDate, c.endDate].filter(Boolean).join(' → ');
+    const statusClass = `status-${(c.status || 'draft').toLowerCase()}`;
+    return `
+      <div class="contract-card ${statusClass}">
+        <div style="display:flex;align-items:flex-start">
+          <div style="flex:1;min-width:0">
+            <div class="cc-name">${escHtml(c.name || 'Untitled')}</div>
+            <div class="cc-meta">
+              ${c.client ? `<span>🏢 ${escHtml(c.client)}</span>` : ''}
+              ${c.counterparty ? `<span>🤝 ${escHtml(c.counterparty)}</span>` : ''}
+              ${c.contactJpsb ? `<span>👤 ${escHtml(c.contactJpsb)}</span>` : ''}
+              ${dates ? `<span>📅 ${dates}</span>` : ''}
+              ${c.paymentTerms ? `<span>💳 Net ${c.paymentTerms}d</span>` : ''}
+              ${c.noticePeriod ? `<span>⏱ ${escHtml(c.noticePeriod)}</span>` : ''}
+              ${c.status ? `<span style="color:${c.status==='Active'?'var(--acc)':c.status==='Expired'?'var(--txt3)':'var(--acc3)'};font-weight:700">${c.status}</span>` : ''}
+            </div>
+          </div>
+          <div class="cc-rate">${rate}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function showContractForm() {
+  document.getElementById('contract-form-panel').scrollIntoView({ behavior: 'smooth' });
+}
+
+function switchContractTab(id, el) {
+  document.querySelectorAll('.form-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.form-tab-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('ctab-' + id).classList.add('active');
+}
+
+// ── PDF upload handling ─────────────────────────────────────────────────────
+
+async function handlePdfFile(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('pdf-parse-status');
+  statusEl.style.display = 'block';
+  statusEl.textContent = `⏳ Parsing ${file.name}…`;
+  document.getElementById('pdf-extracted-fields').style.display = 'none';
+
+  try {
+    const fd = new FormData();
+    fd.append('contract', file);
+    const r = await fetch(`/api/contracts/parse?${wsParam()}`, { method: 'POST', body: fd });
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({}));
+      throw new Error(body.error || `HTTP ${r.status}`);
+    }
+    const fields = await r.json();
+    fillPdfFields(fields);
+    statusEl.textContent = `✅ Extracted from ${file.name} (confidence: ${fields.confidence}%)`;
+    document.getElementById('pdf-extracted-fields').style.display = 'block';
+  } catch (e) {
+    statusEl.textContent = `❌ Parse error: ${e.message}`;
+  }
+}
+
+function handlePdfDrop(event) {
+  event.preventDefault();
+  document.getElementById('pdf-drop-zone').classList.remove('drag-over');
+  const file = event.dataTransfer.files[0];
+  if (file) handlePdfFile(file);
+}
+
+function fillPdfFields(f) {
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+  set('pf-name', f.documentName);
+  set('pf-client', f.client);
+  set('pf-agency', f.counterparty);
+  set('pf-contact', f.contactJpsb);
+  set('pf-rate-eur', f.hourlyRateEur ?? f.dayRateEur);
+  set('pf-rate-cad', f.dayRateCad);
+  set('pf-start', f.effectiveDate);
+  set('pf-end', f.endDate);
+  set('pf-payment', f.paymentTermsDays);
+  set('pf-law', f.governingLaw);
+  set('pf-notice', f.noticePeriod);
+  set('pf-obligations', f.keyObligations);
+  set('pf-risks', f.keyRisks);
+  // Confidence bar
+  const conf = f.confidence ?? 0;
+  const colour = conf >= 80 ? 'var(--acc)' : conf >= 50 ? 'var(--acc3)' : 'var(--acc4)';
+  document.getElementById('pdf-confidence-bar').innerHTML =
+    `<div style="display:flex;align-items:center;gap:8px">
+       <span>Parse confidence: <strong style="color:${colour}">${conf}%</strong></span>
+       <div style="flex:1;height:4px;background:var(--bg4);border-radius:2px">
+         <div style="width:${conf}%;height:100%;background:${colour};border-radius:2px;transition:width 0.5s"></div>
+       </div>
+     </div>`;
+  // Raw text
+  document.getElementById('pdf-raw-text').textContent = f.rawText || '(no text extracted)';
+}
+
+function collectContractFormData(fromPdf = false) {
+  const g  = id => document.getElementById(id)?.value?.trim() || null;
+  const gn = id => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? null : v; };
+  const pre = fromPdf ? 'pf-' : 'cf-';
+  const cfg = NX.config;
+
+  return {
+    documentName:    g(fromPdf ? 'pf-name' : 'cf-name'),
+    client:          g(fromPdf ? 'pf-client' : 'cf-client'),
+    counterparty:    g(fromPdf ? 'pf-agency' : 'cf-agency'),
+    contactJpsb:     g(fromPdf ? 'pf-contact' : 'cf-contact'),
+    hourlyRateEur:   gn(fromPdf ? 'pf-rate-eur' : 'cf-rate-eur'),
+    dayRateCad:      gn(fromPdf ? 'pf-rate-cad' : 'cf-rate-cad'),
+    effectiveDate:   g(fromPdf ? 'pf-start' : 'cf-start'),
+    endDate:         g(fromPdf ? 'pf-end' : 'cf-end'),
+    paymentTerms:    gn(fromPdf ? 'pf-payment' : 'cf-payment'),
+    governingLaw:    g(fromPdf ? 'pf-law' : 'cf-law'),
+    noticePeriod:    g(fromPdf ? 'pf-notice' : 'cf-notice'),
+    keyObligations:  g(fromPdf ? 'pf-obligations' : 'cf-obligations'),
+    keyRisks:        g(fromPdf ? 'pf-risks' : 'cf-risks'),
+    insuranceReq:    fromPdf ? false : (document.getElementById('cf-insurance')?.checked ?? false),
+    notes:           fromPdf ? null : g('cf-notes'),
+    status:          fromPdf ? 'Active' : (g('cf-status') || 'Active'),
+    docType:         'Service Agreement',
+    // For assessment
+    monthlyBurn:     cfg.burn || 0,
+    workDaysPerMonth: 20,
+    agencyMarginPct:  0,
+    payLagDays:       cfg.payLagDays || 30,
+    likelyMonths:     6,
+  };
+}
+
+// ── Cashflow assessment ─────────────────────────────────────────────────────
+
+async function runContractAssessment(fromPdf = false) {
+  const contract = collectContractFormData(fromPdf);
+  if (!contract.documentName) { toast('Enter a contract name first', 'err'); return; }
+  if (!contract.hourlyRateEur && !contract.dayRateCad) {
+    toast('Enter at least one rate (hourly EUR or day rate CAD)', 'err'); return;
+  }
+
+  const pane = document.getElementById('contract-assess-pane');
+  pane.innerHTML = `<div class="assess-panel"><div style="text-align:center;padding:40px"><div class="spinner" style="margin:0 auto 16px"></div><div style="color:var(--txt2);font-size:13px">Running ML assessment…</div></div></div>`;
+
+  try {
+    const result = await apiFetch('/api/forecast/assess', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contract }),
+    });
+    renderAssessment(result);
+  } catch (e) {
+    pane.innerHTML = `<div class="assess-panel"><div class="empty-state"><div class="icon">❌</div>${e.message}</div></div>`;
+  }
+}
+
+function runContractAssessmentFromPdf() { runContractAssessment(true); }
+
+function renderAssessment(r) {
+  const a   = r.assessment || {};
+  const fmt = n => n == null ? '—' : '€' + Math.round(n).toLocaleString('nl-NL');
+  const fmtR = n => n == null ? '—' : Math.round(n).toLocaleString('nl-NL');
+
+  const signalsHtml = (a.signals || []).map(s =>
+    `<div class="assess-signal ok">✓ ${escHtml(s)}</div>`).join('');
+  const warningsHtml = (a.warnings || []).map(w =>
+    `<div class="assess-signal warn">⚠ ${escHtml(w)}</div>`).join('');
+
+  const score   = a.score ?? 0;
+  const grade   = a.grade ?? 'REVIEW';
+  const scores  = a.scores || {};
+  const ra      = r.rateAnalysis || {};
+  const run     = r.runway || {};
+  const contract= r.contract || {};
+
+  const scoreBreakdown = [
+    ['Trend', scores.trend, 25],
+    ['Rate', scores.rate, 25],
+    ['Seasonality', scores.season, 20],
+    ['Runway', scores.runway, 20],
+    ['Confidence', scores.confidence, 10],
+  ];
+
+  const pane = document.getElementById('contract-assess-pane');
+  pane.innerHTML = `
+    <div class="assess-panel">
+      <div class="assess-header">
+        <div class="assess-grade ${grade}">
+          <div class="assess-score-ring">${score}</div>
+          <div class="assess-grade-label">${grade}</div>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:4px">Cashflow Assessment</div>
+          <div style="font-size:12px;color:var(--txt2);line-height:1.5">${escHtml(a.recommendation || '')}</div>
+        </div>
+      </div>
+
+      <!-- Score breakdown bars -->
+      ${scoreBreakdown.map(([label, val, max]) => `
+        <div class="assess-bar-row"><span>${label}</span><span style="font-weight:700">${val}/${max}</span></div>
+        <div class="assess-bar"><div class="assess-bar-fill" style="width:${Math.round((val/max)*100)}%"></div></div>
+      `).join('')}
+
+      <!-- Mini metrics -->
+      <div class="assess-mini-grid" style="margin-top:14px">
+        <div class="assess-mini">
+          <div class="am-val" style="color:var(--acc)">${fmt(contract.netMonthly)}</div>
+          <div class="am-lbl">Net / Month</div>
+        </div>
+        <div class="assess-mini">
+          <div class="am-val" style="color:${run.extended >= 12 ? 'var(--acc)' : 'var(--acc3)'}">${run.extended >= 99 ? '∞' : run.extended + 'mo'}</div>
+          <div class="am-lbl">Runway</div>
+        </div>
+        <div class="assess-mini">
+          <div class="am-val" style="color:${ra.zScore >= 0 ? 'var(--acc)' : 'var(--acc4)'}">${ra.percentile != null ? ra.percentile + '%ile' : '—'}</div>
+          <div class="am-lbl">Rate Rank</div>
+        </div>
+      </div>
+
+      <!-- Signals & warnings -->
+      <div class="assess-signals">
+        ${signalsHtml}${warningsHtml}
+      </div>
+
+      <!-- Rate analysis -->
+      ${ra.historicalMean ? `
+      <div style="font-size:11px;color:var(--txt2);margin-bottom:12px">
+        Rate: €${ra.proposedHourly}/hr vs historical avg €${ra.historicalMean}/hr
+        (z = ${ra.zScore > 0 ? '+' : ''}${ra.zScore?.toFixed(2) ?? '—'}) — ${escHtml(ra.verdict)}
+      </div>` : ''}
+
+      <!-- 18-month forecast chart -->
+      <div class="chart-wrap" style="margin-bottom:12px">
+        <div class="chart-title">18-Month Balance Forecast</div>
+        <canvas id="contract-assess-chart" height="200"></canvas>
+      </div>
+
+      <!-- Trend details -->
+      <div style="font-size:11px;color:var(--txt3);margin-top:8px">
+        Trend: slope ${r.trend?.slope > 0 ? '+' : ''}€${fmtR(r.trend?.slope)}/mo · R²=${(r.trend?.r2 * 100).toFixed(0)}% · Model: ${r.smoothing?.type || '—'} · σ=€${fmtR(r.smoothing?.sigma)}
+      </div>
+    </div>`;
+
+  // Draw chart
+  requestAnimationFrame(() => renderContractAssessChart(r));
+}
+
+function renderContractAssessChart(r) {
+  const canvas = document.getElementById('contract-assess-chart');
+  if (!canvas) return;
+  if (contractAssessChart) { contractAssessChart.destroy(); contractAssessChart = null; }
+
+  const f = r.forecast || {};
+  const labels = f.labels?.map(l => l.slice(0, 7)) ?? [];
+
+  contractAssessChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Baseline (no contract)',
+          data:  f.baseline,
+          borderColor: 'rgba(102,112,128,0.7)',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          borderDash: [5,4],
+          pointRadius: 0,
+          tension: 0.3,
+        },
+        {
+          label: 'With New Contract',
+          data:  f.withContract,
+          borderColor: 'rgba(79,255,176,0.9)',
+          backgroundColor: 'transparent',
+          borderWidth: 2.5,
+          pointRadius: 0,
+          tension: 0.3,
+        },
+        {
+          label: 'Upper Band',
+          data:  f.withContractUpper,
+          borderColor: 'transparent',
+          backgroundColor: 'rgba(79,255,176,0.07)',
+          fill: '+1',
+          pointRadius: 0,
+          tension: 0.3,
+        },
+        {
+          label: 'Lower Band',
+          data:  f.withContractLower,
+          borderColor: 'rgba(79,255,176,0.2)',
+          borderDash: [3,3],
+          fill: false,
+          pointRadius: 0,
+          tension: 0.3,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          labels: { color: '#8892a4', font: { size: 10 },
+            filter: item => !['Upper Band'].includes(item.text) }
+        },
+        tooltip: {
+          mode: 'index', intersect: false,
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: €${Math.round(ctx.parsed.y || 0).toLocaleString('nl-NL')}`
+          }
+        },
+      },
+      scales: {
+        x: { ticks: { color: '#8892a4', font: { size: 10 }, maxTicksLimit: 9 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#8892a4', font: { size: 10 }, callback: v => '€' + Math.round(v/1000) + 'k' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      },
+    },
+  });
+}
+
+// ── Save to Notion ─────────────────────────────────────────────────────────
+
+async function submitNewContract(fromPdf = false) {
+  const data = collectContractFormData(fromPdf);
+  if (!data.documentName) { toast('Contract name is required', 'err'); return; }
+
+  try {
+    const result = await apiFetch('/api/contracts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    toast(`Contract saved to Notion ✓ (${data.status})`, 'ok');
+    // Reload contracts from Notion
+    const contracts = await apiFetch('/api/contracts');
+    NX.contracts = contracts;
+    renderContractsPage();
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LIVE FEED
+// ═══════════════════════════════════════════════════════════
+let feedActiveTiers = new Set(['HOT', 'WARM', 'MONITOR']);
+let feedData = null;
+
+async function loadFeed() {
+  const itemsEl = document.getElementById('feed-items');
+  if (!itemsEl) return;
+  itemsEl.innerHTML = '<div class="empty-state"><div class="icon">⏳</div>Loading feed…</div>';
+  try {
+    const data = await apiFetch('/api/feed?limit=100');
+    feedData = data;
+    renderFeed();
+    renderFeedMeta(data.meta);
+  } catch (e) {
+    itemsEl.innerHTML = `<div class="empty-state"><div class="icon">❌</div>${e.message}</div>`;
+  }
+}
+
+async function triggerFeedRefresh() {
+  const btn = document.getElementById('feed-refresh-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Refreshing…'; }
+  try {
+    const data = await apiFetch('/api/feed/refresh', { method: 'POST', body: '{}' });
+    feedData = null;
+    await loadFeed();
+    toast(`Feed refreshed — ${data.count} roles found`, 'ok');
+  } catch (e) {
+    toast('Refresh failed: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh Sources'; }
+  }
+}
+
+function toggleFeedTier(tier, chipEl) {
+  if (feedActiveTiers.has(tier)) {
+    if (feedActiveTiers.size === 1) return; // keep at least one
+    feedActiveTiers.delete(tier);
+    chipEl.classList.remove('active');
+  } else {
+    feedActiveTiers.add(tier);
+    chipEl.classList.add('active');
+  }
+  renderFeed();
+}
+
+function renderFeedMeta(meta) {
+  if (!meta) return;
+  const el = document.getElementById('feed-last-fetch');
+  if (el) {
+    const ts = meta.lastFetch ? new Date(meta.lastFetch).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : 'Never';
+    el.textContent = `Last fetch: ${ts}${meta.stale ? ' (stale)' : ''}`;
+  }
+  const tierBar = document.getElementById('feed-tier-bar');
+  if (tierBar && meta.tierCount) {
+    const t = meta.tierCount;
+    tierBar.innerHTML = `
+      <span class="tier-chip HOT" style="cursor:default">🔥 ${t.HOT || 0} HOT</span>
+      <span class="tier-chip WARM" style="cursor:default">⚡ ${t.WARM || 0} WARM</span>
+      <span class="tier-chip MONITOR" style="cursor:default">👁 ${t.MONITOR || 0} MONITOR</span>
+      <span class="tier-chip COLD" style="cursor:default">❄️ ${t.COLD || 0} COLD</span>
+    `;
+  }
+}
+
+function renderFeed() {
+  const itemsEl = document.getElementById('feed-items');
+  if (!itemsEl || !feedData) return;
+
+  const items = (feedData.items || []).filter(i => feedActiveTiers.has(i.tier));
+
+  if (!items.length) {
+    itemsEl.innerHTML = '<div class="empty-state"><div class="icon">🔍</div>No roles match the selected tiers</div>';
+    return;
+  }
+
+  itemsEl.innerHTML = items.map(item => {
+    const kwTags = (item.matchedKeywords || []).slice(0, 5)
+      .map(k => `<span class="feed-match-tag">${k.keyword.replace(/\\/g,'').replace(/[()]/g,'')}</span>`).join('');
+    const pubDate = item.pubDate ? new Date(item.pubDate).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short' }) : '';
+    const multiSource = (item.sources || []).length > 1
+      ? `<span style="color:var(--acc);font-weight:700">⊕ ${item.sources.length} sources</span> · ` : '';
+    return `
+      <div class="feed-card ${item.tier}">
+        <div class="feed-score ${item.tier}">${item.score}</div>
+        <div class="feed-body">
+          <div class="feed-title">${escHtml(item.title)}</div>
+          <div class="feed-company">${item.company ? escHtml(item.company) : ''} · ${item.sourceName || ''}</div>
+          ${item.snippet ? `<div class="feed-snippet">${escHtml(item.snippet.slice(0, 160))}…</div>` : ''}
+          <div class="feed-matches">${kwTags}</div>
+        </div>
+        <div class="feed-actions">
+          ${item.link ? `<a href="${escHtml(item.link)}" target="_blank" class="btn btn-ghost btn-sm">Open ↗</a>` : ''}
+          <div class="feed-source">${multiSource}${item.tier}</div>
+          <div class="feed-date">${pubDate}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ROLE SIMULATOR
+// ═══════════════════════════════════════════════════════════
+let simChart = null;
+
+function resetSimulator() {
+  const cfg = NX.config;
+  const pref = v => v !== null && v !== undefined ? v : '';
+  // Pre-fill from Notion profile config
+  document.getElementById('si-b-rate').value    = pref(cfg.hourlyRate);
+  document.getElementById('si-b-days').value    = 20;
+  document.getElementById('si-b-burn').value    = pref(cfg.burn);
+  document.getElementById('si-b-end').value     = cfg.contractEnd || '';
+  document.getElementById('si-b-balance').value = pref(cfg.wiseBalance);
+  document.getElementById('si-b-margin').value  = 0;
+  document.getElementById('si-c-rate').value    = '';
+  document.getElementById('si-c-margin').value  = 10;
+  document.getElementById('si-c-days').value    = 20;
+  document.getElementById('si-c-burn').value    = pref(cfg.burn);
+  document.getElementById('si-c-start').value   = '';
+  document.getElementById('si-c-lag').value     = pref(cfg.payLagDays) || 30;
+  document.getElementById('si-c-min').value     = 3;
+  document.getElementById('si-c-likely').value  = 6;
+  document.getElementById('si-c-max').value     = 12;
+  document.getElementById('si-c-renewal').value = 0.6;
+  document.getElementById('sim-results-pane').innerHTML = `
+    <div class="empty-state" style="padding:80px 40px">
+      <div class="icon" style="font-size:48px">🧮</div>
+      <div style="margin-top:16px;font-size:14px">Fill in both scenarios and click<br>
+        <strong style="color:var(--acc)">▶ Run Forecast</strong></div>
+    </div>`;
+}
+
+async function runSimulation() {
+  const cfg = NX.config;
+  const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const n = id => { const val = parseFloat(v(id)); return isNaN(val) ? null : val; };
+
+  const baseline = {
+    name:             'Current Contract',
+    hourlyRate:       n('si-b-rate')    || 0,
+    agencyMarginPct:  n('si-b-margin')  || 0,
+    workDaysPerMonth: n('si-b-days')    || 20,
+    monthlyBurn:      n('si-b-burn')    || 0,
+    endDate:          v('si-b-end')     || null,
+    currentBalance:   n('si-b-balance') || 0,
+    likelyMonths:     12,
+  };
+
+  const candidate = {
+    name:               'New Opportunity',
+    hourlyRate:         n('si-c-rate')    || 0,
+    agencyMarginPct:    n('si-c-margin')  || 0,
+    workDaysPerMonth:   n('si-c-days')    || 20,
+    monthlyBurn:        n('si-c-burn')    || 0,
+    startDate:          v('si-c-start')   || null,
+    payLagDays:         n('si-c-lag')     || 30,
+    minMonths:          n('si-c-min')     || 3,
+    likelyMonths:       n('si-c-likely')  || 6,
+    maxMonths:          n('si-c-max')     || 12,
+    renewalProbability: parseFloat(v('si-c-renewal')) || 0.6,
+    currentBalance:     n('si-b-balance') || 0,
+  };
+
+  if (!baseline.hourlyRate) { toast('Enter baseline hourly rate', 'err'); return; }
+  if (!candidate.hourlyRate) { toast('Enter scenario hourly rate', 'err'); return; }
+
+  const taxOverrides = {
+    mkbPct: cfg.mkbPct  ?? 12.7,
+    zvwPct: cfg.zvwPct  ?? 4.85,
+  };
+
+  document.getElementById('sim-results-pane').innerHTML =
+    '<div class="empty-state"><div class="spinner" style="margin:60px auto"></div></div>';
+
+  try {
+    const result = await apiFetch('/api/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ baseline, candidate, tax: taxOverrides, mode: 'compare' }),
+    });
+    renderSimResults(result, baseline, candidate);
+  } catch (e) {
+    document.getElementById('sim-results-pane').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div>Simulation error: ${e.message}</div>`;
+  }
+}
+
+function renderSimResults(r, baseline, candidate) {
+  const fmt = (n, dec=0) => n == null ? '—' : '€' + Math.round(n).toLocaleString('nl-NL');
+  const pct = n => n == null ? '—' : (n * 100).toFixed(1) + '%';
+
+  const d6  = r.delta?.find(d => d.months === 6);
+  const d12 = r.delta?.find(d => d.months === 12);
+  const d18 = r.delta?.find(d => d.months === 18);
+
+  const deltaColor = v => v === null ? '' : v > 0 ? 'color:var(--acc)' : v < 0 ? 'color:var(--acc4)' : '';
+  const sign = v => v == null ? '—' : (v > 0 ? '+' : '') + '€' + Math.round(v).toLocaleString('nl-NL');
+
+  const crossoverHtml = r.crossoverMonth
+    ? `<div class="crossover-badge">✓ Scenario leads baseline from <strong>${r.crossoverMonth}</strong></div>`
+    : `<div class="crossover-badge" style="background:rgba(255,107,107,0.1);border-color:rgba(255,107,107,0.3);color:var(--acc4)">⚠ Scenario doesn't overtake baseline within 18 months</div>`;
+
+  const recHtml = (r.recommendation || []).map(s => `<div>• ${s}</div>`).join('');
+
+  // Tax comparison
+  const txB = r.baselineTax;
+  const txC = r.scenarioTax;
+
+  const html = `
+    <div class="sim-results">
+      ${crossoverHtml}
+
+      <div class="sim-metrics">
+        <div class="sim-metric">
+          <div class="sm-val" style="${deltaColor(d6?.delta)}">${sign(d6?.delta)}</div>
+          <div class="sm-lbl">Δ at 6 months</div>
+        </div>
+        <div class="sim-metric">
+          <div class="sm-val" style="${deltaColor(d12?.delta)}">${sign(d12?.delta)}</div>
+          <div class="sm-lbl">Δ at 12 months</div>
+        </div>
+        <div class="sim-metric">
+          <div class="sm-val" style="${deltaColor(d18?.delta)}">${sign(d18?.delta)}</div>
+          <div class="sm-lbl">Δ at 18 months</div>
+        </div>
+      </div>
+
+      <div class="sim-rec">${recHtml || 'Run with valid inputs for recommendations.'}</div>
+
+      <!-- 18-month chart -->
+      <div class="chart-wrap" style="margin-bottom:16px">
+        <div class="chart-title">Cumulative Net Position — 18 months</div>
+        <canvas id="sim-chart" height="220"></canvas>
+      </div>
+
+      <!-- Tax comparison -->
+      <div class="sim-tax-compare">
+        <div class="sim-tax-box">
+          <div class="stb-title">📄 Baseline Tax (Annual)</div>
+          <div class="sim-tax-row"><span>Gross Profit</span><span>${fmt(txB?.grossAnnualProfit)}</span></div>
+          <div class="sim-tax-row"><span>MKB Deduction</span><span>-${fmt(txB?.mkbDeduction)}</span></div>
+          <div class="sim-tax-row"><span>Taxable Income</span><span>${fmt(txB?.taxableIncome)}</span></div>
+          <div class="sim-tax-row"><span>Income Tax</span><span>${fmt(txB?.incomeTax)}</span></div>
+          <div class="sim-tax-row"><span>ZVW</span><span>${fmt(txB?.zvw)}</span></div>
+          <div class="sim-tax-row total"><span>Net Take-Home</span><span>${fmt(txB?.netProfit)}</span></div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:6px">Effective rate: ${pct(txB?.effectiveRate)}</div>
+        </div>
+        <div class="sim-tax-box">
+          <div class="stb-title">🆕 Scenario Tax (Annual)</div>
+          <div class="sim-tax-row"><span>Gross Profit</span><span>${fmt(txC?.grossAnnualProfit)}</span></div>
+          <div class="sim-tax-row"><span>MKB Deduction</span><span>-${fmt(txC?.mkbDeduction)}</span></div>
+          <div class="sim-tax-row"><span>Taxable Income</span><span>${fmt(txC?.taxableIncome)}</span></div>
+          <div class="sim-tax-row"><span>Income Tax</span><span>${fmt(txC?.incomeTax)}</span></div>
+          <div class="sim-tax-row"><span>ZVW</span><span>${fmt(txC?.zvw)}</span></div>
+          <div class="sim-tax-row total"><span>Net Take-Home</span><span>${fmt(txC?.netProfit)}</span></div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:6px">Effective rate: ${pct(txC?.effectiveRate)}</div>
+        </div>
+      </div>
+
+      <!-- Summary comparison table -->
+      <div class="sim-panel" style="margin-top:4px">
+        <div class="sim-panel-title">Summary Comparison</div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px 8px;color:var(--txt2);font-size:11px;border-bottom:1px solid var(--border)">Metric</th>
+              <th style="text-align:right;padding:6px 8px;color:var(--txt2);font-size:11px;border-bottom:1px solid var(--border)">Baseline</th>
+              <th style="text-align:right;padding:6px 8px;color:var(--acc);font-size:11px;border-bottom:1px solid var(--border)">Scenario</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${[
+              ['Daily Rate', fmt(r.baseline?.dailyRate), fmt(r.scenario?.dailyRate)],
+              ['Total Gross (18m)', fmt(r.baseline?.totalGrossRevenue), fmt(r.scenario?.totalGrossRevenue)],
+              ['Agency Margin', fmt(r.baseline?.totalAgencyMargin), fmt(r.scenario?.totalAgencyMargin)],
+              ['Net Revenue (18m)', fmt(r.baseline?.totalNetRevenue), fmt(r.scenario?.totalNetRevenue)],
+              ['Total Burn', fmt(r.baseline?.totalBurn), fmt(r.scenario?.totalBurn)],
+              ['Tax Reserve', fmt(r.baseline?.totalTaxReserve), fmt(r.scenario?.totalTaxReserve)],
+              ['Net Take-Home', fmt(r.baseline?.netTakeHome18m), fmt(r.scenario?.netTakeHome18m)],
+              ['Effective Tax Rate', pct(r.baseline?.effectiveTaxRate), pct(r.scenario?.effectiveTaxRate)],
+              ['Gap Cost', fmt(r.breakEvenGapCost > 0 ? 0 : null), fmt(r.breakEvenGapCost)],
+            ].map(([label, bv, cv]) => `
+              <tr>
+                <td style="padding:6px 8px;color:var(--txt2);border-bottom:1px solid rgba(255,255,255,0.03)">${label}</td>
+                <td style="text-align:right;padding:6px 8px;border-bottom:1px solid rgba(255,255,255,0.03)">${bv}</td>
+                <td style="text-align:right;padding:6px 8px;color:var(--acc);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.03)">${cv}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+  document.getElementById('sim-results-pane').innerHTML = html;
+
+  // Render Chart.js after DOM is updated
+  requestAnimationFrame(() => renderSimChart(r));
+}
+
+function renderSimChart(r) {
+  const canvas = document.getElementById('sim-chart');
+  if (!canvas) return;
+  if (simChart) { simChart.destroy(); simChart = null; }
+
+  const months = r.months || [];
+  const labels      = months.map(m => m.label);
+  const baseline    = months.map(m => m.baseline);
+  const scenario    = months.map(m => m.scenario);
+  const bandMin     = months.map(m => m.scenarioBandMin ?? m.scenario);
+  const bandMax     = months.map(m => m.scenarioBandMax ?? m.scenario);
+
+  simChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Baseline',
+          data: baseline,
+          borderColor: 'rgba(79,172,254,0.9)',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+        },
+        {
+          label: 'Scenario (Likely)',
+          data: scenario,
+          borderColor: 'rgba(79,255,176,0.9)',
+          backgroundColor: 'transparent',
+          borderWidth: 2.5,
+          pointRadius: 0,
+          tension: 0.3,
+        },
+        {
+          label: 'Scenario Max',
+          data: bandMax,
+          borderColor: 'transparent',
+          backgroundColor: 'rgba(79,255,176,0.08)',
+          fill: '+1',
+          pointRadius: 0,
+          tension: 0.3,
+        },
+        {
+          label: 'Scenario Min',
+          data: bandMin,
+          borderColor: 'rgba(79,255,176,0.2)',
+          backgroundColor: 'rgba(79,255,176,0.04)',
+          borderDash: [4,4],
+          fill: false,
+          pointRadius: 0,
+          tension: 0.3,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          labels: { color: '#8892a4', font: { size: 11 },
+            filter: item => item.text !== 'Scenario Max' }
+        },
+        tooltip: {
+          mode: 'index', intersect: false,
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: €${Math.round(ctx.parsed.y || 0).toLocaleString('nl-NL')}`,
+          }
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: '#8892a4', font: { size: 10 }, maxTicksLimit: 9 },
+          grid:  { color: 'rgba(255,255,255,0.04)' },
+        },
+        y: {
+          ticks: {
+            color: '#8892a4', font: { size: 10 },
+            callback: v => '€' + Math.round(v / 1000) + 'k',
+          },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+      },
+    },
+  });
+}
+
+// ─── DB Status page ────────────────────────────────────────────
+async function refreshStatus() {
+  document.getElementById('status-content').innerHTML =
+    '<div class="empty-state"><div class="icon">🔄</div>Checking connections…</div>';
+  try {
+    const data = await fetch('/api/status').then(r => r.json());
+    const rows = data.databases || [];
+    const grouped = {};
+    rows.forEach(r => {
+      if (!grouped[r.workspace]) grouped[r.workspace] = [];
+      grouped[r.workspace].push(r);
+    });
+    let html = '';
+    for (const [ws, dbs] of Object.entries(grouped)) {
+      html += `<div class="card" style="margin-bottom:12px">
+        <div class="section-title" style="margin-bottom:10px">Workspace: ${ws}</div>`;
+      for (const db of dbs) {
+        const icon  = db.status === 'ok' ? '✅' : db.status === 'unconfigured' ? '⬜' : '❌';
+        const color = db.status === 'ok' ? 'var(--acc)' : db.status === 'unconfigured' ? 'var(--txt3)' : 'var(--acc4)';
+        html += `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:16px;flex-shrink:0">${icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:${color}">${db.db}</div>
+            ${db.message ? `<div style="font-size:11px;color:var(--acc4);margin-top:3px;word-break:break-word">${db.message}</div>` : ''}
+          </div>
+        </div>`;
+      }
+      html += '</div>';
+    }
+    document.getElementById('status-content').innerHTML = html ||
+      '<div class="empty-state">No databases configured</div>';
+  } catch (e) {
+    document.getElementById('status-content').innerHTML =
+      `<div class="empty-state"><div class="icon">❌</div>${e.message}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MODALS
+// ═══════════════════════════════════════════════════════════
+function openModal(title, bodyHtml) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function openAddExpense() {
+  openModal('Add Expense', `
+    <div class="modal-form">
+      <div><label>Description</label><input id="m-desc" placeholder="e.g. Rent"></div>
+      <div class="modal-row">
+        <div><label>Date</label><input id="m-date" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
+        <div><label>Amount (EUR)</label><input id="m-amount" type="number" step="0.01" placeholder="0.00"></div>
+      </div>
+      <div class="modal-row">
+        <div><label>Category</label><select id="m-cat">
+          ${['Housing','Food','Transport','Healthcare','Equipment','Subscriptions','Professional','Insurance','Other'].map(c=>`<option>${c}</option>`).join('')}
+        </select></div>
+        <div><label>Currency</label><select id="m-cur"><option>EUR</option><option>CAD</option><option>USD</option><option>GBP</option></select></div>
+      </div>
+      <div><label>Notes</label><input id="m-notes" placeholder="Optional"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-acc" onclick="submitAddExpense()">Save to Notion</button>
+      </div>
+    </div>`);
+}
+
+async function submitAddExpense() {
+  const body = {
+    description: document.getElementById('m-desc')?.value || '',
+    date:        document.getElementById('m-date')?.value,
+    amountEur:   parseFloat(document.getElementById('m-amount')?.value) || 0,
+    category:    document.getElementById('m-cat')?.value || 'Other',
+    currency:    document.getElementById('m-cur')?.value || 'EUR',
+    notes:       document.getElementById('m-notes')?.value || '',
+  };
+  if (!body.amountEur) { toast('Enter an amount', 'err'); return; }
+  try {
+    const result = await apiPost('/api/expenses', body);
+    NX.expenses.unshift({ ...body, id: result.id, amountOrig: body.amountEur, fxRate: 1, source: 'Manual' });
+    renderExpenses();
+    closeModal();
+    toast('Expense saved to Notion ✓', 'ok');
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
+function openAddCashflow() {
+  const today = new Date();
+  openModal('Add Cashflow Month', `
+    <div class="modal-form">
+      <div><label>Month Label (e.g. Apr 2026)</label><input id="cf-label" placeholder="Apr 2026"></div>
+      <div class="modal-row">
+        <div><label>Date</label><input id="cf-date" type="date" value="${today.toISOString().split('T')[0]}"></div>
+        <div><label>Year</label><input id="cf-year" type="number" value="${today.getFullYear()}"></div>
+      </div>
+      <div class="modal-row">
+        <div><label>Gross Revenue (EUR)</label><input id="cf-gross" type="number" placeholder="0"></div>
+        <div><label>Monthly Burn (EUR)</label><input id="cf-burn" type="number" value="${NX.config.burn||3200}"></div>
+      </div>
+      <div class="modal-row">
+        <div><label>Tax Reserve (EUR)</label><input id="cf-tax" type="number" placeholder="0"></div>
+        <div><label>Closing Balance (EUR)</label><input id="cf-bal" type="number" placeholder="0"></div>
+      </div>
+      <div class="modal-row">
+        <div><label>Wise Snapshot (EUR)</label><input id="cf-wise" type="number" placeholder="0"></div>
+        <div><label>Season Score (0-100)</label><input id="cf-season" type="number" placeholder="0"></div>
+      </div>
+      <div class="modal-row">
+        <div><label>Contracts Active</label><input id="cf-contracts" type="number" placeholder="1" value="1"></div>
+        <div><label>Payment Lag Days</label><input id="cf-paylag" type="number" placeholder="30" value="${NX.config.payLagDays||30}"></div>
+      </div>
+      <div><label>Zone</label><select id="cf-zone">
+        <option>STABLE CRUISE</option><option selected>TRANSITIONAL</option><option>CAUTION</option><option>HIGH ALERT</option>
+      </select></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-acc" onclick="submitAddCashflow()">Save to Notion</button>
+      </div>
+    </div>`);
+}
+
+async function submitAddCashflow() {
+  const dateStr = document.getElementById('cf-date')?.value;
+  if (!dateStr) { toast('Enter a date', 'err'); return; }
+  const dt = new Date(dateStr);
+  const gross = parseFloat(document.getElementById('cf-gross')?.value) || 0;
+  const burnV = parseFloat(document.getElementById('cf-burn')?.value)  || 0;
+  const tax   = parseFloat(document.getElementById('cf-tax')?.value)   || 0;
+  const bal   = parseFloat(document.getElementById('cf-bal')?.value)   || 0;
+  const body = {
+    label:          document.getElementById('cf-label')?.value || dt.toLocaleString('en',{month:'short'})+' '+dt.getFullYear(),
+    date:           dateStr,
+    year:           parseInt(document.getElementById('cf-year')?.value) || dt.getFullYear(),
+    monthNumber:    dt.getMonth() + 1,
+    grossRevenue:   gross,
+    monthlyBurn:    burnV,
+    taxReserve:     tax,
+    netAfterTax:    gross - tax - burnV,
+    closingBalance: bal,
+    wiseSnapshot:   parseFloat(document.getElementById('cf-wise')?.value) || bal,
+    seasonScore:    parseFloat(document.getElementById('cf-season')?.value) || 0,
+    contractsActive: parseInt(document.getElementById('cf-contracts')?.value) || 1,
+    paymentLag:      parseInt(document.getElementById('cf-paylag')?.value) || 30,
+    zone:           document.getElementById('cf-zone')?.value || 'TRANSITIONAL',
+    currency:       'EUR',
+    decisionScore:  0,
+  };
+  try {
+    const result = await apiPost('/api/cashflow', body);
+    NX.cashflow.push({ ...body, id: result.id });
+    NX.cashflow.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    renderAll();
+    closeModal();
+    toast('Cashflow month saved to Notion ✓', 'ok');
+  } catch (e) { toast('Error: ' + e.message, 'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NAV / PAGE SWITCHING
+// ═══════════════════════════════════════════════════════════
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pg = document.getElementById('page-' + id);
+  if (pg) pg.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.dataset.page === id) n.classList.add('active');
+  });
+  // Lazy re-render on page switch for charts that need canvas to be visible
+  if (id === 'radar')     renderRadar();
+  if (id === 'forecast')  renderForecast();
+  if (id === 'expenses')  renderExpenses();
+  if (id === 'wetdba')    renderWetDba();
+  if (id === 'status')    refreshStatus();
+  if (id === 'feed')      loadFeed();
+  if (id === 'simulate')  resetSimulator();
+  if (id === 'contracts') renderContractsPage();
+}
+
+// ─── Event wiring ─────────────────────────────────────────────
+document.getElementById('nav').addEventListener('click', e => {
+  const item = e.target.closest('.nav-item');
+  if (item) showPage(item.dataset.page);
+});
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ─── Init ─────────────────────────────────────────────────────
+(async () => {
+  await initWorkspaces();
+  await loadAll();
+})();
+</script>
+</body>
+</html>
