@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Nexus Live v5.3 — Forecast Extended Wireframe</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#0b0b10;--bg1:#111119;--bg2:#181824;--bg3:#1e1e2c;--bg4:#252538;--bg5:#2c2c42;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);--border3:rgba(255,255,255,0.16);
+  --txt:#dde2f0;--sub:#6b7a9a;--dim:#3d4560;
+  --blue:#4facfe;--blue2:#38a0f0;--blue-a:rgba(79,172,254,0.12);
+  --green:#34d399;--green-a:rgba(52,211,153,0.1);
+  --red:#f87171;--red-a:rgba(248,113,113,0.1);
+  --amber:#fbbf24;--amber-a:rgba(251,191,36,0.1);
+  --purple:#a78bfa;--purple-a:rgba(167,139,250,0.1);
+  --teal:#2dd4bf;
+  --r1:6px;--r2:10px;--r3:14px;--r4:18px;
+}
+body{background:var(--bg0);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;font-size:13px;line-height:1.5}
+/* ── LAYOUT ── */
+.shell{max-width:900px;margin:0 auto;padding:20px 16px 80px}
+.section{margin-bottom:10px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);overflow:hidden}
+.card-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.card-hd-l{display:flex;align-items:center;gap:8px}
+.card-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--sub)}
+.card-body{padding:14px}
+/* ── BADGE / CHIP ── */
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px}
+.chip-blue{background:rgba(79,172,254,.12);color:var(--blue)}
+.chip-green{background:rgba(52,211,153,.12);color:var(--green)}
+.chip-amber{background:rgba(251,191,36,.12);color:var(--amber)}
+.chip-red{background:rgba(248,113,113,.12);color:var(--red)}
+.chip-purple{background:rgba(167,139,250,.12);color:var(--purple)}
+.chip-dim{background:var(--bg4);color:var(--sub)}
+/* ── WFBADGE ── */
+.wf-badge{position:fixed;top:10px;right:10px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.4);color:var(--amber);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 9px;border-radius:20px;z-index:9999}
+.wf-note{background:rgba(251,191,36,.05);border-left:2px solid rgba(251,191,36,.3);color:rgba(251,191,36,.75);font-size:10px;padding:5px 10px;border-radius:0 var(--r1) var(--r1) 0;margin-bottom:10px;font-style:italic}
+/* ── STRATEGY BAR ── */
+.strategy-bar{background:linear-gradient(135deg,rgba(79,172,254,.07),rgba(167,139,250,.05));border:1px solid rgba(79,172,254,.18);border-radius:var(--r2);padding:11px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px}
+.strategy-text{font-size:12.5px;color:var(--txt);line-height:1.55;flex:1}
+.strategy-text strong{color:var(--blue)}
+.strategy-text .ok{color:var(--green);font-weight:600}
+.strategy-text .warn{color:var(--amber);font-weight:600}
+.ml-conf{font-size:9px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.2);color:var(--green);padding:2px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0;margin-top:2px}
+/* ── SCENARIO TABS ── */
+.sc-row{display:flex;gap:0;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:3px;width:fit-content;margin-bottom:10px}
+.sc-tab{padding:5px 14px;border-radius:var(--r1);font-size:11px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--sub);transition:all .15s;white-space:nowrap}
+.sc-tab:hover{color:var(--txt);background:var(--bg4)}
+.sc-tab.on{background:var(--blue);color:#fff;font-weight:700}
+/* ── KPI ROW ── */
+.kpi-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.kpi{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:12px 13px}
+.kpi.hero{border-color:rgba(52,211,153,.22);background:linear-gradient(135deg,rgba(52,211,153,.06),var(--bg3))}
+.kpi.hero.warn{border-color:rgba(251,191,36,.28);background:linear-gradient(135deg,rgba(251,191,36,.05),var(--bg3))}
+.kpi-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--sub);font-weight:600;margin-bottom:3px}
+.kpi-val{font-size:24px;font-weight:800;line-height:1;color:var(--green)}
+.kpi-val.sm{font-size:18px;color:var(--txt)}
+.kpi-val.warn{color:var(--amber)}
+.kpi-sub{font-size:10px;color:var(--sub);margin-top:3px}
+.kpi-delta{font-size:10px;margin-top:5px}
+.gauge{margin-top:7px;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.gauge-fill{height:100%;border-radius:2px;transition:width .4s}
+/* ── IMPACT BARS ── */
+.imp-row{display:grid;grid-template-columns:110px 1fr 70px;align-items:center;gap:10px;margin-bottom:7px}
+.imp-lbl{font-size:10px;color:var(--sub)}
+.imp-lbl strong{display:block;font-size:11px;color:var(--txt)}
+.imp-track{height:20px;background:var(--bg4);border-radius:4px;overflow:hidden;position:relative}
+.imp-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:10px;font-weight:700;color:#fff;transition:width .5s cubic-bezier(.34,1.56,.64,1)}
+.imp-val{font-size:12px;font-weight:700;text-align:right}
+/* ── ML PANEL ── */
+.ml-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.ml-item{background:var(--bg4);border-radius:var(--r2);padding:11px 12px}
+.ml-item-title{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--sub);font-weight:700;margin-bottom:6px}
+.ml-item-val{font-size:18px;font-weight:800;color:var(--txt);line-height:1.1}
+.ml-item-sub{font-size:10px;color:var(--sub);margin-top:3px}
+/* Seasonal sparkbar */
+.season-bar-wrap{display:flex;align-items:flex-end;gap:2px;height:32px;margin:6px 0 2px}
+.season-bar{flex:1;border-radius:2px 2px 0 0;min-height:4px;transition:height .3s}
+.season-months{display:flex;gap:2px;font-size:8px;color:var(--dim)}
+.season-months span{flex:1;text-align:center}
+/* ── CHART ── */
+.chart-wrap{height:210px;background:var(--bg3);border-radius:var(--r2);overflow:hidden;position:relative}
+.chart-svg{width:100%;height:100%}
+.chart-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;padding:0 2px}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--sub)}
+.leg-line{width:18px;height:2px;border-radius:1px}
+/* ── EXPENSE INTEGRATION ── */
+.source-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg4);border-radius:var(--r1);margin-bottom:8px}
+.source-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.source-name{font-size:12px;font-weight:600;flex:1}
+.source-sync{font-size:10px;color:var(--sub)}
+.exp-table{width:100%;border-collapse:collapse}
+.exp-table th{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--sub);font-weight:700;padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)}
+.exp-table td{padding:7px 8px;border-bottom:1px solid var(--border);font-size:11px;vertical-align:middle}
+.exp-table tr:last-child td{border-bottom:none}
+.exp-bar-wrap{height:4px;background:var(--bg4);border-radius:2px;margin-top:3px;overflow:hidden;min-width:60px}
+.exp-bar-fill{height:100%;border-radius:2px}
+.season-tag{font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(167,139,250,.12);color:var(--purple);font-weight:600;white-space:nowrap}
+.adj-tag{font-size:9px;font-weight:700}
+/* ── CONTRACT LIFECYCLE ── */
+.cl-row{display:grid;grid-template-columns:1fr auto;align-items:start;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)}
+.cl-row:last-of-type{border-bottom:none}
+.cl-name{font-size:12px;font-weight:700;color:var(--txt)}
+.cl-sub{font-size:10px;color:var(--sub);margin-top:1px}
+.cl-bar-wrap{height:4px;background:var(--bg4);border-radius:2px;margin:6px 0 4px;overflow:hidden}
+.cl-bar-fill{height:100%;border-radius:2px}
+.cl-right{text-align:right;flex-shrink:0}
+.cl-days{font-size:11px;font-weight:700}
+.cl-prob{display:flex;align-items:center;gap:5px;margin-top:4px;justify-content:flex-end}
+.prob-bar{height:3px;width:50px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.prob-fill{height:100%;border-radius:2px}
+.prob-label{font-size:10px;font-weight:600}
+.cl-actions{display:flex;gap:6px;margin-top:6px}
+/* ── ROLE MATCH ── */
+.roles-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.role-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:12px;transition:border-color .15s}
+.role-card:hover{border-color:var(--border2)}
+.role-card.hot{border-color:rgba(52,211,153,.25)}
+.role-top{display:flex;align-items:flex-start;gap:10px}
+.role-gauge-wrap{flex-shrink:0;position:relative;width:48px;height:48px}
+.role-info{flex:1;min-width:0}
+.role-title{font-size:12px;font-weight:700;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.role-company{font-size:10px;color:var(--sub);margin-top:1px}
+.role-rate{font-size:11px;font-weight:600;color:var(--green);margin-top:4px}
+.role-factors{margin-top:8px;display:flex;flex-direction:column;gap:2px}
+.factor-row{display:flex;align-items:center;gap:6px;font-size:10px}
+.factor-icon{font-size:10px;width:14px;text-align:center;flex-shrink:0}
+.factor-txt{color:var(--sub);flex:1}
+.factor-score{font-size:9px;font-weight:700;white-space:nowrap}
+.role-footer{display:flex;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)}
+/* ── SVG GAUGE ── */
+.gauge-svg{width:48px;height:48px}
+/* ── OUTREACH MODAL ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r4);width:480px;max-width:95vw;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.modal-title{font-size:14px;font-weight:800;margin-bottom:4px}
+.modal-sub{font-size:11px;color:var(--sub);margin-bottom:16px}
+.msg-box{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:12px 14px;font-size:12px;line-height:1.7;color:var(--txt);white-space:pre-wrap;cursor:text;min-height:120px;margin-bottom:12px}
+.msg-box[contenteditable="true"]:focus{outline:none;border-color:rgba(79,172,254,.4)}
+.channel-row{display:flex;gap:6px;margin-bottom:14px}
+.ch-btn{flex:1;padding:7px;border:1px solid var(--border2);border-radius:var(--r1);background:var(--bg4);color:var(--sub);font-size:11px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s}
+.ch-btn.on{background:var(--blue-a);border-color:rgba(79,172,254,.4);color:var(--blue)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+.btn{padding:8px 16px;border-radius:var(--r1);font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue2)}
+.btn-ghost{background:var(--bg4);color:var(--sub);border:1px solid var(--border2)}
+.btn-ghost:hover{color:var(--txt)}
+.btn-green{background:rgba(52,211,153,.2);color:var(--green);border:1px solid rgba(52,211,153,.3)}
+.btn-sm{padding:5px 10px;font-size:10px;border-radius:4px}
+/* ── LOGIC FLOW ── */
+.lf-wrap{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:4px 0}
+.lf-node{flex-shrink:0;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:10px 12px;min-width:120px;text-align:center}
+.lf-node-t{font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--sub);font-weight:700;margin-bottom:5px}
+.lf-node-b{font-size:10px;color:var(--txt);line-height:1.7}
+.lf-node.accent{border-color:rgba(79,172,254,.3);background:rgba(79,172,254,.05)}
+.lf-node.out{border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.04)}
+.lf-node.ml{border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.04)}
+.lf-arr{display:flex;align-items:center;color:var(--dim);font-size:15px;padding:0 3px;margin-top:28px;flex-shrink:0}
+/* ── MISC ── */
+.divider{height:1px;background:var(--border);margin:10px 0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tag-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+hr{border:none;border-top:1px dashed rgba(251,191,36,.2);margin:18px 0}
+@media(max-width:640px){
+  .kpi-grid{grid-template-columns:1fr 1fr}
+  .roles-grid{grid-template-columns:1fr}
+  .ml-grid{grid-template-columns:1fr}
+  .row2{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wf-badge">Wireframe v2 — Awaiting Approval</div>
+
+<div class="shell">
+
+<!-- PAGE HEADER -->
+<div style="margin-bottom:16px">
+  <div style="font-size:17px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px">Nexus Live — Forecast v5.3</div>
+  <div style="font-size:11px;color:var(--sub)">Extended wireframe · Contracts → ML → Expenses → Lifecycle → Roles · Tree of Thought applied</div>
+</div>
+
+<div class="wf-note">New sections added: ML Intelligence (seasonal model, confidence bands), Expense Integration (bank sync + seasonal budgets), Contract Lifecycle (renewal probability + auto-outreach), Role Matching (match score + Cowork sends the message). Logic diagram at the bottom.</div>
+
+<!-- ═══════════════════════════════════════════════════════
+  1. STRATEGY SENTENCE  (ML-enhanced, confidence % shown)
+════════════════════════════════════════════════════════════ -->
+<div class="strategy-bar section">
+  <div style="font-size:18px;margin-top:1px">🎯</div>
+  <div class="strategy-text">
+    Your <strong>active contracts cover 14 weeks runway</strong>.
+    Shell ends in <span class="warn">47 days — renewal probability 72%</span>.
+    A strong role match at ING (91%) is available —
+    <span class="ok">Cowork can reach out today.</span>
+    Seasonal model: Q2 expenses drop ~12% —
+    <span class="ok">runway extends by ~1.5 weeks automatically.</span>
+  </div>
+  <div class="ml-conf">ML 88% conf.</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+  2. SCENARIO TABS
+════════════════════════════════════════════════════════════ -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+  <div class="sc-row">
+    <button class="sc-tab on" onclick="setSc('base',this)">Base</button>
+    <button class="sc-tab" onclick="setSc('cons',this)">Conservative</button>
+    <button class="sc-tab" onclick="setSc('opt',this)">Optimistic</button>
+    <button class="sc-tab" onclick="setSc('cust',this)">Custom ▾</button>
+  </div>
+  <div style="font-size:10px;color:var(--sub)">Scenarios change which pipeline contracts count · Tax + expenses auto-adjust</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+  3. KPI ROW
+════════════════════════════════════════════════════════════ -->
+<div class="kpi-grid section">
+  <!-- Hero: Runway -->
+  <div class="kpi hero">
+    <div class="kpi-lbl">Runway</div>
+    <div class="kpi-val" id="rv">14 wks</div>
+    <div class="kpi-sub">Active contracts · 3.5 months</div>
+    <div class="gauge"><div class="gauge-fill" style="width:54%;background:var(--green)"></div></div>
+    <div class="kpi-delta" style="color:var(--sub);margin-top:5px">
+      <span style="color:var(--red)">▼ 8 wks</span> worst ·
+      <span style="color:var(--green)">▲ 22 wks</span> best ·
+      <span style="color:var(--purple)">+1.5 wks Q2 seasonal</span>
+    </div>
+  </div>
+  <!-- Net /mo -->
+  <div class="kpi">
+    <div class="kpi-lbl">Net spendable /mo</div>
+    <div class="kpi-val sm">€5,720</div>
+    <div class="kpi-sub">After BTW + 35% tax hold</div>
+    <div class="kpi-delta" style="color:var(--green)">61% of €9,400 gross</div>
+  </div>
+  <!-- Seasonal surplus -->
+  <div class="kpi">
+    <div class="kpi-lbl">vs. Seasonal spend</div>
+    <div class="kpi-val sm" style="color:var(--green)">+€1,840</div>
+    <div class="kpi-sub">ML seasonal burn: €3,880 Q2</div>
+    <div class="kpi-delta" style="color:var(--purple)">▼ −12% seasonal model</div>
+  </div>
+  <!-- BTW -->
+  <div class="kpi">
+    <div class="kpi-lbl">BTW due</div>
+    <div class="kpi-val sm warn">€4,830</div>
+    <div class="kpi-sub">Q1 · Apr 30 · 38d</div>
+    <div class="kpi-delta" style="color:var(--sub)">From contracts · auto-computed</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+  4. IMPACT BARS
+════════════════════════════════════════════════════════════ -->
+<div class="card section">
+  <div class="card-hd">
+    <div class="card-hd-l">
+      <span class="card-title">Runway by Scenario</span>
+      <span class="chip chip-purple">ML seasonal adjusted</span>
+    </div>
+    <span style="font-size:10px;color:var(--sub)">Safe zone = 16 wks ·  Δ = gain vs Base</span>
+  </div>
+  <div class="card-body">
+    <div class="imp-row">
+      <div class="imp-lbl"><strong>Base</strong>Active only</div>
+      <div class="imp-track">
+        <div class="imp-fill" style="width:54%;background:linear-gradient(90deg,#34d399,#2fb882)">14 wks</div>
+        <div style="position:absolute;top:0;left:calc(16/26*100%);width:1px;height:100%;background:rgba(255,255,255,0.14)"></div>
+      </div>
+      <div class="imp-val" style="color:var(--green)">14 wks</div>
+    </div>
+    <div class="imp-row">
+      <div class="imp-lbl"><strong>+ Seasonal Q2</strong>Auto-adjusted</div>
+      <div class="imp-track">
+        <div class="imp-fill" style="width:60%;background:linear-gradient(90deg,#a78bfa,#9070e8)">15.5 wks</div>
+      </div>
+      <div class="imp-val" style="color:var(--purple)">15.5 wks <span style="font-size:9px;color:var(--green)">+1.5</span></div>
+    </div>
+    <div class="imp-row">
+      <div class="imp-lbl"><strong>Conservative</strong>+50% pipeline</div>
+      <div class="imp-track">
+        <div class="imp-fill" style="width:69%;background:linear-gradient(90deg,#60a5fa,#3b82f6)">18 wks</div>
+      </div>
+      <div class="imp-val" style="color:var(--blue)">18 wks <span style="font-size:9px;color:var(--green)">+4</span></div>
+    </div>
+    <div class="imp-row">
+      <div class="imp-lbl"><strong>Optimistic</strong>All pipeline</div>
+      <div class="imp-track">
+        <div class="imp-fill" style="width:85%;background:linear-gradient(90deg,#34d399,#059669)">22 wks</div>
+      </div>
+      <div class="imp-val" style="color:var(--green)">22 wks <span style="font-size:9px;color:var(--green)">+8</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+  5a. ML INTELLIGENCE PANEL  ← NEW
+════════════════════════════════════════════════════════════ -->
+<div class="card section">
+  <div class="card-hd">
+    <div class="card-hd-l">
+      <span class="card-title">ML Intelligence</span>
+      <span class="chip chip-purple">Seasonal model · 18 months data</span>
+    </div>
+    <span style="font-size:10px;color:var(--sub)">Trained on your actuals · updates monthly</span>
+  </div>
+  <div class="card-body">
+    <div class="ml-grid">
+
+      <!-- Seasonal pattern mini chart -->
+      <div class="ml-item">
+        <div class="ml-item-title">Seasonal income pattern</div>
+        <div class="season-bar-wrap" id="season-bars">
+          <!-- Bars rendered by JS -->
+        </div>
+        <div class="season-months">
+          <span>J</span><span>F</span><span>M</span><span>A</span><span>M</span><span>J</span>
+          <span>J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span>
+        </div>
+        <div class="ml-item-sub" style="margin-top:6px">Q2 typically −12% · Q4 +18% · Now: Mar (avg)</div>
+      </div>
+
+      <!-- Expense seasonality -->
+      <div class="ml-item">
+        <div class="ml-item-title">Seasonal expense adjustment</div>
+        <div class="ml-item-val" style="color:var(--purple)">−12%</div>
+        <div class="ml-item-sub">Q2 burn historically lower<br>€4,300 → €3,784 expected</div>
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;justify-content:space-between;font-size:10px">
+            <span style="color:var(--sub)">Software</span>
+            <span style="color:var(--green)">−€80 (summer)</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px">
+            <span style="color:var(--sub)">Transport</span>
+            <span style="color:var(--green)">−€120 (WFH Q2)</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px">
+            <span style="color:var(--sub)">Utilities</span>
+            <span style="color:var(--green)">−€60 (heating off)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ML anomaly detection -->
+      <div class="ml-item">
+        <div class="ml-item-title">Anomaly detection</div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:var(--r1);padding:7px 9px">
+            <div style="font-size:10px;font-weight:700;color:var(--amber)">⚠ Software spend</div>
+            <div style="font-size:10px;color:var(--sub);margin-top:2px">Mar: €340 vs €180 avg — new subscription? Review.</div>
+          </div>
+          <div style="background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.18);border-radius:var(--r1);padding:7px 9px">
+            <div style="font-size:10px;font-weight:700;color:var(--green)">✓ Transport on trend</div>
+            <div style="font-size:10px;color:var(--sub);margin-top:2px">€95/mo · within seasonal norm · no action</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+  5b. CHART — with ML confidence bands  ← ENHANCED
+════════════════════════════════════════════════════════════ -->
+<div class="card section">
+  <div class="card-hd">
+    <div class="card-hd-l">
+      <span class="card-title">Cash Balance Forecast</span>
+      <span class="chip chip-purple">ML confidence bands</span>
+    </div>
+    <span style="font-size:10px;color:var(--sub)">Shading = 80% confidence interval · widens with time</span>
+  </div>
+  <div class="card-body" style="padding:10px">
+    <div class="chart-wrap">
+      <svg class="chart-svg" viewBox="0 0 800 200" preserveAspectRatio="none">
+        <!-- Grid -->
+        <line x1="0" y1="50" x2="800" y2="50" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <line x1="0" y1="100" x2="800" y2="100" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <line x1="0" y1="150" x2="800" y2="150" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+
+        <!-- Safety floor -->
+        <line x1="0" y1="160" x2="800" y2="160" stroke="rgba(248,113,113,0.2)" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- ML 80% confidence band (base scenario only) -->
+        <!-- Upper 80% bound -->
+        <path d="M320,95 C400,85 500,75 600,70 C700,65 750,62 800,60"
+          fill="none" stroke="none"/>
+        <!-- Lower 80% bound -->
+        <path d="M320,95 C400,105 500,118 600,132 C700,148 750,160 800,172"
+          fill="none" stroke="none"/>
+        <!-- Confidence area fill -->
+        <path d="M320,95
+          C400,85 500,75 600,70 C700,65 750,62 800,60
+          L800,172
+          C750,160 700,148 600,132 C500,118 400,105 320,95 Z"
+          fill="rgba(52,211,153,0.06)"/>
+        <!-- Inner 50% band -->
+        <path d="M320,95
+          C400,90 500,88 600,90 C700,92 750,94 800,100
+          L800,130
+          C750,126 700,125 600,120 C500,115 400,108 320,95 Z"
+          fill="rgba(52,211,153,0.08)"/>
+
+        <!-- Optimistic line -->
+        <path d="M0,55 C100,52 200,50 300,52 C400,50 500,42 600,38 C700,32 750,28 800,26"
+          fill="none" stroke="rgba(167,139,250,0.35)" stroke-width="1.5" stroke-dasharray="5,3"/>
+
+        <!-- Conservative line -->
+        <path d="M0,55 C100,58 200,65 300,74 C400,80 500,75 600,72 C700,70 750,68 800,70"
+          fill="none" stroke="rgba(96,165,250,0.4)" stroke-width="1.5" stroke-dasharray="5,3"/>
+
+        <!-- Base scenario — solid -->
+        <path d="M0,55 C100,60 200,75 300,92 C400,105 500,116 600,130 C700,148 750,158 800,166"
+          fill="none" stroke="rgba(52,211,153,0.85)" stroke-width="2.5"/>
+
+        <!-- Actual past months (thicker, solid) -->
+        <path d="M0,55 C40,56 80,60 120,63 C160,66 220,70 280,80 C300,84 310,90 320,95"
+          fill="none" stroke="rgba(52,211,153,1)" stroke-width="3"/>
+
+        <!-- Today marker -->
+        <line x1="320" y1="8" x2="320" y2="192" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="2,3"/>
+        <text x="323" y="16" font-size="8" fill="rgba(255,255,255,0.3)" font-family="sans-serif">Today</text>
+
+        <!-- Safe zone label -->
+        <text x="10" y="157" font-size="8" fill="rgba(248,113,113,0.4)" font-family="sans-serif">Floor (3mo buffer)</text>
+
+        <!-- Season annotation -->
+        <rect x="320" y="0" width="160" height="200" fill="rgba(167,139,250,0.025)"/>
+        <text x="325" y="26" font-size="8" fill="rgba(167,139,250,0.5)" font-family="sans-serif">Q2 seasonal ▼ burns less</text>
+
+        <!-- Month labels -->
+        <text x="2"   y="196" font-size="8" fill="rgba(255,255,255,0.18)" font-family="sans-serif">Jan</text>
+        <text x="92"  y="196" font-size="8" fill="rgba(255,255,255,0.18)" font-family="sans-serif">Feb</text>
+        <text x="182" y="196" font-size="8" fill="rgba(255,255,255,0.18)" font-family="sans-serif">Mar</text>
+        <text x="272" y="196" font-size="8" fill="rgba(255,255,255,0.18)" font-family="sans-serif">Apr</text>
+        <text x="360" y="196" font-size="8" fill="rgba(255,255,255,0.18)" font-family="sans-serif">May</text>
+        <text x="448" y="196" font-size="8" fill="rgba(255,255,255,0.18)" font-family="sans-serif">Jun</text>
+        <text x="536" y="196" font-size="8" fill="rgba(255,255,255,0.18)" font-family="sans-serif">Jul</text>
+        <text x="624" y="196" font-size="8" fill="rgba(255,255,255,0.18)" font-family="sans-serif">Aug</text>
+        <text x="712" y="196" font-size="8" fill="rgba(255,255,255,0.18)" font-family="sans-serif">Sep</text>
+      </svg>
+    </div>
+    <div class="chart-legend">
+      <div class="leg-item"><div class="leg-line" style="background:rgba(52,211,153,.9);height:3px"></div>Base (actuals → forecast)</div>
+      <div class="leg-item"><div class="leg-line" style="background:rgba(52,211,153,.2);height:10px;border-radius:2px;width:14px"></div>80% confidence band</div>
+      <div class="leg-item"><div class="leg-line" style="background:rgba(96,165,250,.5);border-top:1px dashed;height:0"></div>Conservative</div>
+      <div class="leg-item"><div class="leg-line" style="background:rgba(167,139,250,.45);border-top:1px dashed;height:0"></div>Optimistic</div>
+      <div class="leg-item" style="margin-left:auto"><div class="leg-line" style="background:rgba(248,113,113,.35)"></div>Safety floor</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+  6. EXPENSE INTEGRATION  ← NEW
+════════════════════════════════════════════════════════════ -->
+<div class="card section">
+  <div class="card-hd">
+    <div class="card-hd-l">
+      <span class="card-title">Expense Integration</span>
+      <span class="chip chip-green">● Live sync</span>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span style="font-size:10px;color:var(--sub)">Last pull: 4 min ago</span>
+      <button class="btn btn-ghost btn-sm" style="padding:3px 9px;font-size:10px">↻ Sync</button>
+    </div>
+  </div>
+  <div class="card-body">
+
+    <!-- Connected sources -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--sub);font-weight:700;margin-bottom:6px">Connected Sources</div>
+      <div class="row2">
+        <div class="source-row">
+          <div class="source-dot" style="background:var(--green)"></div>
+          <div><div class="source-name">Bunq (main)</div><div class="source-sync">Balance: €38,200 · synced 4 min ago</div></div>
+          <span class="chip chip-green" style="font-size:9px">Live</span>
+        </div>
+        <div class="source-row">
+          <div class="source-dot" style="background:var(--amber)"></div>
+          <div><div class="source-name">ING Zakelijk</div><div class="source-sync">Balance: €6,440 · synced 2h ago ⚠</div></div>
+          <button class="btn btn-ghost btn-sm">Reconnect</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expense table with seasonal ML -->
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--sub);font-weight:700;margin-bottom:8px">
+      March Actuals vs. ML Seasonal Budget
+    </div>
+    <table class="exp-table">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Spent</th>
+          <th>ML Budget</th>
+          <th>Status</th>
+          <th>Q2 Adj.</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div style="font-weight:600">Software / SaaS</div>
+            <div class="exp-bar-wrap"><div class="exp-bar-fill" style="width:85%;background:var(--amber)"></div></div>
+          </td>
+          <td>€340</td>
+          <td>€200 <span class="season-tag">S</span></td>
+          <td><span style="font-size:10px;font-weight:700;color:var(--amber)">⚠ +70%</span></td>
+          <td><span class="adj-tag" style="color:var(--green)">−€30</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div style="font-weight:600">Transport</div>
+            <div class="exp-bar-wrap"><div class="exp-bar-fill" style="width:63%;background:var(--green)"></div></div>
+          </td>
+          <td>€95</td>
+          <td>€150</td>
+          <td><span style="font-size:10px;font-weight:700;color:var(--green)">✓ OK</span></td>
+          <td><span class="adj-tag" style="color:var(--green)">−€40</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div style="font-weight:600">Phone / Internet</div>
+            <div class="exp-bar-wrap"><div class="exp-bar-fill" style="width:92%;background:var(--green)"></div></div>
+          </td>
+          <td>€92</td>
+          <td>€100</td>
+          <td><span style="font-size:10px;font-weight:700;color:var(--green)">✓ OK</span></td>
+          <td><span class="adj-tag" style="color:var(--sub)">—</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div style="font-weight:600">Utilities <span class="season-tag">S</span></div>
+            <div class="exp-bar-wrap"><div class="exp-bar-fill" style="width:75%;background:var(--green)"></div></div>
+          </td>
+          <td>€180</td>
+          <td>€240</td>
+          <td><span style="font-size:10px;font-weight:700;color:var(--green)">✓ Under</span></td>
+          <td><span class="adj-tag" style="color:var(--green)">−€60</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div style="font-weight:600">Dining / Client</div>
+            <div class="exp-bar-wrap"><div class="exp-bar-fill" style="width:105%;background:var(--red)"></div></div>
+          </td>
+          <td>€420</td>
+          <td>€300</td>
+          <td><span style="font-size:10px;font-weight:700;color:var(--red)">⚠ +40%</span></td>
+          <td><span class="adj-tag" style="color:var(--sub)">—</span></td>
+        </tr>
+        <tr style="background:var(--bg4)">
+          <td><div style="font-weight:700">Total</div></td>
+          <td><strong>€1,127</strong></td>
+          <td><strong>€990</strong></td>
+          <td><span style="font-size:10px;font-weight:700;color:var(--amber)">+€137</span></td>
+          <td><span class="adj-tag" style="color:var(--green)">−€130 Q2</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:8px;font-size:10px;color:var(--sub)">
+      <span class="season-tag">S</span> = seasonally adjusted budget · Q2 total expense forecast: €3,784 (−€516 vs average)
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+  7. CONTRACT LIFECYCLE  ← NEW
+════════════════════════════════════════════════════════════ -->
+<div class="card section">
+  <div class="card-hd">
+    <div class="card-hd-l">
+      <span class="card-title">Contract Lifecycle</span>
+      <span class="chip chip-amber">1 expiring soon</span>
+    </div>
+    <span style="font-size:10px;color:var(--sub)">ML renewal probability · Cowork can draft extension proposal</span>
+  </div>
+  <div class="card-body">
+
+    <!-- Active: Rabobank -->
+    <div class="cl-row">
+      <div>
+        <div class="cl-name">Rabobank <span class="chip chip-green" style="font-size:9px">Active</span></div>
+        <div class="cl-sub">Fund Ops · €6,000/mo · Since Jan 2025 · Ongoing</div>
+        <div class="cl-bar-wrap"><div class="cl-bar-fill" style="width:100%;background:var(--green)"></div></div>
+        <div class="cl-prob">
+          <span style="font-size:10px;color:var(--sub)">Renewal ML:</span>
+          <div class="prob-bar"><div class="prob-fill" style="width:90%;background:var(--green)"></div></div>
+          <span class="prob-label" style="color:var(--green)">90%</span>
+          <span class="chip chip-green" style="font-size:9px">Ongoing</span>
+        </div>
+      </div>
+      <div class="cl-right">
+        <div class="cl-days" style="color:var(--green)">Ongoing</div>
+        <div class="cl-actions">
+          <button class="btn btn-ghost btn-sm">View</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expiring: Shell -->
+    <div class="cl-row" style="background:rgba(251,191,36,.03);border-radius:var(--r1);padding:11px 8px;margin:-2px -2px;border:1px solid rgba(251,191,36,.15)">
+      <div>
+        <div class="cl-name">Shell International <span class="chip chip-amber" style="font-size:9px">Expires 47d</span></div>
+        <div class="cl-sub">Treasury · €3,400/mo · Ends May 20</div>
+        <div class="cl-bar-wrap"><div class="cl-bar-fill" style="width:35%;background:var(--amber)"></div></div>
+        <div class="cl-prob">
+          <span style="font-size:10px;color:var(--sub)">Renewal ML:</span>
+          <div class="prob-bar"><div class="prob-fill" style="width:72%;background:var(--amber)"></div></div>
+          <span class="prob-label" style="color:var(--amber)">72%</span>
+          <span style="font-size:10px;color:var(--sub)">↑ long relationship · ↓ rate increase requested</span>
+        </div>
+        <div class="cl-actions">
+          <button class="btn btn-ghost btn-sm" onclick="openOutreach('shell-ext')">📝 Draft extension</button>
+          <button class="btn btn-ghost btn-sm" onclick="openOutreach('shell-ext')">📧 Cowork reaches out</button>
+        </div>
+      </div>
+      <div class="cl-right">
+        <div class="cl-days" style="color:var(--amber)">47 days</div>
+        <div style="font-size:10px;color:var(--sub);margin-top:3px">−€3,400/mo<br>if not renewed</div>
+        <div style="font-size:10px;font-weight:700;color:var(--red);margin-top:3px">−4 wks runway</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+  8. ROLE MATCHING  ← NEW: Cowork reaches out
+════════════════════════════════════════════════════════════ -->
+<div class="card section">
+  <div class="card-hd">
+    <div class="card-hd-l">
+      <span class="card-title">Role Matching</span>
+      <span class="chip chip-green">2 strong matches</span>
+      <span class="chip chip-purple">ML scored</span>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span style="font-size:10px;color:var(--sub)">Based on: skills · rate · location · availability</span>
+      <button class="btn btn-ghost btn-sm">Settings</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="roles-grid">
+
+      <!-- Role 1: Strong match -->
+      <div class="role-card hot">
+        <div class="role-top">
+          <!-- Circular gauge SVG -->
+          <div class="role-gauge-wrap">
+            <svg class="gauge-svg" viewBox="0 0 48 48">
+              <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(52,211,153,0.12)" stroke-width="4"/>
+              <circle cx="24" cy="24" r="20" fill="none" stroke="#34d399" stroke-width="4"
+                stroke-dasharray="113.1" stroke-dashoffset="10.2"
+                stroke-linecap="round" transform="rotate(-90 24 24)"/>
+              <text x="24" y="28" text-anchor="middle" font-size="11" font-weight="800" fill="#34d399" font-family="sans-serif">91%</text>
+            </svg>
+          </div>
+          <div class="role-info">
+            <div class="role-title">Sr. Fund Operations Lead</div>
+            <div class="role-company">ING Bank · Amsterdam / Remote</div>
+            <div class="role-rate">€800–950/day</div>
+          </div>
+        </div>
+        <div class="role-factors">
+          <div class="factor-row">
+            <span class="factor-icon">✓</span>
+            <span class="factor-txt">Fund Ops expertise</span>
+            <span class="factor-score" style="color:var(--green)">+28%</span>
+          </div>
+          <div class="factor-row">
+            <span class="factor-icon">✓</span>
+            <span class="factor-txt">Banking sector match</span>
+            <span class="factor-score" style="color:var(--green)">+22%</span>
+          </div>
+          <div class="factor-row">
+            <span class="factor-icon">✓</span>
+            <span class="factor-txt">Rate aligned (€800+)</span>
+            <span class="factor-score" style="color:var(--green)">+18%</span>
+          </div>
+          <div class="factor-row">
+            <span class="factor-icon">✓</span>
+            <span class="factor-txt">NL-based ZZP welcome</span>
+            <span class="factor-score" style="color:var(--green)">+15%</span>
+          </div>
+          <div class="factor-row">
+            <span class="factor-icon">○</span>
+            <span class="factor-txt">Bloomberg cert. optional</span>
+            <span class="factor-score" style="color:var(--sub)">−8%</span>
+          </div>
+        </div>
+        <div style="margin-top:8px;font-size:10px;color:var(--sub)">→ Would add <strong style="color:var(--green)">+8 wks runway</strong> if won</div>
+        <div class="role-footer">
+          <button class="btn btn-green btn-sm" style="flex:1" onclick="openOutreach('ing-role')">🤝 Cowork reaches out</button>
+          <button class="btn btn-ghost btn-sm" onclick="openOutreach('ing-role')">Preview →</button>
+        </div>
+      </div>
+
+      <!-- Role 2: Good match -->
+      <div class="role-card">
+        <div class="role-top">
+          <div class="role-gauge-wrap">
+            <svg class="gauge-svg" viewBox="0 0 48 48">
+              <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(96,165,250,0.12)" stroke-width="4"/>
+              <circle cx="24" cy="24" r="20" fill="none" stroke="#60a5fa" stroke-width="4"
+                stroke-dasharray="113.1" stroke-dashoffset="22.6"
+                stroke-linecap="round" transform="rotate(-90 24 24)"/>
+              <text x="24" y="28" text-anchor="middle" font-size="11" font-weight="800" fill="#60a5fa" font-family="sans-serif">80%</text>
+            </svg>
+          </div>
+          <div class="role-info">
+            <div class="role-title">Treasury / Risk Advisor</div>
+            <div class="role-company">Rabobank · Utrecht · ZZP</div>
+            <div class="role-rate">€700–800/day</div>
+          </div>
+        </div>
+        <div class="role-factors">
+          <div class="factor-row">
+            <span class="factor-icon">✓</span>
+            <span class="factor-txt">Treasury background</span>
+            <span class="factor-score" style="color:var(--green)">+25%</span>
+          </div>
+          <div class="factor-row">
+            <span class="factor-icon">✓</span>
+            <span class="factor-txt">Existing Rabo relationship</span>
+            <span class="factor-score" style="color:var(--green)">+20%</span>
+          </div>
+          <div class="factor-row">
+            <span class="factor-icon">✓</span>
+            <span class="factor-txt">Risk experience matches</span>
+            <span class="factor-score" style="color:var(--green)">+18%</span>
+          </div>
+          <div class="factor-row">
+            <span class="factor-icon">○</span>
+            <span class="factor-txt">Rate slightly below target</span>
+            <span class="factor-score" style="color:var(--amber)">−15%</span>
+          </div>
+        </div>
+        <div style="margin-top:8px;font-size:10px;color:var(--sub)">→ Could be a Rabobank extension path · +6 wks</div>
+        <div class="role-footer">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openOutreach('rabo-role')">📧 Cowork reaches out</button>
+          <button class="btn btn-ghost btn-sm">Save →</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Source footnote -->
+    <div style="margin-top:10px;font-size:10px;color:var(--sub)">
+      Sources: LinkedIn · Malt · Independer · Freelancer.nl · Updated daily ·
+      <button class="btn btn-ghost btn-sm" style="font-size:10px">Connect sources</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+  9. CONTRACTS (collapsible, same as v1)
+════════════════════════════════════════════════════════════ -->
+<div>
+  <div onclick="toggleContracts()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);transition:background .15s" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='var(--bg3)'">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--sub)">Contracts</span>
+      <span class="chip chip-green">2 active</span>
+      <span class="chip chip-amber">2 pipeline</span>
+      <span style="font-size:10px;color:var(--sub)">Source of truth · drives all forecasts</span>
+    </div>
+    <span id="cl-arrow" style="font-size:10px;color:var(--sub);transition:transform .2s">▾</span>
+  </div>
+  <div id="cl-body" style="display:none;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r2) var(--r2)">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);font-weight:700;padding:8px 14px 4px;border-bottom:1px solid var(--border);background:var(--bg3)">Active — included in all scenarios</div>
+    <div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)">
+      <div><div style="font-size:12px;font-weight:700">Rabobank</div><div style="font-size:10px;color:var(--sub)">Fund Ops · Ongoing</div></div>
+      <div style="font-size:13px;font-weight:700">€6,000/mo</div>
+      <div style="font-size:10px;color:var(--sub)">BTW €1,260</div>
+      <div style="font-size:11px;font-weight:600;color:var(--green)">Net €3,510</div>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)">
+      <div><div style="font-size:12px;font-weight:700">Shell International</div><div style="font-size:10px;color:var(--sub)">Treasury · Ends May 20</div></div>
+      <div style="font-size:13px;font-weight:700">€3,400/mo</div>
+      <div style="font-size:10px;color:var(--sub)">BTW €714</div>
+      <div style="font-size:11px;font-weight:600;color:var(--green)">Net €2,210</div>
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--amber)"></div>
+    </div>
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);font-weight:700;padding:8px 14px 4px;border-bottom:1px solid var(--border);background:var(--bg3)">Pipeline — toggle to include in scenarios</div>
+    <div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)">
+      <div><div style="font-size:12px;font-weight:700;color:var(--sub)">ING Bank</div><div style="font-size:10px;color:var(--sub)">Risk Ops · Proposal sent · +4 wks if won</div></div>
+      <div style="font-size:13px;font-weight:700;color:var(--sub)">€5,000/mo</div>
+      <div style="font-size:10px;color:var(--dim)">BTW €1,050</div>
+      <div style="font-size:11px;color:var(--sub)">Net €2,925</div>
+      <div onclick="this.classList.toggle('on');this.style.background=this.classList.contains('on')?'rgba(79,172,254,0.3)':'var(--bg4)'" style="width:28px;height:16px;background:rgba(79,172,254,0.3);border:1px solid rgba(79,172,254,0.5);border-radius:8px;cursor:pointer;position:relative;transition:background .2s"><div style="width:12px;height:12px;background:var(--blue);border-radius:50%;position:absolute;top:1px;left:13px;transition:left .2s"></div></div>
+    </div>
+    <button style="display:flex;align-items:center;gap:6px;padding:8px 14px;font-size:11px;color:var(--sub);cursor:pointer;width:100%;background:transparent;border:none;border-top:1px dashed var(--border2);transition:color .15s" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--sub)'">
+      <span style="font-size:14px">+</span> Add contract
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+  LOGIC MAP
+════════════════════════════════════════════════════════════ -->
+<hr>
+<div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:rgba(251,191,36,.7);font-weight:700;margin-bottom:12px">
+  🌲 Logic Map — How Everything Connects
+</div>
+
+<div class="lf-wrap">
+  <div class="lf-node accent">
+    <div class="lf-node-t">Contracts DB</div>
+    <div class="lf-node-b">Client · Rate<br>BTW toggle<br>Status · Dates</div>
+  </div>
+  <div class="lf-arr">→</div>
+  <div class="lf-node ml">
+    <div class="lf-node-t">ML Engine</div>
+    <div class="lf-node-b">Seasonal model<br>Anomaly detect<br>Renewal prob.<br>Role matching</div>
+  </div>
+  <div class="lf-arr">→</div>
+  <div class="lf-node">
+    <div class="lf-node-t">Tax Engine</div>
+    <div class="lf-node-b">× BTW 21%<br>× Tax 35%<br>Net spendable<br>Q obligation</div>
+  </div>
+  <div class="lf-arr">→</div>
+  <div class="lf-node">
+    <div class="lf-node-t">Scenario Layer</div>
+    <div class="lf-node-b">Base / Cons<br>Opt / Custom<br>Pipeline mix<br>+ Seasonal adj.</div>
+  </div>
+  <div class="lf-arr">→</div>
+  <div class="lf-node">
+    <div class="lf-node-t">Expense Sync</div>
+    <div class="lf-node-b">Bunq / ING<br>Categories<br>Seasonal budget<br>Anomalies</div>
+  </div>
+  <div class="lf-arr">→</div>
+  <div class="lf-node out">
+    <div class="lf-node-t">Display + Actions</div>
+    <div class="lf-node-b">Runway hero<br>Impact bars<br>Fan chart<br>Outreach CTA</div>
+  </div>
+</div>
+
+<div style="margin-top:16px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:14px 16px">
+  <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--sub);font-weight:700;margin-bottom:8px">Cowork Outreach — How it works</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:10px">
+    <div style="text-align:center;padding:8px;background:var(--bg4);border-radius:var(--r1)">
+      <div style="font-size:16px;margin-bottom:4px">🔍</div>
+      <div style="font-weight:700;color:var(--txt);margin-bottom:2px">1. Detect</div>
+      <div style="color:var(--sub)">ML scores role match ≥80% or contract expiring ≤60d</div>
+    </div>
+    <div style="text-align:center;padding:8px;background:var(--bg4);border-radius:var(--r1)">
+      <div style="font-size:16px;margin-bottom:4px">✍️</div>
+      <div style="font-weight:700;color:var(--txt);margin-bottom:2px">2. Draft</div>
+      <div style="color:var(--sub)">Cowork writes personalised message using your profile + role/contract data</div>
+    </div>
+    <div style="text-align:center;padding:8px;background:var(--bg4);border-radius:var(--r1)">
+      <div style="font-size:16px;margin-bottom:4px">👀</div>
+      <div style="font-weight:700;color:var(--txt);margin-bottom:2px">3. You approve</div>
+      <div style="color:var(--sub)">Review + edit in modal · choose email or LinkedIn</div>
+    </div>
+    <div style="text-align:center;padding:8px;background:var(--bg4);border-radius:var(--r1)">
+      <div style="font-size:16px;margin-bottom:4px">🚀</div>
+      <div style="font-weight:700;color:var(--txt);margin-bottom:2px">4. Send</div>
+      <div style="color:var(--sub)">Cowork sends via email · logs outcome in contract lifecycle</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /shell -->
+
+<!-- ═══════════════════════════════════════════════════════
+  OUTREACH MODAL
+════════════════════════════════════════════════════════════ -->
+<div class="overlay" id="outreach-modal" onclick="closeModalOut(event)">
+  <div class="modal">
+    <div class="modal-title" id="m-title">Cowork Outreach Draft</div>
+    <div class="modal-sub" id="m-sub">Review and edit before sending. Cowork will send on your behalf.</div>
+
+    <!-- Channel selector -->
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--sub);font-weight:700;margin-bottom:6px">Send via</div>
+    <div class="channel-row">
+      <div class="ch-btn on" onclick="setCh(this)">📧 Email</div>
+      <div class="ch-btn" onclick="setCh(this)">💼 LinkedIn</div>
+      <div class="ch-btn" onclick="setCh(this)">📱 iMessage</div>
+    </div>
+
+    <!-- To field -->
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--sub);font-weight:700;margin-bottom:4px">To</div>
+    <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r1);padding:8px 10px;font-size:12px;margin-bottom:12px;color:var(--sub)" id="m-to"></div>
+
+    <!-- Subject -->
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--sub);font-weight:700;margin-bottom:4px" id="m-subj-lbl">Subject</div>
+    <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r1);padding:8px 10px;font-size:12px;margin-bottom:12px;color:var(--txt)" id="m-subj"></div>
+
+    <!-- Message body -->
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--sub);font-weight:700;margin-bottom:4px">Message</div>
+    <div class="msg-box" contenteditable="true" id="m-body"></div>
+
+    <!-- Runway impact -->
+    <div id="m-impact" style="font-size:10px;color:var(--sub);margin-bottom:14px;padding:7px 10px;background:var(--bg4);border-radius:var(--r1)"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Save draft</button>
+      <button class="btn btn-primary" onclick="confirmSend()">Send now →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── SCENARIO TAB ──
+function setSc(id,btn){
+  document.querySelectorAll('.sc-tab').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  const m={
+    base:{rv:'14 wks',g:'54%'},
+    cons:{rv:'18 wks',g:'69%'},
+    opt:{rv:'22 wks',g:'85%'},
+    cust:{rv:'20 wks',g:'77%'}
+  };
+  document.getElementById('rv').textContent=m[id].rv;
+  document.querySelector('.gauge-fill').style.width=m[id].g;
+}
+
+// ── CONTRACTS TOGGLE ──
+function toggleContracts(){
+  const b=document.getElementById('cl-body');
+  const a=document.getElementById('cl-arrow');
+  const open=b.style.display==='none';
+  b.style.display=open?'block':'none';
+  a.style.transform=open?'rotate(180deg)':'';
+}
+
+// ── SEASONAL BARS ──
+const seasonData=[0.82,0.88,1.0,0.95,0.91,0.78,0.65,0.70,0.92,1.05,1.18,1.15];
+const monthColors=['#60a5fa','#60a5fa','#34d399','#34d399','#34d399','#a78bfa','#f87171','#f87171','#fbbf24','#34d399','#34d399','#34d399'];
+window.addEventListener('DOMContentLoaded',()=>{
+  const wrap=document.getElementById('season-bars');
+  if(!wrap)return;
+  const max=Math.max(...seasonData);
+  seasonData.forEach((v,i)=>{
+    const bar=document.createElement('div');
+    bar.className='season-bar';
+    const pct=Math.round((v/max)*100);
+    bar.style.height=pct+'%';
+    bar.style.background=monthColors[i];
+    bar.style.opacity=i===2?'1':'0.55'; // highlight current month
+    bar.title=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i]+': '+(v*100).toFixed(0)+'% of peak';
+    wrap.appendChild(bar);
+  });
+  // highlight current (Mar) with border
+  wrap.children[2].style.outline='1px solid rgba(52,211,153,0.6)';
+});
+
+// ── OUTREACH MODAL ──
+const outreachCopy={
+  'shell-ext':{
+    title:'Contract Extension — Shell International',
+    sub:'Draft extension proposal · Cowork sends on your behalf',
+    to:'Contract Manager, Shell International · c.debruyn@shell.com',
+    subj:'Contract Renewal — Fund Treasury Operations · Dan Deenik',
+    body:`Hi Cornelis,
+
+I wanted to reach out ahead of my contract end date (May 20) to express my interest in continuing our collaboration at Shell.
+
+The Treasury Operations work has been going well — I've been particularly focused on the FX reconciliation process improvements over the past 6 months.
+
+I'd welcome a quick conversation about extending for another 6–12 months. Happy to discuss scope, rate, or any changes to the role.
+
+Are you available for a 20-minute call this week or next?
+
+Best,
+Dan Deenik
+Senior Fund Operations Consultant
++31 6 XX XX XX XX`,
+    impact:'Shell renewal = €3,400/mo · not renewing costs 4 weeks runway'
+  },
+  'ing-role':{
+    title:'New Role Outreach — ING Bank (91% match)',
+    sub:'Cowork draft · personalised from your profile',
+    to:'ING Bank Hiring · via LinkedIn · Malt.nl',
+    subj:'Senior Fund Ops Consultant — ZZP interest — Dan Deenik',
+    body:`Hi,
+
+I came across the Senior Fund Operations Lead role at ING and believe it's a strong match with my background.
+
+I've spent the past 3+ years as a ZZP consultant specialising in fund operations, treasury oversight, and regulatory reporting for major Dutch banks (Rabobank, Shell). I'm comfortable with the ING environment and available from June.
+
+Key fit:
+• Fund operations: 7+ years, incl. AIFMD/UCITS frameworks
+• Dutch-based ZZP — no DBA complexity
+• Rate: €800–950/day depending on scope
+
+Happy to share my profile or set up a short call.
+
+Best,
+Dan Deenik
+deenikdaniel@gmail.com`,
+    impact:'ING win = +€5,000/mo gross · +8 weeks runway · BTW €1,050 Q obligation'
+  },
+  'rabo-role':{
+    title:'New Role — Rabobank Treasury (80% match)',
+    sub:'Existing relationship · could be extension path',
+    to:'Rabobank HR / Hiring Manager',
+    subj:'Treasury / Risk Advisor interest — Dan Deenik ZZP',
+    body:`Hi,
+
+Given my current engagement with Rabobank (Fund Ops), I wanted to flag my interest in the Treasury / Risk Advisor role I noticed recently.
+
+My existing familiarity with the Rabobank environment and my treasury background (Shell, 3 years) makes this a natural fit. I'm available from mid-June.
+
+Would it make sense to have a brief internal conversation about the opportunity?
+
+Best,
+Dan Deenik`,
+    impact:'Rabobank Treasury = +€3,500/mo · +6 weeks runway'
+  }
+};
+
+function openOutreach(id){
+  const d=outreachCopy[id];
+  if(!d)return;
+  document.getElementById('m-title').textContent=d.title;
+  document.getElementById('m-sub').textContent=d.sub;
+  document.getElementById('m-to').textContent=d.to;
+  document.getElementById('m-subj').textContent=d.subj;
+  document.getElementById('m-body').textContent=d.body;
+  document.getElementById('m-impact').textContent='💡 '+d.impact;
+  document.getElementById('outreach-modal').classList.add('open');
+}
+function closeModal(){document.getElementById('outreach-modal').classList.remove('open')}
+function closeModalOut(e){if(e.target.id==='outreach-modal')closeModal()}
+function setCh(btn){
+  document.querySelectorAll('.ch-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+function confirmSend(){
+  const body=document.getElementById('m-body').textContent;
+  alert('✓ Cowork will send this message.\n\nIn production: sends via selected channel, logs to contract lifecycle, and sets a follow-up reminder in 5 days.');
+  closeModal();
+}
+</script>
+</body>
+</html>

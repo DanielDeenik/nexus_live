@@ -8,13 +8,20 @@
  *   Multiple sensors seeing the same role = stronger confirmation → score boost.
  *   Final score → tier: HOT (80+) / WARM (55-79) / MONITOR (30-54) / COLD (<30)
  *
- * Sources:
- *   - Indeed NL RSS  (finance / risk / regulatory roles)
- *   - eFinancialCareers RSS
- *   - Other sources can be added to SOURCES array
+ * Sources (multi-jurisdiction — NL primary, hybrid/remote global secondary):
+ *   - Indeed NL RSS        (finance / risk / regulatory — Netherlands)
+ *   - Indeed UK RSS        (fund ops / regulatory — London, hybrid)
+ *   - Indeed BE RSS        (fund ops / regulatory — Brussels, hybrid)
+ *   - eFinancialCareers NL (specialist board — Netherlands)
+ *   - eFinancialCareers UK (specialist board — London + remote)
+ *   - eFinancialCareers Global (fund ops / SimCorp — worldwide remote)
+ *   - LinkedIn NL RSS      (fund ops — Netherlands)
+ *   - LinkedIn Remote RSS  (SimCorp / regulatory — remote/hybrid global)
+ *   - Relocate.me RSS      (tech-adjacent remote finance roles)
  *
  * Output (cached in memory, refreshed daily via lib/scheduler.js):
  *   Array of scored FeedItem objects, sorted by score descending.
+ *   Each item carries a `jurisdiction` tag: 'NL' | 'UK' | 'BE' | 'LU' | 'IE' | 'REMOTE' | 'INTL'
  */
 
 let RssParser;
@@ -27,23 +34,98 @@ try {
 // ── RSS Sources ───────────────────────────────────────────────────────────────
 
 const SOURCES = [
+  // ── Netherlands (primary market) ─────────────────────────────────────────────
   {
-    id:        'indeed-nl-finance',
-    name:      'Indeed NL — Finance & Risk',
-    authority: 1.0,  // 0–1 weighting multiplier
-    url:       'https://nl.indeed.com/rss?q=fund+operations+risk+compliance&l=Netherlands&radius=50',
+    id:           'indeed-nl-finance',
+    name:         'Indeed NL — Finance & Risk',
+    authority:    1.0,
+    jurisdiction: 'NL',
+    url:          'https://nl.indeed.com/rss?q=fund+operations+risk+compliance&l=Netherlands&radius=50',
   },
   {
-    id:        'efinancial-nl',
-    name:      'eFinancialCareers NL',
-    authority: 1.2,  // Specialist board — higher authority
-    url:       'https://www.efinancialcareers.com/rss/jobs?country=NL&keywords=fund+operations+regulatory',
+    id:           'indeed-nl-simcorp',
+    name:         'Indeed NL — SimCorp',
+    authority:    1.0,
+    jurisdiction: 'NL',
+    url:          'https://nl.indeed.com/rss?q=simcorp+interim+consultant&l=Netherlands',
   },
   {
-    id:        'linkedin-rss-fo',
-    name:      'LinkedIn Jobs — Fund Ops NL',
-    authority: 0.9,
-    url:       'https://www.linkedin.com/jobs/search/?keywords=fund+operations&location=Netherlands&f_WT=1&format=rss',
+    id:           'efinancial-nl',
+    name:         'eFinancialCareers NL',
+    authority:    1.2,   // Specialist board — higher authority
+    jurisdiction: 'NL',
+    url:          'https://www.efinancialcareers.com/rss/jobs?country=NL&keywords=fund+operations+regulatory',
+  },
+  {
+    id:           'linkedin-rss-fo-nl',
+    name:         'LinkedIn Jobs — Fund Ops NL',
+    authority:    0.9,
+    jurisdiction: 'NL',
+    url:          'https://www.linkedin.com/jobs/search/?keywords=fund+operations&location=Netherlands&f_WT=1&format=rss',
+  },
+
+  // ── United Kingdom (hybrid / remote friendly) ─────────────────────────────────
+  {
+    id:           'indeed-uk-fundops',
+    name:         'Indeed UK — Fund Ops & Regulatory',
+    authority:    0.95,
+    jurisdiction: 'UK',
+    url:          'https://uk.indeed.com/rss?q=fund+operations+interim+regulatory&l=London&radius=30',
+  },
+  {
+    id:           'indeed-uk-simcorp',
+    name:         'Indeed UK — SimCorp Hybrid',
+    authority:    0.95,
+    jurisdiction: 'UK',
+    url:          'https://uk.indeed.com/rss?q=simcorp+consultant+hybrid+remote&l=United+Kingdom',
+  },
+  {
+    id:           'efinancial-uk',
+    name:         'eFinancialCareers UK',
+    authority:    1.15,
+    jurisdiction: 'UK',
+    url:          'https://www.efinancialcareers.com/rss/jobs?country=GB&keywords=fund+operations+simcorp+regulatory',
+  },
+
+  // ── Belgium & Luxembourg (cross-border from NL) ───────────────────────────────
+  {
+    id:           'indeed-be-fundops',
+    name:         'Indeed BE — Fund Ops Brussels',
+    authority:    0.85,
+    jurisdiction: 'BE',
+    url:          'https://be.indeed.com/rss?q=fund+operations+interim+regulatory&l=Brussels&radius=50',
+  },
+  {
+    id:           'indeed-lu-fundops',
+    name:         'Indeed LU — Fund Ops Luxembourg',
+    authority:    0.90,
+    jurisdiction: 'LU',
+    url:          'https://be.indeed.com/rss?q=fund+operations+aifmd+ucits+interim&l=Luxembourg',
+  },
+
+  // ── Remote / Hybrid Global ────────────────────────────────────────────────────
+  {
+    id:           'linkedin-rss-remote',
+    name:         'LinkedIn — Remote Fund Ops / SimCorp',
+    authority:    0.85,
+    jurisdiction: 'REMOTE',
+    url:          'https://www.linkedin.com/jobs/search/?keywords=simcorp+OR+%22fund+operations%22+OR+%22regulatory+reporting%22&location=&f_WT=2&format=rss',
+  },
+  {
+    id:           'indeed-remote-regulatory',
+    name:         'Indeed — Remote Regulatory Reporting',
+    authority:    0.80,
+    jurisdiction: 'REMOTE',
+    url:          'https://uk.indeed.com/rss?q=%22regulatory+reporting%22+OR+%22DORA%22+OR+%22SFDR%22+interim+remote&l=Remote',
+  },
+
+  // ── Ireland (English-speaking EU hub) ────────────────────────────────────────
+  {
+    id:           'indeed-ie-fundops',
+    name:         'Indeed IE — Fund Ops Dublin',
+    authority:    0.85,
+    jurisdiction: 'IE',
+    url:          'https://ie.indeed.com/rss?q=fund+operations+interim+consultant+regulatory&l=Dublin',
   },
 ];
 
@@ -83,15 +165,32 @@ const KEYWORD_SCORES = [
   { pattern: /lead/i,                 pts: 4,  tier: 'seniority' },
   { pattern: /principal/i,            pts: 4,  tier: 'seniority' },
   { pattern: /freelan|interim|contract|zzp|consultant/i, pts: 8, tier: 'engagement' },
-  // Location signals
-  { pattern: /amsterdam|schiphol/i,   pts: 5,  tier: 'location' },
-  { pattern: /netherlands|nederland/i,pts: 3,  tier: 'location' },
-  { pattern: /remote|hybrid/i,        pts: 3,  tier: 'location' },
+  // Location — NL primary
+  { pattern: /amsterdam|schiphol/i,                     pts: 5,  tier: 'location' },
+  { pattern: /netherlands|nederland/i,                  pts: 3,  tier: 'location' },
+  // Location — remote/hybrid (positive for multi-jurisdiction)
+  { pattern: /remote(\s*first|\s*friendly|\s*ok)?/i,    pts: 6,  tier: 'location' },
+  { pattern: /hybrid/i,                                 pts: 5,  tier: 'location' },
+  { pattern: /work\s+from\s+(home|anywhere)/i,          pts: 5,  tier: 'location' },
+  { pattern: /location\s+flexible|flexible\s+location/i,pts: 4, tier: 'location' },
+  // Location — EU secondary markets (cross-border commute or relocation)
+  { pattern: /london|city\s+of\s+london/i,              pts: 3,  tier: 'location' },
+  { pattern: /luxembourg/i,                             pts: 4,  tier: 'location' },
+  { pattern: /brussels|bruxelles/i,                     pts: 3,  tier: 'location' },
+  { pattern: /dublin|ireland/i,                         pts: 3,  tier: 'location' },
+  { pattern: /frankfurt|germany/i,                      pts: 2,  tier: 'location' },
+  { pattern: /zurich|switzerland/i,                     pts: 2,  tier: 'location' },
+  // Engagement type boosts for remote/hybrid
+  { pattern: /freelan|interim|contract|zzp|consultant/i,pts: 8,  tier: 'engagement' },
+  { pattern: /day\s*rate|dagtarief|dagvergoeding/i,     pts: 6,  tier: 'engagement' },
+  { pattern: /inside\s*ir35|outside\s*ir35/i,           pts: 4,  tier: 'engagement' },  // UK contracts
   // Negative signals (reduce score for poor fits)
-  { pattern: /junior|graduate|entry.level|trainee/i, pts: -10, tier: 'negative' },
-  { pattern: /internship|stage/i,     pts: -20, tier: 'negative' },
-  { pattern: /python\s+developer|software\s+engineer/i, pts: -8, tier: 'negative' },
-  { pattern: /permanent\s+only|perm\s+only/i, pts: -5, tier: 'negative' },
+  { pattern: /junior|graduate|entry.level|trainee/i,    pts: -10, tier: 'negative' },
+  { pattern: /internship|stage/i,                       pts: -20, tier: 'negative' },
+  { pattern: /python\s+developer|software\s+engineer/i, pts: -8,  tier: 'negative' },
+  { pattern: /permanent\s+only|perm\s+only/i,           pts: -5,  tier: 'negative' },
+  // On-site only negatives (if remote is the goal)
+  { pattern: /fully\s+on.?site|on.?site\s+only|no\s+remote/i, pts: -4, tier: 'negative' },
 ];
 
 // ── Recency decay ─────────────────────────────────────────────────────────────
@@ -183,19 +282,20 @@ async function fetchSource(source) {
     return items.map(item => {
       const { score, rawScore, decay, matches } = scoreItem(item, source.authority);
       return {
-        id:          `${source.id}::${encodeURIComponent(item.link || item.title || Math.random())}`,
-        title:       item.title    || 'Untitled',
-        company:     item.creator  || extractCompany(item),
-        link:        item.link     || null,
-        pubDate:     item.pubDate  || item.isoDate || null,
-        snippet:     (item.contentSnippet || item.summary || '').slice(0, 280),
-        sourceId:    source.id,
-        sourceName:  source.name,
-        sources:     [source.id],
+        id:           `${source.id}::${encodeURIComponent(item.link || item.title || Math.random())}`,
+        title:        item.title    || 'Untitled',
+        company:      item.creator  || extractCompany(item),
+        link:         item.link     || null,
+        pubDate:      item.pubDate  || item.isoDate || null,
+        snippet:      (item.contentSnippet || item.summary || '').slice(0, 280),
+        sourceId:     source.id,
+        sourceName:   source.name,
+        jurisdiction: source.jurisdiction || 'INTL',
+        sources:      [source.id],
         score,
         rawScore,
-        decay:       Math.round(decay * 100) / 100,
-        tier:        assignTier(score),
+        decay:        Math.round(decay * 100) / 100,
+        tier:         assignTier(score),
         matchedKeywords: matches,
       };
     });

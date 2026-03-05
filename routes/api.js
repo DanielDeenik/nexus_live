@@ -19,6 +19,7 @@ const { compare, project, projectWithBands, defaultScenario, calcNLTax } = requi
 const { getFeed, refresh: refreshFeed, getFeedMeta } = require('../workers/jobFeed');
 const { assessContract } = require('../lib/forecast');
 const { parsePdf, extractContractFields } = require('../lib/pdfParser');
+const scenarioStore                     = require('../lib/scenarioStore');
 
 const router = Router();
 
@@ -30,7 +31,7 @@ function requireWorkspace(req, res, next) {
       error: `Workspace "${req.query.ws}" not found. Available: ${listWorkspaces().map(w => w.id).join(', ')}`,
     });
   }
-  if (!ws.client._auth) {
+  if (!ws.token) {
     return res.status(503).json({ error: 'No Notion token configured for this workspace.' });
   }
   req.ws = ws;
@@ -72,7 +73,7 @@ router.get('/config', requireWorkspace, async (req, res) => {
       name: null, currency: null, hourlyRate: null, dayRate: null,
       burn: null, wiseBalance: null, contractEnd: null, agency: null,
       client: null, mkbPct: null, zvwPct: null, fxBuffer: null,
-      payLagDays: null, taxReservePct: null, tags: [], skills: [],
+      payLagDays: null, taxReservePct: null, vatPct: null, tags: [], skills: [],
     };
 
     for (const page of pages) {
@@ -97,12 +98,21 @@ router.get('/config', requireWorkspace, async (req, res) => {
         case 'FX Buffer Pct':      cfg.fxBuffer       = parseFloat(v); break;
         case 'Payment Lag Days':   cfg.payLagDays     = parseInt(v); break;
         case 'Tax Reserve Pct':    cfg.taxReservePct  = parseFloat(v); break;
+        case 'BTW Rate Pct':       cfg.vatPct         = parseFloat(v); break;
         default:
           if (category === 'Skills — Tier 1') cfg.skills.push({ label: parameter, tier: 1 });
           else if (category === 'Skills — Tier 2') cfg.skills.push({ label: parameter, tier: 2 });
           else if (category === 'Skills — Tier 3') cfg.skills.push({ label: parameter, tier: 3 });
       }
     }
+
+    // Deduplicate skills — Profile rows may be duplicated if seed.js ran on existing data.
+    const seenSkills = new Set();
+    cfg.skills = cfg.skills.filter(s => {
+      if (seenSkills.has(s.label)) return false;
+      seenSkills.add(s.label);
+      return true;
+    });
 
     cache.set(key, cfg);
     res.json(cfg);
@@ -304,27 +314,52 @@ router.get('/cashflow', requireWorkspace, async (req, res) => {
     const pages = await queryAll(req.ws.client, req.ws.dbs.cashflow, undefined, [
       { property: 'Date', direction: 'ascending' },
     ]);
-    const data = pages.map(p => ({
-      id:              p.id,
-      label:           prop(p, 'Month Label'),
-      date:            prop(p, 'Date'),
-      year:            prop(p, 'Year'),
-      monthNumber:     prop(p, 'Month Number'),
-      grossRevenue:    prop(p, 'Gross Revenue EUR'),
-      monthlyBurn:     prop(p, 'Monthly Burn EUR'),
-      taxReserve:      prop(p, 'Tax Reserve EUR'),
-      netAfterTax:     prop(p, 'Net After Tax EUR'),
-      closingBalance:  prop(p, 'Closing Balance EUR'),
-      wiseSnapshot:    prop(p, 'Wise Balance Snapshot'),
-      contractsActive: prop(p, 'Contracts Active'),
-      paymentLag:      prop(p, 'Payment Lag Days'),
-      seasonScore:     prop(p, 'Season Score'),
-      fxRate:          prop(p, 'FX Rate Applied'),
-      currency:        prop(p, 'Invoice Currency'),
-      zone:            prop(p, 'Zone'),
-      decisionScore:   prop(p, 'Decision Score'),
-      notes:           prop(p, 'Notes'),
+    const raw = pages.map(p => ({
+      id:               p.id,
+      label:            prop(p, 'Month Label'),
+      date:             prop(p, 'Date'),
+      year:             prop(p, 'Year'),
+      monthNumber:      prop(p, 'Month Number'),
+      grossRevenue:     prop(p, 'Gross Revenue EUR'),
+      monthlyBurn:      prop(p, 'Monthly Burn EUR'),
+      taxReserve:       prop(p, 'Tax Reserve EUR'),
+      netAfterTax:      prop(p, 'Net After Tax EUR'),
+      closingBalance:   prop(p, 'Closing Balance EUR'),
+      wiseSnapshot:     prop(p, 'Wise Balance Snapshot'),
+      contractsActive:  prop(p, 'Contracts Active'),
+      paymentLag:       prop(p, 'Payment Lag Days'),
+      seasonScore:      prop(p, 'Season Score'),
+      fxRate:           prop(p, 'FX Rate Applied'),
+      currency:         prop(p, 'Invoice Currency'),
+      zone:             prop(p, 'Zone'),
+      decisionScore:    prop(p, 'Decision Score'),
+      notes:            prop(p, 'Notes'),
+      // ── Abundant Spending Engine fields ─────────────────────────────────
+      mlPredictedSpend: prop(p, 'ML Predicted Spend EUR'),
+      spendingRisk:     prop(p, 'Spending Risk'),
+      abundanceScore:   prop(p, 'Abundance Score'),
+      spendVariance:    prop(p, 'Spend Variance'),
     }));
+
+    // Deduplicate by YEAR-MONTH — keeps one row per calendar month.
+    // Uses year+monthNumber when available, otherwise extracts YYYY-MM from date string.
+    // Keeps the row with the highest closingBalance (real seeded data beats blank manual entries).
+    const seen = new Map();
+    for (const row of raw) {
+      const mo = row.year && row.monthNumber
+        ? `${row.year}-${String(row.monthNumber).padStart(2,'0')}`
+        : (row.date || '').slice(0, 7);
+      if (!mo) continue;
+      const existing = seen.get(mo);
+      if (!existing || (row.closingBalance ?? 0) > (existing.closingBalance ?? 0)) {
+        seen.set(mo, row);
+      }
+    }
+    const data = Array.from(seen.values()).sort((a, b) => {
+      const ka = a.year && a.monthNumber ? `${a.year}-${String(a.monthNumber).padStart(2,'0')}` : (a.date||'').slice(0,7);
+      const kb = b.year && b.monthNumber ? `${b.year}-${String(b.monthNumber).padStart(2,'0')}` : (b.date||'').slice(0,7);
+      return ka.localeCompare(kb);
+    });
     cache.set(key, data);
     res.json(data);
   } catch (e) {
@@ -410,22 +445,25 @@ router.get('/opportunities', requireWorkspace, async (req, res) => {
       { property: 'Match Score', direction: 'descending' },
     ]);
     const data = pages.map(p => ({
-      id:              p.id,
-      roleTitle:       prop(p, 'Role Title'),
-      company:         prop(p, 'Company'),
-      dayRateEur:      prop(p, 'Day Rate EUR'),
-      status:          prop(p, 'Status'),
-      action:          prop(p, 'Action'),
-      matchScore:      prop(p, 'Match Score'),
-      contractLength:  prop(p, 'Contract Length'),
-      remote:          prop(p, 'Remote'),
-      postedDate:      prop(p, 'Posted Date'),
-      estimatedStart:  prop(p, 'Estimated Start'),
-      skillsRequired:  prop(p, 'Skills Required'),
-      sourceUrl:       prop(p, 'Source URL'),
-      notes:           prop(p, 'Notes'),
+      id:                 p.id,
+      roleTitle:          prop(p, 'Role Title'),
+      company:            prop(p, 'Company'),
+      dayRateEur:         prop(p, 'Day Rate EUR'),
+      status:             prop(p, 'Status'),
+      action:             prop(p, 'Action'),
+      matchScore:         prop(p, 'Match Score'),
+      contractLength:     prop(p, 'Contract Length'),
+      remote:             prop(p, 'Remote'),
+      postedDate:         prop(p, 'Posted Date'),
+      estimatedStart:     prop(p, 'Estimated Start'),
+      skillsRequired:     prop(p, 'Skills Required'),
+      sourceUrl:          prop(p, 'Source URL'),
+      notes:              prop(p, 'Notes'),
+      // Forecast v2 fields
+      outreachSent:       prop(p, 'Outreach Sent')       ?? false,
+      runwayImpactWeeks:  prop(p, 'Runway Impact Weeks') ?? null,
     }));
-    cache.set(key, data);
+    cache.set(key, data, 60);
     res.json(data);
   } catch (e) {
     console.error('[opportunities]', e.message);
@@ -501,7 +539,7 @@ router.post('/contracts', requireWorkspace, async (req, res) => {
         ...(d.noticePeriod  ? { 'Notice Period':       { rich_text: [{ text: { content: d.noticePeriod  } }] } } : {}),
         ...(d.keyObligations? { 'Key Obligations':     { rich_text: [{ text: { content: d.keyObligations} }] } } : {}),
         ...(d.keyRisks      ? { 'Key Risks':           { rich_text: [{ text: { content: d.keyRisks      } }] } } : {}),
-        ...(d.insuranceReq  != null ? { 'Insurance Required CAD': { checkbox: Boolean(d.insuranceReq) } } : {}),
+        ...(d.insuranceReq  != null ? { 'Insurance Required CAD': { number: parseFloat(d.insuranceReq) || 0 } } : {}),
         ...(d.notes         ? { 'Notes':               { rich_text: [{ text: { content: d.notes         } }] } } : {}),
       },
     });
@@ -740,6 +778,866 @@ router.post('/cache/clear', (req, res) => {
   } else {
     cache.clear();
     res.json({ cleared: 'all' });
+  }
+});
+
+// ── Scenario Planner endpoints ────────────────────────────────────────────────
+//
+// Requires DB_SCENARIOS and DB_SCENARIO_PROJECTIONS in .env
+// (run setup-scenarios.js once to create these databases in Notion)
+//
+// Routes:
+//   GET    /api/scenarios              — list all scenarios
+//   POST   /api/scenarios              — create a new scenario
+//   PATCH  /api/scenarios/:id          — update scenario parameters
+//   DELETE /api/scenarios/:id          — archive a scenario
+//   POST   /api/scenarios/:id/compute  — compute 18-month projections + write to Notion
+//   GET    /api/scenarios/:id/projections — read stored projections for one scenario
+//   GET    /api/scenarios/compare      — compare projections for multiple scenarios (?ids=id1,id2,...)
+
+function requireScenariosDb(req, res, next) {
+  const ws = req.ws;
+  if (!ws.dbs.scenarios) {
+    return res.status(503).json({
+      error: 'Scenario Planner not configured. Run: node setup-scenarios.js',
+    });
+  }
+  if (!ws.dbs.scenarioProjections) {
+    return res.status(503).json({
+      error: 'Scenario Projections DB not configured. Run: node setup-scenarios.js',
+    });
+  }
+  next();
+}
+
+// GET /api/scenarios
+router.get('/scenarios', requireWorkspace, requireScenariosDb, async (req, res) => {
+  try {
+    const key    = ck('scenarios', req.ws);
+    const cached = cache.get(key);
+    if (cached) return res.json(cached);
+
+    const scenarios = await scenarioStore.listScenarios(req.ws.client, req.ws.dbs.scenarios);
+    cache.set(key, scenarios, 30); // 30s TTL
+    res.json(scenarios);
+  } catch (e) {
+    console.error('[scenarios GET]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// POST /api/scenarios — create new scenario
+router.post('/scenarios', requireWorkspace, requireScenariosDb, async (req, res) => {
+  try {
+    const scenario = await scenarioStore.createScenario(
+      req.ws.client, req.ws.dbs.scenarios, req.body
+    );
+    cache.del(ck('scenarios', req.ws));
+    res.json({ success: true, scenario });
+  } catch (e) {
+    console.error('[scenarios POST]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// PATCH /api/scenarios/:id — update scenario parameters
+router.patch('/scenarios/:id', requireWorkspace, requireScenariosDb, async (req, res) => {
+  try {
+    const scenario = await scenarioStore.updateScenario(
+      req.ws.client, req.params.id, req.body
+    );
+    cache.del(ck('scenarios', req.ws));
+    res.json({ success: true, scenario });
+  } catch (e) {
+    console.error('[scenarios PATCH]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// DELETE /api/scenarios/:id — archive a scenario
+router.delete('/scenarios/:id', requireWorkspace, requireScenariosDb, async (req, res) => {
+  try {
+    await scenarioStore.archiveScenario(req.ws.client, req.params.id);
+    cache.del(ck('scenarios', req.ws));
+    res.json({ success: true, archived: req.params.id });
+  } catch (e) {
+    console.error('[scenarios DELETE]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// POST /api/scenarios/:id/compute — run projection engine and write time series to Notion
+// Body: optional { tax: { mkbPct, zvwPct } }
+router.post('/scenarios/:id/compute', requireWorkspace, requireScenariosDb, async (req, res) => {
+  try {
+    const taxOverrides = req.body?.tax || {};
+
+    // Fetch config for NL tax params if not overridden
+    const cfgKey = ck('config', req.ws);
+    const cfg    = cache.get(cfgKey) || {};
+    const tax    = {
+      mkbPct: taxOverrides.mkbPct ?? cfg.mkbPct,
+      zvwPct: taxOverrides.zvwPct ?? cfg.zvwPct,
+    };
+
+    // Extract seasonal burn map from request body (sent by frontend after
+    // fetching /api/spending/seasonal). Keyed by calendar month string "1"–"12".
+    const seasonalBurnMap = req.body?.seasonalBurnMap || null;
+    // Normalise keys to integers (JSON may stringify numeric keys as strings)
+    const normalisedSeasonalMap = seasonalBurnMap
+      ? Object.fromEntries(Object.entries(seasonalBurnMap).map(([k, v]) => [parseInt(k, 10), v]))
+      : null;
+
+    console.log(`[scenarios/compute] Starting MC computation for ${req.params.id}` +
+      (normalisedSeasonalMap ? ' (with seasonal burn map)' : ''));
+    const result = await scenarioStore.computeAndStore(
+      req.ws.client,
+      req.ws.dbs.scenarios,
+      req.ws.dbs.scenarioProjections,
+      req.params.id,
+      tax,
+      req.ws,                    // ← pass workspace for ML learning from history
+      normalisedSeasonalMap ? { seasonalBurnMap: normalisedSeasonalMap } : {},
+    );
+
+    // Bust caches
+    cache.del(ck('scenarios', req.ws));
+    cache.del(`projections:${req.params.id}:${req.ws.id}`);
+
+    console.log(`[scenarios/compute] Done — wrote ${result.written} rows (${result.mcRuns} MC runs, learned from ${result.learnedFrom})`);
+    res.json({
+      success:     true,
+      scenario:    result.scenario,
+      summary:     result.summary,
+      tax:         result.tax,
+      cleared:     result.cleared,
+      written:     result.written,
+      mcRuns:      result.mcRuns,
+      mcEnd:       result.mcEnd,
+      learnedFrom: result.learnedFrom,
+    });
+  } catch (e) {
+    console.error('[scenarios/compute]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// GET /api/ml/insights — return learned distributions from Notion history
+router.get('/ml/insights', requireWorkspace, async (req, res) => {
+  try {
+    const { learnFromHistory } = require('../lib/mlEngine');
+    const cacheKey = `ml_insights:${req.ws.id}`;
+    const cached   = cache.get(cacheKey);
+    if (cached) return res.json(cached);
+
+    const insights = await learnFromHistory(req.ws.client, req.ws);
+    cache.set(cacheKey, insights, 300); // cache 5 mins
+    res.json(insights);
+  } catch (e) {
+    console.error('[ml/insights]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// GET /api/scenarios/compare?ids=id1,id2,id3 — multi-scenario comparison grid
+// IMPORTANT: registered before /:id/projections so static path wins
+router.get('/scenarios/compare', requireWorkspace, requireScenariosDb, async (req, res) => {
+  try {
+    const ids = (req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (ids.length < 2) {
+      return res.status(400).json({ error: 'Provide at least 2 scenario IDs as ?ids=id1,id2' });
+    }
+    const result = await scenarioStore.compareProjections(
+      req.ws.client, req.ws.dbs.scenarioProjections, ids
+    );
+    res.json(result);
+  } catch (e) {
+    console.error('[scenarios/compare]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// GET /api/scenarios/:id/projections — read stored monthly projections
+router.get('/scenarios/:id/projections', requireWorkspace, requireScenariosDb, async (req, res) => {
+  try {
+    const cacheKey = `projections:${req.params.id}:${req.ws.id}`;
+    const cached   = cache.get(cacheKey);
+    if (cached) return res.json(cached);
+
+    const projections = await scenarioStore.getProjections(
+      req.ws.client, req.ws.dbs.scenarioProjections, req.params.id
+    );
+    cache.set(cacheKey, projections, 60);
+    res.json(projections);
+  } catch (e) {
+    console.error('[scenarios/projections GET]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// ── Spending Engine Integration ───────────────────────────────────────────────
+//
+// These routes implement the 5-step integration loop described in the Abundant
+// Spending Engine spec:
+//   1.  GET  /api/spending/seasonal       — 18-month seasonal spend baselines
+//   2.  GET  /api/spending/net-cashflow   — income vs spend overlay (18m)
+//   3.  POST /api/income/projected        — push income projection from scenario run
+//   4.  GET  /api/spending/abundance      — latest abundance score from Cashflow Months
+//
+// Seasonal baselines come from the Cashflow Months DB (ML Predicted Spend EUR).
+// Hardcoded 5-year averages are the fallback when DB rows are sparse.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// 5-year spending seasonality baselines (monthly calendar averages, EUR)
+// Source: Abundant Spending Engine — used when DB values are absent
+const SEASONAL_FALLBACK = {
+  1:  5200,   // Jan — medium
+  2:  2400,   // Feb — low  (historically quietest)
+  3:  2600,   // Mar — low
+  4:  5200,   // Apr — medium
+  5:  7100,   // May — high (first summer spike)
+  6:  5200,   // Jun — medium
+  7:  7400,   // Jul — high (peak summer)
+  8:  7000,   // Aug — high
+  9:  7000,   // Sep — high
+  10: 5200,   // Oct — medium
+  11: 11048,  // Nov — outlier (year-end expenses)
+  12: 5200,   // Dec — medium
+};
+
+// Risk classification matching the spending engine thresholds
+function spendRisk(monthNum) {
+  if ([2, 3].includes(monthNum))             return 'Low';
+  if ([5, 7, 8, 9, 11].includes(monthNum))  return 'High';
+  return 'Medium';
+}
+
+// In-memory projected income store (keyed by YYYY-MM)
+const _projectedIncome = new Map();
+
+// ── GET /api/spending/seasonal ────────────────────────────────────────────────
+// Returns calendar month baselines (1–12) from the Cashflow Months DB.
+// Falls back to 5-year hardcoded averages where DB rows are missing.
+router.get('/spending/seasonal', requireWorkspace, async (req, res) => {
+  const cacheKey = ck('spending_seasonal', req.ws);
+  const cached   = cache.get(cacheKey);
+  if (cached) return res.json(cached);
+
+  try {
+    // Pull Cashflow Months rows that have ML Predicted Spend EUR
+    const pages = await queryAll(req.ws.client, req.ws.dbs.cashflow, undefined, [
+      { property: 'Date', direction: 'ascending' },
+    ]);
+
+    // Group by calendar month number and average the ML predicted spend
+    const monthSums   = {};
+    const monthCounts = {};
+    for (const p of pages) {
+      const mo   = prop(p, 'Month Number');
+      const ml   = prop(p, 'ML Predicted Spend EUR');
+      if (!mo || ml == null) continue;
+      monthSums[mo]   = (monthSums[mo]   || 0) + ml;
+      monthCounts[mo] = (monthCounts[mo] || 0) + 1;
+    }
+
+    // Build 12-month map; fill gaps with fallback
+    const baselines = {};
+    for (let m = 1; m <= 12; m++) {
+      baselines[m] = monthCounts[m]
+        ? Math.round(monthSums[m] / monthCounts[m])
+        : SEASONAL_FALLBACK[m];
+    }
+
+    // Compute bounds (+60% lower headroom, +80% upper headroom based on spec)
+    const result = { baselines, bounds: {}, risk: {}, source: {} };
+    for (let m = 1; m <= 12; m++) {
+      const base         = baselines[m];
+      result.bounds[m]   = { lower: Math.round(base * 0.60), upper: Math.round(base * 1.80) };
+      result.risk[m]     = spendRisk(m);
+      result.source[m]   = monthCounts[m] ? 'notion' : 'fallback';
+    }
+
+    cache.set(cacheKey, result, 300); // cache 5 min
+    res.json(result);
+  } catch (e) {
+    console.error('[spending/seasonal]', e.message);
+    // Always serve fallback so frontend never blocks
+    const result = { baselines: { ...SEASONAL_FALLBACK }, bounds: {}, risk: {}, source: {} };
+    for (let m = 1; m <= 12; m++) {
+      const base        = SEASONAL_FALLBACK[m];
+      result.bounds[m]  = { lower: Math.round(base * 0.60), upper: Math.round(base * 1.80) };
+      result.risk[m]    = spendRisk(m);
+      result.source[m]  = 'fallback';
+    }
+    res.json(result);
+  }
+});
+
+// ── GET /api/spending/net-cashflow ────────────────────────────────────────────
+// Combines 18 months of projected income (from _projectedIncome store + cashflow
+// history) with the seasonal spend baselines to return surplus/deficit per month.
+router.get('/spending/net-cashflow', requireWorkspace, async (req, res) => {
+  try {
+    // Get seasonal baselines (reuse cache)
+    const seasonKey    = ck('spending_seasonal', req.ws);
+    let seasonData     = cache.get(seasonKey);
+    if (!seasonData) {
+      seasonData = { baselines: { ...SEASONAL_FALLBACK } };
+    }
+
+    // Get cashflow history for actuals
+    const cashflowKey  = ck('cashflow', req.ws);
+    const history      = cache.get(cashflowKey) || [];
+
+    // Build 18-month forward view starting from current month
+    const today  = new Date();
+    const months = [];
+    for (let i = 0; i < 18; i++) {
+      const dt      = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      const yyyymm  = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+      const calMo   = dt.getMonth() + 1;
+      const label   = dt.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+
+      // Actual from history if available
+      const actual  = history.find(h => (h.date || '').startsWith(yyyymm));
+
+      // Projected income: from in-memory store or actual gross revenue
+      const projInc = _projectedIncome.get(yyyymm) ?? (actual?.grossRevenue ?? null);
+      // ML spend baseline
+      const mlSpend = seasonData.baselines[calMo] ?? SEASONAL_FALLBACK[calMo];
+
+      months.push({
+        month:           yyyymm,
+        label,
+        calendarMonth:   calMo,
+        projectedIncome: projInc,
+        projectedSpend:  mlSpend,
+        netCashflow:     projInc != null ? projInc - mlSpend : null,
+        surplusDeficit:  projInc != null ? (projInc >= mlSpend ? 'surplus' : 'deficit') : 'unknown',
+        spendingRisk:    seasonData.risk?.[calMo] ?? spendRisk(calMo),
+        isActual:        !!actual,
+      });
+    }
+
+    res.json({ months, generatedAt: new Date().toISOString() });
+  } catch (e) {
+    console.error('[spending/net-cashflow]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// ── GET /api/spending/abundance ───────────────────────────────────────────────
+// Latest abundance score from the Cashflow Months DB.
+// Returns the most recent row that has an Abundance Score set.
+router.get('/spending/abundance', requireWorkspace, async (req, res) => {
+  const cacheKey = ck('spending_abundance', req.ws);
+  const cached   = cache.get(cacheKey);
+  if (cached) return res.json(cached);
+
+  try {
+    const pages = await queryAll(req.ws.client, req.ws.dbs.cashflow, undefined, [
+      { property: 'Date', direction: 'descending' },
+    ]);
+
+    let latestScore = null;
+    let latestDate  = null;
+    for (const p of pages) {
+      const score = prop(p, 'Abundance Score');
+      if (score != null) {
+        latestScore = score;
+        latestDate  = prop(p, 'Date');
+        break; // descending sort — first hit is most recent
+      }
+    }
+
+    const result = {
+      score:  latestScore,
+      date:   latestDate,
+      label:  latestScore == null ? 'No data'
+            : latestScore >= 70   ? 'Abundant'
+            : latestScore >= 40   ? 'Balanced'
+            : 'Constrained',
+    };
+    cache.set(cacheKey, result, 300);
+    res.json(result);
+  } catch (e) {
+    console.error('[spending/abundance]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// ── POST /api/income/projected ────────────────────────────────────────────────
+// Accept income projections from scenario runs (or external callers).
+// Payload: { date: "2026-08-01", amount: 23000, source: "scenario", confidence: 0.95 }
+// Or array: [{ date, amount, source, confidence }, ...]
+// Stores in memory; recalculates net cashflow cache.
+router.post('/income/projected', requireWorkspace, (req, res) => {
+  try {
+    const items = Array.isArray(req.body) ? req.body : [req.body];
+    const updated = [];
+
+    for (const item of items) {
+      if (!item.date || item.amount == null) continue;
+      const yyyymm = item.date.slice(0, 7); // "2026-08" from "2026-08-01"
+      _projectedIncome.set(yyyymm, {
+        amount:     item.amount,
+        source:     item.source     || 'scenario',
+        confidence: item.confidence ?? 1.0,
+        pushedAt:   new Date().toISOString(),
+      });
+      updated.push(yyyymm);
+    }
+
+    // Bust net-cashflow cache so next GET reflects new projections
+    cache.del(ck('spending_net_cashflow', req.ws));
+
+    res.json({ ok: true, updated, total: _projectedIncome.size });
+  } catch (e) {
+    console.error('[income/projected POST]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── FORECAST v2 — Engagements & Outreach ─────────────────────────────────────
+//
+// Engagements = contract-driven source of truth for the Forecast tab.
+// Each row: Client Name, Monthly Rate EUR, BTW Applicable, Status,
+//           Start Date, End Date, Days Per Week, Renewal Probability, Notes.
+//
+// Outreach = log of recruiter/client messages dispatched from Pipeline tab.
+//
+// Opportunities (existing DB) is reused for Role matching + radar.
+//   Added columns: Runway Impact Weeks, Outreach Sent.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── GET /api/engagements ──────────────────────────────────────────────────────
+router.get('/engagements', requireWorkspace, async (req, res) => {
+  const key    = ck('engagements', req.ws);
+  const cached = cache.get(key);
+  if (cached) return res.json(cached);
+
+  try {
+    const dbId = req.ws.dbs.engagements;
+    if (!dbId) return res.status(503).json({ error: 'DB_ENGAGEMENTS not configured' });
+
+    const pages = await queryAll(req.ws.client, dbId, undefined, [
+      { property: 'Status', direction: 'ascending' },
+    ]);
+
+    const data = pages.map(p => ({
+      id:                 p.id,
+      clientName:         prop(p, 'Client Name'),
+      monthlyRateEur:     prop(p, 'Monthly Rate EUR'),
+      btwApplicable:      prop(p, 'BTW Applicable') ?? false,
+      status:             prop(p, 'Status'),
+      startDate:          prop(p, 'Start Date'),
+      endDate:            prop(p, 'End Date'),
+      daysPerWeek:        prop(p, 'Days Per Week'),
+      renewalProbability: prop(p, 'Renewal Probability'),
+      notes:              prop(p, 'Notes'),
+    }));
+
+    cache.set(key, data, 60);
+    res.json(data);
+  } catch (e) {
+    console.error('[engagements GET]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// ── POST /api/engagements ─────────────────────────────────────────────────────
+router.post('/engagements', requireWorkspace, async (req, res) => {
+  const d = req.body;
+  if (!d.clientName) return res.status(400).json({ error: 'clientName is required' });
+
+  const dbId = req.ws.dbs.engagements;
+  if (!dbId) return res.status(503).json({ error: 'DB_ENGAGEMENTS not configured' });
+
+  try {
+    const page = await req.ws.client.pages.create({
+      parent: { database_id: dbId },
+      properties: {
+        'Client Name':         { title:    [{ text: { content: String(d.clientName) } }] },
+        'Monthly Rate EUR':    { number:   parseFloat(d.monthlyRateEur) || 0 },
+        'BTW Applicable':      { checkbox: !!d.btwApplicable },
+        'Status':              { select:   { name: d.status || 'Active' } },
+        ...(d.startDate          ? { 'Start Date':          { date: { start: d.startDate } } } : {}),
+        ...(d.endDate            ? { 'End Date':            { date: { start: d.endDate   } } } : {}),
+        ...(d.daysPerWeek != null ? { 'Days Per Week':      { number: parseFloat(d.daysPerWeek) || 5 } } : {}),
+        ...(d.renewalProbability != null ? { 'Renewal Probability': { number: parseFloat(d.renewalProbability) } } : {}),
+        ...(d.notes              ? { 'Notes':               { rich_text: [{ text: { content: String(d.notes) } }] } } : {}),
+      },
+    });
+    cache.del(ck('engagements', req.ws));
+    res.json({ id: page.id, success: true, url: page.url });
+  } catch (e) {
+    console.error('[engagements POST]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// ── PATCH /api/engagements/:id ────────────────────────────────────────────────
+router.patch('/engagements/:id', requireWorkspace, async (req, res) => {
+  const d = req.body;
+  try {
+    const props = {};
+    if (d.monthlyRateEur    != null) props['Monthly Rate EUR']    = { number:   parseFloat(d.monthlyRateEur) };
+    if (d.btwApplicable     != null) props['BTW Applicable']      = { checkbox: !!d.btwApplicable };
+    if (d.status                   ) props['Status']              = { select:   { name: d.status } };
+    if (d.endDate                  ) props['End Date']            = { date:     { start: d.endDate } };
+    if (d.renewalProbability!= null) props['Renewal Probability'] = { number:   parseFloat(d.renewalProbability) };
+    if (d.notes                    ) props['Notes']               = { rich_text:[{ text: { content: String(d.notes) } }] };
+
+    await req.ws.client.pages.update({ page_id: req.params.id, properties: props });
+    cache.del(ck('engagements', req.ws));
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[engagements PATCH]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// ── GET /api/outreach ─────────────────────────────────────────────────────────
+router.get('/outreach', requireWorkspace, async (req, res) => {
+  const key    = ck('outreach', req.ws);
+  const cached = cache.get(key);
+  if (cached) return res.json(cached);
+
+  try {
+    const dbId = req.ws.dbs.outreach;
+    if (!dbId) return res.status(503).json({ error: 'DB_OUTREACH not configured' });
+
+    const pages = await queryAll(req.ws.client, dbId, undefined, [
+      { property: 'Sent Date', direction: 'descending' },
+    ]);
+
+    const data = pages.map(p => ({
+      id:             p.id,
+      subject:        prop(p, 'Subject'),
+      recipient:      prop(p, 'Recipient'),
+      recipientEmail: prop(p, 'Recipient Email'),
+      channel:        prop(p, 'Channel'),
+      messageBody:    prop(p, 'Message Body'),
+      status:         prop(p, 'Status'),
+      sentDate:       prop(p, 'Sent Date'),
+      followUpDate:   prop(p, 'Follow Up Date'),
+      notes:          prop(p, 'Notes'),
+    }));
+
+    cache.set(key, data, 60);
+    res.json(data);
+  } catch (e) {
+    console.error('[outreach GET]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// ── POST /api/outreach ────────────────────────────────────────────────────────
+// Saves a new outreach record to Notion.
+// Body: { subject, recipient, recipientEmail?, channel, messageBody, status?,
+//         sentDate?, followUpDate?, notes? }
+router.post('/outreach', requireWorkspace, async (req, res) => {
+  const d = req.body;
+  if (!d.subject || !d.recipient) {
+    return res.status(400).json({ error: 'subject and recipient are required' });
+  }
+
+  const dbId = req.ws.dbs.outreach;
+  if (!dbId) return res.status(503).json({ error: 'DB_OUTREACH not configured' });
+
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const page  = await req.ws.client.pages.create({
+      parent: { database_id: dbId },
+      properties: {
+        'Subject':        { title:     [{ text: { content: String(d.subject) } }] },
+        'Recipient':      { rich_text: [{ text: { content: String(d.recipient) } }] },
+        'Channel':        { select:    { name: d.channel || 'Email' } },
+        'Message Body':   { rich_text: [{ text: { content: String(d.messageBody || '') } }] },
+        'Status':         { select:    { name: d.status  || 'Sent' } },
+        ...(d.recipientEmail ? { 'Recipient Email': { email: d.recipientEmail } } : {}),
+        ...(d.sentDate       ? { 'Sent Date':       { date: { start: d.sentDate       } } }
+                             : { 'Sent Date':       { date: { start: today            } } }),
+        ...(d.followUpDate   ? { 'Follow Up Date':  { date: { start: d.followUpDate   } } } : {}),
+        ...(d.notes          ? { 'Notes':           { rich_text: [{ text: { content: String(d.notes) } }] } } : {}),
+      },
+    });
+    cache.del(ck('outreach', req.ws));
+    res.json({ id: page.id, success: true, url: page.url });
+  } catch (e) {
+    console.error('[outreach POST]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// ── PATCH /api/opportunities/:id ──────────────────────────────────────────────
+// Update outreach status, runway impact, or match score on a role.
+router.patch('/opportunities/:id', requireWorkspace, async (req, res) => {
+  const d = req.body;
+  try {
+    const props = {};
+    if (d.status                ) props['Status']              = { select: { name: d.status } };
+    if (d.action                ) props['Action']              = { select: { name: d.action } };
+    if (d.outreachSent != null  ) props['Outreach Sent']       = { checkbox: !!d.outreachSent };
+    if (d.runwayImpactWeeks != null) props['Runway Impact Weeks'] = { number: parseFloat(d.runwayImpactWeeks) };
+    if (d.matchScore    != null ) props['Match Score']         = { number: parseFloat(d.matchScore) };
+    if (d.notes                 ) props['Notes']               = { rich_text: [{ text: { content: String(d.notes) } }] };
+
+    await req.ws.client.pages.update({ page_id: req.params.id, properties: props });
+    cache.del(ck('opportunities', req.ws));
+    res.json({ success: true });
+  } catch (e) {
+    console.error('[opportunities PATCH]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// ── GET /api/ml/seasonal ──────────────────────────────────────────────────────
+// Returns monthly income multipliers derived from cashflow actuals.
+// Multiplier 1.0 = average month. Used by the Forecast tab to show seasonal
+// adjustment to contract revenue projections.
+// Also returns expense seasonality from spending/seasonal for the Intelligence tab.
+router.get('/ml/seasonal', requireWorkspace, async (req, res) => {
+  const cacheKey = ck('ml_seasonal', req.ws);
+  const cached   = cache.get(cacheKey);
+  if (cached) return res.json(cached);
+
+  try {
+    // Pull cashflow history (ascending to build actuals)
+    const pages = await queryAll(req.ws.client, req.ws.dbs.cashflow, undefined, [
+      { property: 'Date', direction: 'ascending' },
+    ]);
+
+    // Group gross revenue by calendar month → compute average per month
+    const revSums   = {};
+    const revCounts = {};
+    for (const p of pages) {
+      const mo  = prop(p, 'Month Number');
+      const rev = prop(p, 'Gross Revenue EUR');
+      if (!mo || rev == null || rev === 0) continue;
+      revSums[mo]   = (revSums[mo]   || 0) + rev;
+      revCounts[mo] = (revCounts[mo] || 0) + 1;
+    }
+
+    // Compute average per known month, then normalise to a multiplier
+    const avgRevByMonth = {};
+    for (let m = 1; m <= 12; m++) {
+      if (revCounts[m]) avgRevByMonth[m] = revSums[m] / revCounts[m];
+    }
+
+    const knownAvgs = Object.values(avgRevByMonth);
+    const overallAvg = knownAvgs.length
+      ? knownAvgs.reduce((a, b) => a + b, 0) / knownAvgs.length
+      : null;
+
+    const incomeMultipliers = {};
+    const incomeSource      = {};
+    for (let m = 1; m <= 12; m++) {
+      if (avgRevByMonth[m] && overallAvg) {
+        incomeMultipliers[m] = Math.round((avgRevByMonth[m] / overallAvg) * 100) / 100;
+        incomeSource[m]      = 'notion';
+      } else {
+        // Neutral multiplier — no data for this month
+        incomeMultipliers[m] = 1.0;
+        incomeSource[m]      = 'neutral';
+      }
+    }
+
+    // Expense seasonality: reuse spending/seasonal cache if available
+    const spendKey  = ck('spending_seasonal', req.ws);
+    const spendData = cache.get(spendKey);
+    const expenseBaselines = spendData?.baselines || null;
+
+    // Compute expense multipliers if available
+    const expenseMultipliers = {};
+    if (expenseBaselines) {
+      const expVals = Object.values(expenseBaselines);
+      const expAvg  = expVals.reduce((a, b) => a + b, 0) / expVals.length;
+      for (let m = 1; m <= 12; m++) {
+        expenseMultipliers[m] = expAvg > 0
+          ? Math.round((expenseBaselines[m] / expAvg) * 100) / 100
+          : 1.0;
+      }
+    }
+
+    // Data quality: number of actuals used
+    const dataPoints = Object.values(revCounts).reduce((a, b) => a + b, 0);
+
+    const result = {
+      incomeMultipliers,
+      incomeSource,
+      expenseMultipliers: Object.keys(expenseMultipliers).length ? expenseMultipliers : null,
+      expenseBaselines:   expenseBaselines || null,
+      dataPoints,
+      confidence: dataPoints >= 12 ? 'high' : dataPoints >= 6 ? 'medium' : 'low',
+      generatedAt: new Date().toISOString(),
+    };
+
+    cache.set(cacheKey, result, 300);
+    res.json(result);
+  } catch (e) {
+    console.error('[ml/seasonal]', e.message);
+    res.status(500).json({ error: translateError(e) });
+  }
+});
+
+// ── GET /api/forecast/build ───────────────────────────────────────────────────
+// Contract-driven forecast builder.
+// Combines engagements + seasonal multipliers → 12-month income projection
+// for each scenario (base/conservative/optimistic/custom).
+// Query: ?scenario=base|conservative|optimistic  (default: base)
+//
+// base:         all Active engagements at 100% rate
+// conservative: Active at 100%, Pipeline at 50%
+// optimistic:   Active at 100%, Pipeline at 100%
+//
+// Returns: months[]{month, label, grossRevenue, netRevenue, burn, runway,
+//                   btwProvision, taxProvision, surplusDeficit}
+//          + summary { totalRunway, avgNet, runwayMonths }
+router.get('/forecast/build', requireWorkspace, async (req, res) => {
+  const scenario = (req.query.scenario || 'base').toLowerCase();
+
+  try {
+    // Fetch engagements, config, seasonal multipliers in parallel
+    const [engagements, cfgRaw, seasonal] = await Promise.all([
+      (async () => {
+        const key    = ck('engagements', req.ws);
+        const cached = cache.get(key);
+        if (cached) return cached;
+        const dbId   = req.ws.dbs.engagements;
+        if (!dbId) return [];
+        const pages  = await queryAll(req.ws.client, dbId);
+        return pages.map(p => ({
+          id:                 p.id,
+          clientName:         prop(p, 'Client Name'),
+          monthlyRateEur:     prop(p, 'Monthly Rate EUR') ?? 0,
+          btwApplicable:      prop(p, 'BTW Applicable')   ?? false,
+          status:             prop(p, 'Status'),
+          startDate:          prop(p, 'Start Date'),
+          endDate:            prop(p, 'End Date'),
+          renewalProbability: prop(p, 'Renewal Probability') ?? 50,
+        }));
+      })(),
+      (async () => cache.get(ck('config', req.ws)) || {})(),
+      (async () => {
+        const key    = ck('ml_seasonal', req.ws);
+        const cached = cache.get(key);
+        if (cached) return cached;
+        return null; // will use neutral multipliers
+      })(),
+    ]);
+
+    const cfg = cfgRaw;
+    const vatPct     = (cfg.vatPct     ?? 21) / 100;
+    const taxResPct  = (cfg.taxReservePct ?? 35) / 100;
+    const burnRate   = cfg.burn ?? 0;
+
+    // Income multiplier (fallback: 1.0 for all months)
+    const incMult = seasonal?.incomeMultipliers || {};
+
+    // Filter engagements by scenario rules
+    const active   = engagements.filter(e => e.status === 'Active');
+    const pipeline = engagements.filter(e => e.status === 'Pipeline');
+
+    function scenarioWeight(status) {
+      if (status === 'Active')   return 1.0;
+      if (status === 'Pipeline') {
+        if (scenario === 'base')         return 0;
+        if (scenario === 'conservative') return 0.5;
+        if (scenario === 'optimistic')   return 1.0;
+      }
+      return 0;
+    }
+
+    // Build 12-month forward projection
+    const today   = new Date();
+    const months  = [];
+    let   balance = cfg.wiseBalance ?? 0;
+
+    for (let i = 0; i < 12; i++) {
+      const dt      = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      const yyyymm  = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+      const calMo   = dt.getMonth() + 1;
+      const label   = dt.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+      const mult    = incMult[calMo] ?? 1.0;
+
+      // Gross revenue: sum active + weighted pipeline
+      let grossRevenue = 0;
+      let btwRevenue   = 0;
+
+      for (const eng of [...active, ...pipeline]) {
+        const w = scenarioWeight(eng.status);
+        if (!w) continue;
+
+        // Check date overlap (if dates set)
+        if (eng.startDate && eng.startDate > yyyymm + '-31') continue;
+        if (eng.endDate   && eng.endDate   < yyyymm + '-01') continue;
+
+        const rate = (eng.monthlyRateEur ?? 0) * mult * w;
+        grossRevenue += rate;
+        if (eng.btwApplicable) btwRevenue += rate;
+      }
+
+      const btwProvision   = Math.round(btwRevenue * vatPct);
+      const taxProvision   = Math.round((grossRevenue - btwProvision) * taxResPct);
+      const netRevenue     = Math.round(grossRevenue - btwProvision - taxProvision);
+      const surplus        = netRevenue - burnRate;
+      balance             += surplus;
+
+      months.push({
+        month:          yyyymm,
+        label,
+        calendarMonth:  calMo,
+        grossRevenue:   Math.round(grossRevenue),
+        btwProvision,
+        taxProvision,
+        netRevenue,
+        burn:           burnRate,
+        surplusDeficit: surplus,
+        closingBalance: Math.round(balance),
+        seasonalMult:   mult,
+        activeContracts: active.length + pipeline.filter(e => scenarioWeight(e.status) > 0).length,
+      });
+    }
+
+    // Summary metrics
+    const runwayMonths = burnRate > 0
+      ? months.findIndex(m => m.closingBalance <= 0)
+      : 99;
+    const avgNet = months.length
+      ? Math.round(months.reduce((s, m) => s + m.netRevenue, 0) / months.length)
+      : 0;
+
+    // Expiring engagements (within 90 days)
+    const ninetyDaysOut = new Date(today.getTime() + 90 * 86400000).toISOString().slice(0, 10);
+    const expiringSoon  = active
+      .filter(e => e.endDate && e.endDate <= ninetyDaysOut)
+      .map(e => ({
+        id:      e.id,
+        client:  e.clientName,
+        endDate: e.endDate,
+        daysLeft: Math.round((new Date(e.endDate) - today) / 86400000),
+        renewalProbability: e.renewalProbability,
+      }));
+
+    res.json({
+      scenario,
+      months,
+      summary: {
+        avgNet,
+        runwayMonths:    runwayMonths < 0 ? months.length : runwayMonths,
+        runwayLabel:     runwayMonths < 0 ? `${months.length}+ mo` : `${runwayMonths} mo`,
+        totalEngagements: engagements.length,
+        activeEngagements: active.length,
+        pipelineEngagements: pipeline.length,
+      },
+      expiringSoon,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error('[forecast/build]', e.message);
+    res.status(500).json({ error: translateError(e) });
   }
 });
 

@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus Live — Forecast Redesign Wireframe</title>
+<style>
+  /* ─── BASE THEME (matches Nexus Live dark theme) ─── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg0: #0c0c10;
+    --bg1: #13131a;
+    --bg2: #1a1a24;
+    --bg3: #20202e;
+    --bg4: #272738;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --txt: #dde2f0;
+    --sub: #7a8399;
+    --dim: #4a5068;
+    --blue: #4facfe;
+    --blue2: #3b9fe0;
+    --green: #34d399;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --purple: #a78bfa;
+    --r1: 6px;
+    --r2: 10px;
+    --r3: 14px;
+  }
+
+  body {
+    background: var(--bg0);
+    color: var(--txt);
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ─── WIREFRAME ANNOTATION BADGE ─── */
+  .wf-badge {
+    position: fixed;
+    top: 12px; right: 12px;
+    background: rgba(251,191,36,0.15);
+    border: 1px solid rgba(251,191,36,0.4);
+    color: var(--amber);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 20px;
+    z-index: 9999;
+  }
+
+  .wf-note {
+    background: rgba(251,191,36,0.06);
+    border-left: 2px solid rgba(251,191,36,0.35);
+    color: rgba(251,191,36,0.8);
+    font-size: 10px;
+    padding: 5px 10px;
+    border-radius: 0 var(--r1) var(--r1) 0;
+    margin-bottom: 8px;
+    font-style: italic;
+  }
+
+  /* ─── LAYOUT ─── */
+  .shell {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+  }
+
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--r3);
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+
+  .panel-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--sub);
+  }
+
+  .panel-body { padding: 14px 16px; }
+
+  /* ─── STRATEGY SENTENCE ─── */
+  .strategy-bar {
+    background: linear-gradient(135deg, rgba(79,172,254,0.08) 0%, rgba(167,139,250,0.06) 100%);
+    border: 1px solid rgba(79,172,254,0.18);
+    border-radius: var(--r2);
+    padding: 11px 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .strategy-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .strategy-text { font-size: 13px; color: var(--txt); line-height: 1.55; }
+  .strategy-text strong { color: var(--blue); }
+  .strategy-text .action { color: var(--green); font-weight: 600; }
+  .strategy-text .warn { color: var(--amber); font-weight: 600; }
+
+  /* ─── SCENARIO TABS ─── */
+  .scenario-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    padding: 3px;
+    width: fit-content;
+  }
+  .sc-tab {
+    padding: 6px 16px;
+    border-radius: var(--r1);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--sub);
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .sc-tab:hover { color: var(--txt); background: var(--bg4); }
+  .sc-tab.active {
+    background: var(--blue);
+    color: #fff;
+    font-weight: 600;
+  }
+  .sc-tab.custom-tab {
+    color: var(--sub);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .sc-tab.custom-tab::after { content: '▾'; font-size: 10px; }
+
+  /* ─── KPI ROW ─── */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .kpi-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    padding: 12px 14px;
+  }
+
+  .kpi-card.hero {
+    border-color: rgba(52,211,153,0.25);
+    background: linear-gradient(135deg, rgba(52,211,153,0.06) 0%, var(--bg3) 100%);
+  }
+  .kpi-card.hero.warn { border-color: rgba(251,191,36,0.3); background: linear-gradient(135deg, rgba(251,191,36,0.05) 0%, var(--bg3) 100%); }
+  .kpi-card.hero.danger { border-color: rgba(248,113,113,0.3); background: linear-gradient(135deg, rgba(248,113,113,0.06) 0%, var(--bg3) 100%); }
+
+  .kpi-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--sub); font-weight: 600; margin-bottom: 4px; }
+  .kpi-value { font-size: 26px; font-weight: 700; line-height: 1.1; color: var(--green); }
+  .kpi-value.normal { color: var(--txt); font-size: 20px; }
+  .kpi-value.warn { color: var(--amber); }
+  .kpi-value.neg { color: var(--red); }
+  .kpi-sub { font-size: 10px; color: var(--sub); margin-top: 3px; }
+  .kpi-delta { font-size: 10px; margin-top: 5px; }
+  .kpi-delta.up { color: var(--green); }
+  .kpi-delta.down { color: var(--red); }
+
+  /* Runway gauge bar */
+  .runway-gauge { margin-top: 7px; height: 4px; background: var(--bg4); border-radius: 2px; overflow: hidden; }
+  .runway-gauge-fill { height: 100%; border-radius: 2px; transition: width 0.4s; }
+
+  /* ─── IMPACT BARS (scenario comparison) ─── */
+  .impact-section { margin-bottom: 12px; }
+  .impact-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--sub); font-weight: 600; margin-bottom: 10px; }
+
+  .impact-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 60px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .impact-label { font-size: 11px; color: var(--sub); }
+  .impact-label strong { color: var(--txt); display: block; font-size: 11px; }
+  .impact-bar-track { height: 22px; background: var(--bg4); border-radius: 4px; overflow: hidden; position: relative; }
+  .impact-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    transition: width 0.5s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .impact-value { font-size: 12px; font-weight: 700; text-align: right; }
+
+  /* ─── CHART AREA ─── */
+  .chart-wrap {
+    position: relative;
+    height: 200px;
+    background: var(--bg3);
+    border-radius: var(--r2);
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .chart-svg { width: 100%; height: 100%; }
+
+  .chart-legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    margin-bottom: 12px;
+    padding: 0 4px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--sub); }
+  .legend-line { width: 20px; height: 2px; border-radius: 1px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ─── CONTRACTS SECTION ─── */
+  .contracts-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    padding: 11px 16px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    margin-bottom: 1px;
+    transition: background 0.15s;
+  }
+  .contracts-toggle:hover { background: var(--bg4); }
+  .contracts-toggle-left { display: flex; align-items: center; gap: 10px; }
+  .contracts-badge {
+    display: flex; gap: 6px;
+  }
+  .badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+  }
+  .badge.active { background: rgba(52,211,153,0.12); color: var(--green); }
+  .badge.pipeline { background: rgba(251,191,36,0.12); color: var(--amber); }
+  .arrow { font-size: 10px; color: var(--sub); transition: transform 0.2s; }
+  .arrow.open { transform: rotate(180deg); }
+
+  .contracts-body {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--r2) var(--r2);
+    overflow: hidden;
+    display: none;
+  }
+  .contracts-body.open { display: block; }
+
+  .contract-group-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--dim);
+    font-weight: 700;
+    padding: 10px 16px 4px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+
+  .contract-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .contract-row:hover { background: var(--bg3); }
+  .contract-row:last-child { border-bottom: none; }
+
+  .contract-name { font-size: 12px; font-weight: 600; color: var(--txt); }
+  .contract-sub { font-size: 10px; color: var(--sub); margin-top: 1px; }
+  .contract-amount { font-size: 13px; font-weight: 700; color: var(--txt); white-space: nowrap; }
+  .contract-tax { font-size: 10px; color: var(--sub); white-space: nowrap; }
+  .contract-net { font-size: 11px; font-weight: 600; color: var(--green); white-space: nowrap; }
+  .contract-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+  .pipeline-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .toggle-switch {
+    width: 28px; height: 16px;
+    background: var(--bg4);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle-switch.on { background: rgba(79,172,254,0.4); border-color: rgba(79,172,254,0.5); }
+  .toggle-knob {
+    width: 12px; height: 12px;
+    background: var(--sub);
+    border-radius: 50%;
+    position: absolute;
+    top: 1px; left: 1px;
+    transition: left 0.2s, background 0.2s;
+  }
+  .toggle-switch.on .toggle-knob { left: 13px; background: var(--blue); }
+
+  .add-contract-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-size: 11px;
+    color: var(--sub);
+    cursor: pointer;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-top: 1px dashed var(--border2);
+    transition: color 0.15s, background 0.15s;
+  }
+  .add-contract-btn:hover { color: var(--blue); background: rgba(79,172,254,0.04); }
+
+  /* ─── CONTRACT MODAL ─── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--r3);
+    width: 440px;
+    max-width: 95vw;
+    padding: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; }
+  .form-row { margin-bottom: 12px; }
+  .form-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--sub); font-weight: 600; display: block; margin-bottom: 5px; }
+  .form-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--r1);
+    color: var(--txt);
+    padding: 8px 10px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--blue); }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--r1);
+    color: var(--txt);
+    padding: 8px 10px;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+  }
+  .tax-preview {
+    background: var(--bg4);
+    border-radius: var(--r1);
+    padding: 10px 12px;
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--sub);
+  }
+  .tax-preview-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .tax-preview-row:last-child { margin-bottom: 0; color: var(--green); font-weight: 600; }
+  .tax-preview-row span:last-child { text-align: right; }
+  .modal-btw-toggle { display: flex; align-items: center; gap: 8px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .btn {
+    padding: 8px 16px;
+    border-radius: var(--r1);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: var(--blue2); }
+  .btn-ghost { background: var(--bg4); color: var(--sub); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--txt); }
+
+  /* ─── TAX IMPACT PER CONTRACT (inline) ─── */
+  .contract-tax-detail {
+    display: none;
+    grid-column: 1 / -1;
+    background: var(--bg4);
+    border-radius: var(--r1);
+    padding: 8px 12px;
+    margin: -4px 0 4px;
+    font-size: 10px;
+    color: var(--sub);
+  }
+  .contract-row.expanded .contract-tax-detail { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .tax-item-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+  .tax-item-value { font-size: 12px; font-weight: 700; color: var(--txt); }
+  .tax-item-value.net { color: var(--green); }
+
+  /* ─── LOGIC DIAGRAM ─── */
+  .logic-section {
+    margin-top: 24px;
+    border-top: 1px dashed rgba(251,191,36,0.25);
+    padding-top: 20px;
+  }
+  .logic-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(251,191,36,0.7);
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .logic-flow {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  .logic-node {
+    flex-shrink: 0;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--r2);
+    padding: 10px 14px;
+    min-width: 110px;
+    text-align: center;
+  }
+  .logic-node-title { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--sub); margin-bottom: 4px; }
+  .logic-node-items { font-size: 10px; color: var(--txt); line-height: 1.7; }
+  .logic-node.highlight { border-color: rgba(79,172,254,0.3); background: rgba(79,172,254,0.06); }
+  .logic-node.output { border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.05); }
+  .logic-arrow {
+    display: flex;
+    align-items: center;
+    color: var(--dim);
+    font-size: 16px;
+    padding: 0 4px;
+    margin-top: 30px;
+    flex-shrink: 0;
+  }
+
+  .tree-section { margin-top: 20px; }
+  .tree-node {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--r1);
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    font-size: 11px;
+  }
+  .tree-node .q { color: var(--amber); font-weight: 600; margin-bottom: 4px; }
+  .tree-node .a { color: var(--txt); padding-left: 12px; border-left: 2px solid var(--border2); }
+  .tree-node .winner { color: var(--green); }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 600px) {
+    .kpi-row { grid-template-columns: 1fr 1fr; }
+    .impact-row { grid-template-columns: 80px 1fr 50px; }
+    .contract-row { grid-template-columns: 1fr auto; }
+    .logic-flow { flex-direction: column; gap: 4px; }
+    .logic-arrow { transform: rotate(90deg); margin: 0; align-self: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wf-badge">Wireframe — Not Production</div>
+
+<div class="shell">
+
+  <!-- ─── HEADER ─── -->
+  <div style="margin-bottom:18px">
+    <div style="font-size:18px;font-weight:700;letter-spacing:-0.02em;color:var(--txt);margin-bottom:4px">
+      Forecast Redesign
+    </div>
+    <div style="font-size:11px;color:var(--sub)">
+      Prototype for approval · Nexus Live v5.3 · Contracts → Tax → Runway
+    </div>
+  </div>
+
+  <div class="wf-note">
+    🌲 Tree of Thought applied: Contracts are the single source of truth. Everything derives from them — tax, BTW, net cashflow, runway. Scenarios change which pipeline contracts count. Impact is always shown as delta (weeks gained/lost), never just raw numbers.
+  </div>
+
+  <!-- ─── 1. STRATEGY SENTENCE ─── -->
+  <div class="strategy-bar">
+    <div class="strategy-icon">🎯</div>
+    <div class="strategy-text">
+      Your <strong>active contracts</strong> cover 14 weeks runway.
+      Adding the <strong>ING pipeline deal</strong> extends this to
+      <span class="action">22 weeks — no action needed</span>.
+      Your BTW obligation is <strong>€4,830</strong> due in 38 days.
+    </div>
+  </div>
+
+  <!-- ─── 2. SCENARIO TABS ─── -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div class="scenario-row">
+      <button class="sc-tab active" onclick="setScenario('base', this)">Base</button>
+      <button class="sc-tab" onclick="setScenario('conservative', this)">Conservative</button>
+      <button class="sc-tab" onclick="setScenario('optimistic', this)">Optimistic</button>
+      <button class="sc-tab custom-tab" onclick="setScenario('custom', this)">Custom</button>
+    </div>
+    <div style="font-size:10px;color:var(--sub)">Active contracts only · Pipeline varies by tab</div>
+  </div>
+
+  <!-- ─── 3. KPI ROW ─── -->
+  <div class="kpi-row" id="kpi-row">
+    <!-- Runway — hero card, 2x width -->
+    <div class="kpi-card hero" id="kpi-runway">
+      <div class="kpi-label">Runway</div>
+      <div class="kpi-value" id="rv-weeks">14 wks</div>
+      <div class="kpi-sub" id="rv-sub">Active contracts only · 3.5 months</div>
+      <div class="runway-gauge">
+        <div class="runway-gauge-fill" id="rv-fill" style="width:55%;background:var(--green)"></div>
+      </div>
+      <div class="kpi-delta up" id="rv-delta" style="margin-top:6px">→ Worst case: 8 wks · Best: 22 wks</div>
+    </div>
+
+    <!-- Net /mo -->
+    <div class="kpi-card">
+      <div class="kpi-label">Net spendable /mo</div>
+      <div class="kpi-value normal" id="kpi-net">€5,720</div>
+      <div class="kpi-sub">After BTW + 35% tax hold</div>
+      <div class="kpi-delta up">↑ 61% of €9,400 gross</div>
+    </div>
+
+    <!-- Monthly surplus -->
+    <div class="kpi-card">
+      <div class="kpi-label">vs. Avg spend</div>
+      <div class="kpi-value normal" style="color:var(--green)" id="kpi-surplus">+€1,420</div>
+      <div class="kpi-sub">€5,720 net − €4,300 burn</div>
+      <div class="kpi-delta up">▲ Comfortable</div>
+    </div>
+
+    <!-- BTW due -->
+    <div class="kpi-card">
+      <div class="kpi-label">BTW due</div>
+      <div class="kpi-value normal" style="color:var(--amber);font-size:16px">€4,830</div>
+      <div class="kpi-sub">Q1 · Apr 30 · 38 days</div>
+      <div class="kpi-delta" style="color:var(--sub)">Set aside from contracts</div>
+    </div>
+  </div>
+
+  <!-- ─── 4. IMPACT COMPARISON (scenario bars) ─── -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Runway by Scenario</span>
+      <span style="font-size:10px;color:var(--sub)">Each bar = weeks of runway · 16wks = safe zone</span>
+    </div>
+    <div class="panel-body">
+      <div id="impact-bars">
+        <!-- Base -->
+        <div class="impact-row">
+          <div class="impact-label">
+            <strong>Base</strong>Active only
+          </div>
+          <div class="impact-bar-track">
+            <div class="impact-bar-fill" id="bar-base" style="width:55%;background:linear-gradient(90deg,#34d399,#2fb882)">
+              14 wks
+            </div>
+            <div style="position:absolute;top:0;left:calc(16/29*100%);width:1px;height:100%;background:rgba(255,255,255,0.15)"></div>
+          </div>
+          <div class="impact-value" style="color:var(--green)">14 wks</div>
+        </div>
+
+        <!-- Conservative -->
+        <div class="impact-row">
+          <div class="impact-label">
+            <strong>Conservative</strong>+50% pipeline
+          </div>
+          <div class="impact-bar-track">
+            <div class="impact-bar-fill" id="bar-cons" style="width:69%;background:linear-gradient(90deg,#60a5fa,#3b82f6)">
+              18 wks
+            </div>
+          </div>
+          <div class="impact-value" style="color:var(--blue)">18 wks <span style="font-size:9px;color:var(--green)">+4</span></div>
+        </div>
+
+        <!-- Optimistic -->
+        <div class="impact-row">
+          <div class="impact-label">
+            <strong>Optimistic</strong>All pipeline
+          </div>
+          <div class="impact-bar-track">
+            <div class="impact-bar-fill" id="bar-opt" style="width:85%;background:linear-gradient(90deg,#a78bfa,#8b5cf6)">
+              22 wks
+            </div>
+          </div>
+          <div class="impact-value" style="color:var(--purple)">22 wks <span style="font-size:9px;color:var(--green)">+8</span></div>
+        </div>
+
+        <!-- Safe zone legend -->
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:10px;color:var(--sub)">
+          <div style="width:16px;height:1px;background:rgba(255,255,255,0.2)"></div>
+          Safe zone = 16 weeks (4 months)
+          <div style="flex:1;height:1px;border-top:1px dashed rgba(255,255,255,0.08)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── 5. CHART ─── -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Cash Balance Over Time</span>
+      <span style="font-size:10px;color:var(--sub)">3 scenarios overlaid · hover for values</span>
+    </div>
+    <div class="panel-body" style="padding:10px">
+      <div class="chart-wrap">
+        <svg class="chart-svg" viewBox="0 0 800 200" preserveAspectRatio="none">
+          <!-- Grid lines -->
+          <line x1="0" y1="40" x2="800" y2="40" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+          <line x1="0" y1="80" x2="800" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+          <line x1="0" y1="120" x2="800" y2="120" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+          <line x1="0" y1="160" x2="800" y2="160" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+
+          <!-- Safe floor reference -->
+          <line x1="0" y1="148" x2="800" y2="148" stroke="rgba(248,113,113,0.25)" stroke-width="1" stroke-dasharray="4,4"/>
+          <text x="10" y="144" font-size="8" fill="rgba(248,113,113,0.5)" font-family="sans-serif">Safety floor (3mo)</text>
+
+          <!-- Optimistic scenario area -->
+          <path d="M0,60 C100,50 200,45 300,50 C400,55 500,40 600,35 C700,30 750,28 800,25"
+            fill="none" stroke="rgba(167,139,250,0.35)" stroke-width="1.5" stroke-dasharray="5,3"/>
+
+          <!-- Conservative scenario area -->
+          <path d="M0,60 C100,58 200,65 300,72 C400,78 500,70 600,68 C700,65 750,62 800,65"
+            fill="none" stroke="rgba(96,165,250,0.45)" stroke-width="1.5" stroke-dasharray="5,3"/>
+
+          <!-- Base scenario — solid -->
+          <path d="M0,60 C100,65 200,80 300,95 C400,108 500,115 600,130 C700,148 750,158 800,168"
+            fill="none" stroke="rgba(52,211,153,0.8)" stroke-width="2"/>
+
+          <!-- Actual months area fill (base) -->
+          <path d="M0,60 C100,65 200,80 300,95 C400,108 500,115 600,130 C700,148 750,158 800,168 L800,200 L0,200 Z"
+            fill="rgba(52,211,153,0.04)"/>
+
+          <!-- Today marker -->
+          <line x1="320" y1="10" x2="320" y2="190" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="2,3"/>
+          <text x="323" y="18" font-size="8" fill="rgba(255,255,255,0.3)" font-family="sans-serif">Today</text>
+
+          <!-- Runway end markers -->
+          <circle cx="800" cy="168" r="4" fill="var(--green)" opacity="0.5"/>
+          <circle cx="800" cy="65" r="4" fill="var(--blue)" opacity="0.5"/>
+          <circle cx="800" cy="25" r="4" fill="var(--purple)" opacity="0.4"/>
+
+          <!-- Month labels -->
+          <text x="0" y="196" font-size="8" fill="rgba(255,255,255,0.2)" font-family="sans-serif">Jan</text>
+          <text x="88" y="196" font-size="8" fill="rgba(255,255,255,0.2)" font-family="sans-serif">Feb</text>
+          <text x="178" y="196" font-size="8" fill="rgba(255,255,255,0.2)" font-family="sans-serif">Mar</text>
+          <text x="268" y="196" font-size="8" fill="rgba(255,255,255,0.2)" font-family="sans-serif">Apr</text>
+          <text x="356" y="196" font-size="8" fill="rgba(255,255,255,0.2)" font-family="sans-serif">May</text>
+          <text x="444" y="196" font-size="8" fill="rgba(255,255,255,0.2)" font-family="sans-serif">Jun</text>
+          <text x="533" y="196" font-size="8" fill="rgba(255,255,255,0.2)" font-family="sans-serif">Jul</text>
+          <text x="622" y="196" font-size="8" fill="rgba(255,255,255,0.2)" font-family="sans-serif">Aug</text>
+          <text x="712" y="196" font-size="8" fill="rgba(255,255,255,0.2)" font-family="sans-serif">Sep</text>
+        </svg>
+      </div>
+
+      <!-- Legend -->
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-line" style="background:rgba(52,211,153,0.8)"></div>
+          Base (active contracts)
+        </div>
+        <div class="legend-item">
+          <div class="legend-line" style="background:rgba(96,165,250,0.6);border-top:1px dashed rgba(96,165,250,0.6);height:0"></div>
+          Conservative (+50% pipeline)
+        </div>
+        <div class="legend-item">
+          <div class="legend-line" style="background:rgba(167,139,250,0.5);border-top:1px dashed rgba(167,139,250,0.5);height:0"></div>
+          Optimistic (all pipeline)
+        </div>
+        <div class="legend-item" style="margin-left:auto">
+          <div class="legend-line" style="background:rgba(248,113,113,0.4)"></div>
+          Safety floor
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── 6. CONTRACTS (collapsible) ─── -->
+  <div class="contracts-toggle" onclick="toggleContracts()">
+    <div class="contracts-toggle-left">
+      <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--sub)">Contracts</span>
+      <div class="contracts-badge">
+        <span class="badge active">2 active</span>
+        <span class="badge pipeline">2 pipeline</span>
+      </div>
+      <span style="font-size:10px;color:var(--sub)">Drives everything above</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="font-size:10px;color:var(--sub)">Total gross: €9,400/mo</span>
+      <span class="arrow" id="contracts-arrow">▾</span>
+    </div>
+  </div>
+
+  <div class="contracts-body" id="contracts-body">
+    <!-- Active contracts -->
+    <div class="contract-group-label">Active — included in all scenarios</div>
+
+    <!-- Contract 1 -->
+    <div class="contract-row" onclick="toggleContractDetail(this)" style="cursor:pointer">
+      <div>
+        <div class="contract-name">Rabobank</div>
+        <div class="contract-sub">Fund Ops · Since Jan 2025 · Ongoing</div>
+      </div>
+      <div class="contract-amount">€6,000/mo</div>
+      <div class="contract-tax">BTW: €1,260</div>
+      <div class="contract-net">Net: €3,510</div>
+      <div class="contract-status-dot" style="background:var(--green)"></div>
+    </div>
+    <div class="contract-tax-detail">
+      <div><div class="tax-item-label">Gross</div><div class="tax-item-value">€6,000</div></div>
+      <div><div class="tax-item-label">BTW 21%</div><div class="tax-item-value" style="color:var(--amber)">−€1,260</div></div>
+      <div><div class="tax-item-label">Tax reserve 35%</div><div class="tax-item-value" style="color:var(--amber)">−€1,230</div></div>
+      <div><div class="tax-item-label">Net spendable</div><div class="tax-item-value net">€3,510</div></div>
+    </div>
+
+    <!-- Contract 2 -->
+    <div class="contract-row" onclick="toggleContractDetail(this)" style="cursor:pointer">
+      <div>
+        <div class="contract-name">Shell International</div>
+        <div class="contract-sub">Treasury · Since Mar 2024 · 6mo left</div>
+      </div>
+      <div class="contract-amount">€3,400/mo</div>
+      <div class="contract-tax">BTW: €714</div>
+      <div class="contract-net">Net: €2,210</div>
+      <div class="contract-status-dot" style="background:var(--green)"></div>
+    </div>
+    <div class="contract-tax-detail">
+      <div><div class="tax-item-label">Gross</div><div class="tax-item-value">€3,400</div></div>
+      <div><div class="tax-item-label">BTW 21%</div><div class="tax-item-value" style="color:var(--amber)">−€714</div></div>
+      <div><div class="tax-item-label">Tax reserve 35%</div><div class="tax-item-value" style="color:var(--amber)">−€476</div></div>
+      <div><div class="tax-item-label">Net spendable</div><div class="tax-item-value net">€2,210</div></div>
+    </div>
+
+    <!-- Pipeline contracts -->
+    <div class="contract-group-label">Pipeline — toggle to include in scenarios</div>
+
+    <!-- Pipeline 1 -->
+    <div class="contract-row">
+      <div>
+        <div class="contract-name">ING Bank</div>
+        <div class="contract-sub">Risk Ops · Proposal sent · +4 wks runway if won</div>
+      </div>
+      <div class="contract-amount" style="color:var(--sub)">€5,000/mo</div>
+      <div class="contract-tax" style="color:var(--dim)">BTW: €1,050</div>
+      <div class="contract-net" style="color:var(--sub)">Net: €2,925</div>
+      <div class="pipeline-toggle" onclick="togglePipeline(this)">
+        <div class="toggle-switch on">
+          <div class="toggle-knob"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline 2 -->
+    <div class="contract-row">
+      <div>
+        <div class="contract-name">ABN AMRO</div>
+        <div class="contract-sub">Compliance · First meeting · +2 wks runway if won</div>
+      </div>
+      <div class="contract-amount" style="color:var(--sub)">€3,000/mo</div>
+      <div class="contract-tax" style="color:var(--dim)">BTW: €630</div>
+      <div class="contract-net" style="color:var(--sub)">Net: €1,755</div>
+      <div class="pipeline-toggle" onclick="togglePipeline(this)">
+        <div class="toggle-switch">
+          <div class="toggle-knob"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add contract -->
+    <button class="add-contract-btn" onclick="openModal()">
+      <span style="font-size:14px">+</span> Add contract
+    </button>
+  </div>
+
+  <!-- ─── LOGIC DIAGRAM ─── -->
+  <div class="logic-section">
+    <div class="logic-title">🌲 Tree of Thought — How the Logic Connects</div>
+
+    <!-- Data flow diagram -->
+    <div style="margin-bottom:16px;font-size:11px;color:var(--sub)">Data flows left to right. Each stage derives from the previous. No manual inputs needed beyond contracts.</div>
+
+    <div class="logic-flow" style="margin-bottom:20px">
+      <div class="logic-node highlight">
+        <div class="logic-node-title">Contracts (input)</div>
+        <div class="logic-node-items">
+          Client<br>
+          €/mo gross<br>
+          BTW: yes/no<br>
+          Status<br>
+          Duration
+        </div>
+      </div>
+      <div class="logic-arrow">→</div>
+      <div class="logic-node">
+        <div class="logic-node-title">Tax engine</div>
+        <div class="logic-node-items">
+          × 21% BTW<br>
+          × 35% reserve<br>
+          Net spendable<br>
+          Q BTW total<br>
+          Annual provision
+        </div>
+      </div>
+      <div class="logic-arrow">→</div>
+      <div class="logic-node">
+        <div class="logic-node-title">Scenarios</div>
+        <div class="logic-node-items">
+          Base: active<br>
+          Cons: +50%<br>
+          Opt: +100%<br>
+          Custom: pick<br>
+          pipeline deals
+        </div>
+      </div>
+      <div class="logic-arrow">→</div>
+      <div class="logic-node">
+        <div class="logic-node-title">Cashflow model</div>
+        <div class="logic-node-items">
+          Monthly income<br>
+          − fixed burn<br>
+          = net delta<br>
+          + balance<br>
+          = runway
+        </div>
+      </div>
+      <div class="logic-arrow">→</div>
+      <div class="logic-node output">
+        <div class="logic-node-title">Display</div>
+        <div class="logic-node-items">
+          Runway wks<br>
+          Net /mo<br>
+          BTW due<br>
+          Impact bars<br>
+          3-line chart
+        </div>
+      </div>
+    </div>
+
+    <!-- Tree of Thought decisions -->
+    <div style="font-size:11px;color:var(--sub);font-weight:600;margin-bottom:10px">Key design decisions made via Tree of Thought:</div>
+
+    <div class="tree-node">
+      <div class="q">Q: What is the single source of truth for income?</div>
+      <div class="a">Option A: Notion cashflow months (existing) — lags by a month, retrospective<br>
+      Option B: Contracts database — forward-looking, drives strategy<br>
+      Option C: Both, synced — complex, two sources of truth<br>
+      <span class="winner">→ Winner: B — Contracts drive forecasting. Actuals (Notion cashflow) validate it.</span></div>
+    </div>
+
+    <div class="tree-node">
+      <div class="q">Q: How should scenarios be structured?</div>
+      <div class="a">Option A: Manual input (user types revenue estimates) — error-prone, not connected<br>
+      Option B: Probability sliders per pipeline contract — too complex<br>
+      Option C: 3 pre-defined scenarios (all/50%/none of pipeline) + Custom toggle per deal<br>
+      <span class="winner">→ Winner: C — Simple tabs for 80% of use, custom toggle for precision.</span></div>
+    </div>
+
+    <div class="tree-node">
+      <div class="q">Q: How should tax be shown?</div>
+      <div class="a">Option A: Global tax settings → applied to all income — ignores BTW-exempt contracts<br>
+      Option B: Per-contract BTW toggle → auto-calculated → quarterly totals shown<br>
+      Option C: Separate tax module with manual inputs — complexity without benefit<br>
+      <span class="winner">→ Winner: B — BTW on/off per contract, rate in settings. Tax is derived, never entered manually.</span></div>
+    </div>
+
+    <div class="tree-node">
+      <div class="q">Q: What is the primary metric to display?</div>
+      <div class="a">Option A: Monthly revenue — raw, doesn't answer "am I ok?"<br>
+      Option B: Cash balance — shows current state but not trajectory<br>
+      Option C: Runway in weeks — directly answers "how long can I breathe?" (research consensus)<br>
+      <span class="winner">→ Winner: C — Runway is the hero. Everything else supports it.</span></div>
+    </div>
+
+    <div class="tree-node">
+      <div class="q">Q: How to connect contracts to existing Notion cashflow months?</div>
+      <div class="a">Option A: Replace cashflow months with contracts entirely — breaks existing data<br>
+      Option B: Contracts feed the forecast projection; cashflow months remain for actuals<br>
+      Option C: Contracts as overlay on existing system — two modes: actual (past) + contract (future)<br>
+      <span class="winner">→ Winner: B/C hybrid — Past months = actuals from Notion. Future months = derived from contracts. Clean split at today.</span></div>
+    </div>
+
+    <!-- New Notion structure needed -->
+    <div style="margin-top:16px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);padding:14px 16px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--sub);font-weight:700;margin-bottom:10px">New Notion Database: Contracts</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px">
+        <div><span style="color:var(--sub)">Client name</span> — text</div>
+        <div><span style="color:var(--sub)">Monthly rate (excl BTW)</span> — number</div>
+        <div><span style="color:var(--sub)">BTW applicable</span> — checkbox (21% if on)</div>
+        <div><span style="color:var(--sub)">Status</span> — select: Active / Pipeline / Lost</div>
+        <div><span style="color:var(--sub)">Start date</span> — date</div>
+        <div><span style="color:var(--sub)">End date / Duration</span> — date or months</div>
+        <div><span style="color:var(--sub)">Days/week</span> — number (for capacity tracking)</div>
+        <div><span style="color:var(--sub)">Notes</span> — text</div>
+      </div>
+      <div style="margin-top:10px;font-size:10px;color:var(--sub)">
+        → Existing Cashflow Months DB stays untouched for actuals · Contracts DB drives future projections only
+      </div>
+    </div>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- ─── ADD CONTRACT MODAL ─── -->
+<div class="modal-overlay" id="modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-title">Add Contract</div>
+
+    <div class="form-row">
+      <label class="form-label">Client name</label>
+      <input class="form-input" type="text" placeholder="e.g. Rabobank, ING, Shell…" oninput="calcTaxPreview()">
+    </div>
+
+    <div class="form-row-2">
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Monthly rate (excl. BTW)</label>
+        <input class="form-input" type="number" id="m-rate" placeholder="€ / month" oninput="calcTaxPreview()">
+      </div>
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="m-status">
+          <option>Active</option>
+          <option>Pipeline</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row" style="margin-top:12px">
+      <label class="form-label">BTW (VAT)</label>
+      <div class="modal-btw-toggle">
+        <div class="toggle-switch on" id="m-btw-toggle" onclick="toggleBtw()">
+          <div class="toggle-knob"></div>
+        </div>
+        <span id="m-btw-label" style="font-size:12px;color:var(--txt)">21% BTW applies to this contract</span>
+      </div>
+    </div>
+
+    <!-- Tax impact preview — auto-calculates as user types -->
+    <div class="tax-preview" id="m-tax-preview">
+      <div class="tax-preview-row">
+        <span>Client pays (incl. BTW)</span>
+        <span id="mp-client">€0 + €0 BTW</span>
+      </div>
+      <div class="tax-preview-row">
+        <span>You collect (gross)</span>
+        <span id="mp-gross">€0 / mo</span>
+      </div>
+      <div class="tax-preview-row">
+        <span>BTW → Belastingdienst (Q)</span>
+        <span id="mp-btw">€0 / mo</span>
+      </div>
+      <div class="tax-preview-row">
+        <span>Tax reserve (35%)</span>
+        <span id="mp-tax">€0 / mo</span>
+      </div>
+      <div class="tax-preview-row">
+        <span>→ Net spendable</span>
+        <span id="mp-net">€0 / mo</span>
+      </div>
+    </div>
+
+    <div class="form-row-2" style="margin-top:12px">
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Start date</label>
+        <input class="form-input" type="date">
+      </div>
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Duration (months, or leave blank = ongoing)</label>
+        <input class="form-input" type="number" placeholder="e.g. 6">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal()">Save contract</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ─── SCENARIO SWITCHING ───
+  const scenarios = {
+    base:         { runway:'14 wks', net:'€5,720', surplus:'+€1,420', base:55, cons:null, opt:null, sentence:'Your <strong>active contracts</strong> cover 14 weeks runway. Your BTW obligation is <strong>€4,830</strong> due in 38 days.' },
+    conservative: { runway:'18 wks', net:'€7,185', surplus:'+€2,885', base:55, cons:69, opt:null, sentence:'Adding <strong>50% pipeline probability</strong> brings you to 18 weeks. <span class="action">Comfortable — focus on converting ING deal.</span>' },
+    optimistic:   { runway:'22 wks', net:'€9,005', surplus:'+€4,705', base:55, cons:69, opt:85,   sentence:'If all pipeline closes, you reach <strong>22 weeks runway</strong>. <span class="action">Safe zone — consider rate increase on renewals.</span>' },
+    custom:       { runway:'20 wks', net:'€8,125', surplus:'+€3,825', base:55, cons:null, opt:76,  sentence:'<strong>Custom scenario:</strong> ING active, ABN excluded. 20 weeks runway. <span class="action">No action needed this quarter.</span>' },
+  };
+
+  function setScenario(id, btn) {
+    document.querySelectorAll('.sc-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    const s = scenarios[id];
+    document.getElementById('rv-weeks').textContent = s.runway;
+    document.getElementById('kpi-net').textContent = s.net;
+    document.getElementById('kpi-surplus').textContent = s.surplus;
+    document.querySelector('.strategy-text').innerHTML = s.sentence;
+  }
+
+  // ─── CONTRACTS TOGGLE ───
+  function toggleContracts() {
+    const body  = document.getElementById('contracts-body');
+    const arrow = document.getElementById('contracts-arrow');
+    const open  = body.classList.toggle('open');
+    arrow.classList.toggle('open', open);
+  }
+
+  // ─── CONTRACT ROW EXPAND ───
+  function toggleContractDetail(row) {
+    row.classList.toggle('expanded');
+    const detail = row.nextElementSibling;
+    if (detail && detail.classList.contains('contract-tax-detail')) {
+      detail.style.display = row.classList.contains('expanded') ? 'grid' : 'none';
+    }
+  }
+
+  // ─── PIPELINE TOGGLE ───
+  function togglePipeline(wrap) {
+    const sw = wrap.querySelector('.toggle-switch');
+    sw.classList.toggle('on');
+  }
+
+  // ─── CONTRACT MODAL ───
+  let btwOn = true;
+  function openModal()  { document.getElementById('modal').classList.add('open'); }
+  function closeModal() { document.getElementById('modal').classList.remove('open'); }
+  function closeModalOutside(e) { if (e.target.id === 'modal') closeModal(); }
+  function toggleBtw() {
+    btwOn = !btwOn;
+    const sw = document.getElementById('m-btw-toggle');
+    sw.classList.toggle('on', btwOn);
+    document.getElementById('m-btw-label').textContent = btwOn
+      ? '21% BTW applies to this contract'
+      : 'No BTW (exempt or non-NL client)';
+    calcTaxPreview();
+  }
+  function calcTaxPreview() {
+    const rate = parseFloat(document.getElementById('m-rate').value) || 0;
+    const vat  = btwOn ? 0.21 : 0;
+    const tax  = 0.35;
+    const btw  = Math.round(rate * vat);
+    const res  = Math.round(rate * tax);
+    const net  = Math.max(0, rate - btw - res);
+    document.getElementById('mp-client').textContent = `€${rate.toLocaleString()} + €${btw.toLocaleString()} BTW`;
+    document.getElementById('mp-gross').textContent  = `€${rate.toLocaleString()} / mo`;
+    document.getElementById('mp-btw').textContent    = `−€${btw.toLocaleString()} / mo`;
+    document.getElementById('mp-tax').textContent    = `−€${res.toLocaleString()} / mo`;
+    document.getElementById('mp-net').textContent    = `€${net.toLocaleString()} / mo`;
+  }
+</script>
+
+</body>
+</html>

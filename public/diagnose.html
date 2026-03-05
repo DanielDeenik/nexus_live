@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nexus Live — Browser Diagnostics</title>
+<style>
+  body { background:#0d1117; color:#c9d1d9; font-family:monospace; padding:24px; font-size:13px; }
+  h1 { color:#4fffb0; font-size:18px; margin-bottom:4px; }
+  h2 { color:#4facfe; font-size:14px; margin:20px 0 6px; border-bottom:1px solid #30363d; padding-bottom:4px; }
+  .ok   { color:#4fffb0; }
+  .warn { color:#f9ca24; }
+  .err  { color:#ff4444; }
+  .sec  { background:#161b22; border:1px solid #30363d; border-radius:6px; padding:12px 16px; margin-bottom:14px; }
+  pre   { white-space:pre-wrap; word-break:break-all; margin:0; font-size:11.5px; max-height:300px; overflow-y:auto; }
+  .row  { display:flex; gap:12px; align-items:baseline; margin:4px 0; }
+  .lbl  { color:#8b949e; width:180px; flex-shrink:0; }
+  .val  { flex:1; }
+  button { background:#21262d; border:1px solid #30363d; color:#c9d1d9; border-radius:6px;
+           padding:6px 14px; cursor:pointer; font-size:12px; margin-right:8px; }
+  button:hover { background:#30363d; }
+  #log  { background:#161b22; border:1px solid #30363d; border-radius:6px; padding:12px;
+          max-height:200px; overflow-y:auto; font-size:11px; }
+</style>
+</head>
+<body>
+<h1>🔍 Nexus Live — Browser Diagnostics</h1>
+<p style="color:#8b949e">Loaded at: <span id="ts"></span></p>
+<button onclick="runAll()">▶ Run All Checks</button>
+<button onclick="location.href='/'">← Back to Dashboard</button>
+
+<div id="results"></div>
+<h2>Console Log</h2>
+<div id="log"></div>
+
+<script>
+document.getElementById('ts').textContent = new Date().toLocaleString();
+
+const log = (...a) => {
+  const d = document.getElementById('log');
+  d.innerHTML += `<div>${a.join(' ')}</div>`;
+  d.scrollTop = d.scrollHeight;
+};
+window.onerror = (msg, src, line, col, err) => {
+  log(`<span class="err">ERROR: ${msg} (line ${line})</span>`);
+};
+
+const ENDPOINTS = ['config','expenses','contracts','signals','cashflow','companies','opportunities','history'];
+
+function cls(v) { return v === 'ok' ? 'ok' : v === 'warn' ? 'warn' : 'err'; }
+
+async function runAll() {
+  const out = document.getElementById('results');
+  out.innerHTML = '<p class="warn">Running checks…</p>';
+  let html = '';
+
+  // 1. Server ping
+  html += '<h2>1. Server Health</h2><div class="sec">';
+  try {
+    const t0 = Date.now();
+    const h = await fetch('/api/health').then(r => r.json());
+    const ms = Date.now() - t0;
+    html += `<div class="row"><span class="lbl">Status</span><span class="val ok">✓ Online (${ms}ms)</span></div>`;
+    html += `<div class="row"><span class="lbl">Workspaces</span><span class="val">${h.workspaces?.join(', ') || '—'}</span></div>`;
+    html += `<div class="row"><span class="lbl">Cache size</span><span class="val">${h.cache} entries</span></div>`;
+  } catch(e) {
+    html += `<div class="err">✗ Server unreachable: ${e.message}</div>`;
+  }
+  html += '</div>';
+
+  // 2. DB connectivity
+  html += '<h2>2. Database Connectivity</h2><div class="sec">';
+  try {
+    const st = await fetch('/api/status').then(r => r.json());
+    html += `<div class="row"><span class="lbl">Overall</span><span class="val ${cls(st.ok ? 'ok' : 'err')}">${st.ok ? '✓ All OK' : '⚠ Some failures'}</span></div>`;
+    (st.databases || []).forEach(db => {
+      const ic = db.status === 'ok' ? '✓' : db.status === 'unconfigured' ? '○' : '✗';
+      const cl = db.status === 'ok' ? 'ok' : db.status === 'unconfigured' ? 'warn' : 'err';
+      html += `<div class="row"><span class="lbl">${db.db}</span><span class="val ${cl}">${ic} ${db.status}${db.message ? ' — '+db.message.slice(0,80) : ''}</span></div>`;
+    });
+  } catch(e) {
+    html += `<div class="err">✗ Status check failed: ${e.message}</div>`;
+  }
+  html += '</div>';
+
+  // 3. Endpoints
+  html += '<h2>3. API Endpoint Data</h2>';
+  for (const ep of ENDPOINTS) {
+    html += `<div class="sec">`;
+    html += `<div class="row"><span class="lbl" style="color:#4facfe;font-weight:700">/api/${ep}</span>`;
+    try {
+      const data = await fetch(`/api/${ep}?ws=primary`).then(async r => {
+        if (!r.ok) { const b = await r.json().catch(()=>{}); throw new Error(b?.error || 'HTTP '+r.status); }
+        return r.json();
+      });
+      if (ep === 'config') {
+        html += `<span class="val ok">✓ Object received</span></div>`;
+        Object.entries(data).forEach(([k,v]) => {
+          if (k === 'skills') {
+            html += `<div class="row"><span class="lbl">${k}</span><span class="val">${Array.isArray(v) ? v.length + ' entries' : v}</span></div>`;
+          } else {
+            const vc = v === null ? 'warn' : '';
+            html += `<div class="row"><span class="lbl">${k}</span><span class="val ${vc}">${v === null ? 'null ⚠' : JSON.stringify(v)}</span></div>`;
+          }
+        });
+      } else if (Array.isArray(data)) {
+        html += `<span class="val ok">✓ ${data.length} rows</span></div>`;
+        if (data.length > 0) {
+          html += `<div style="margin-top:6px"><pre>${JSON.stringify(data.slice(0,2), null, 2)}</pre></div>`;
+          if (data.length > 2) html += `<div style="color:#8b949e;font-size:11px;margin-top:4px">… and ${data.length-2} more rows</div>`;
+        }
+      } else {
+        html += `<span class="val ok">✓</span></div>`;
+        html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+      }
+    } catch(e) {
+      html += `<span class="val err">✗ ${e.message}</span></div>`;
+    }
+    html += '</div>';
+  }
+
+  // 4. JavaScript library check
+  html += '<h2>4. JavaScript Libraries</h2><div class="sec">';
+  html += `<div class="row"><span class="lbl">Chart.js</span><span class="val ${typeof Chart !== 'undefined' ? 'ok' : 'err'}">${typeof Chart !== 'undefined' ? '✓ Loaded (v'+Chart.version+')' : '✗ NOT LOADED'}</span></div>`;
+  html += `<div class="row"><span class="lbl">D3.js</span><span class="val ${typeof d3 !== 'undefined' ? 'ok' : 'err'}">${typeof d3 !== 'undefined' ? '✓ Loaded (v'+d3.version+')' : '✗ NOT LOADED'}</span></div>`;
+  html += '</div>';
+
+  out.innerHTML = html;
+  log('Checks complete');
+}
+
+// Auto-run
+runAll();
+</script>
+</body>
+</html>
