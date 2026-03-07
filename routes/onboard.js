@@ -238,6 +238,9 @@ router.post('/complete', async (req, res) => {
       taxReservePct:     rates.taxReservePct       || 35,
       targetIndustries:  preferences.industries    || [],
       linkedinId:        body.linkedinId           || null,
+      // Contract fields
+      contractStartDate: body.contractStartDate    || null,
+      contractMonths:    body.contractMonths        || null,
     };
     // Remove nulls to avoid overwriting real data with null on re-saves
     Object.keys(cfgPatch).forEach(k => cfgPatch[k] === null && delete cfgPatch[k]);

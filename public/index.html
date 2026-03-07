@@ -311,16 +311,46 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 /* ── Profile confirmation card ────────────── */
 .ob-profile-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);
   padding:16px;margin-bottom:16px}
+.ob-profile-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
 .ob-profile-avatar{width:44px;height:44px;border-radius:50%;background:var(--bg4);
   border:2px solid var(--acc);display:flex;align-items:center;justify-content:center;
-  font-size:18px;margin-bottom:10px}
-.ob-profile-name{font-size:15px;font-weight:700;color:var(--txt);margin-bottom:2px}
-.ob-profile-title{font-size:12px;color:var(--sub);margin-bottom:10px}
-.ob-profile-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
-.ob-profile-tag{background:rgba(79,255,176,.1);color:var(--acc);border:1px solid rgba(79,255,176,.2);
-  border-radius:3px;padding:2px 7px;font-size:10.5px}
-.ob-profile-tag.ind{background:rgba(79,172,254,.1);color:var(--blue);border-color:rgba(79,172,254,.2)}
-.ob-profile-tag.sow{background:rgba(255,159,67,.1);color:var(--orange);border-color:rgba(255,159,67,.2)}
+  font-size:18px;flex-shrink:0}
+.ob-profile-header-info{flex:1;min-width:0}
+.ob-profile-name-edit{font-size:15px;font-weight:700;color:var(--txt);background:transparent;
+  border:none;border-bottom:1px dashed transparent;width:100%;outline:none;padding:1px 2px;
+  font-family:var(--font);cursor:text;transition:border-color .15s}
+.ob-profile-name-edit:hover,.ob-profile-name-edit:focus{border-bottom-color:var(--acc);
+  background:rgba(79,255,176,.04)}
+.ob-profile-title-edit{font-size:11.5px;color:var(--sub);background:transparent;border:none;
+  border-bottom:1px dashed transparent;width:100%;outline:none;padding:1px 2px;margin-top:2px;
+  font-family:var(--font);cursor:text;transition:border-color .15s}
+.ob-profile-title-edit:hover,.ob-profile-title-edit:focus{border-bottom-color:var(--dim);
+  color:var(--txt);background:rgba(255,255,255,.02)}
+.ob-profile-meta-row{display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap;padding:0 2px}
+.ob-profile-badge{font-size:10.5px;color:var(--sub);display:flex;align-items:center;gap:3px}
+.ob-profile-badge strong{color:var(--txt);font-weight:600}
+.ob-profile-section{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.05)}
+.ob-profile-section:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.ob-profile-section-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--sub);font-weight:600;margin-bottom:7px}
+.ob-chip-wrap{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.ob-chip{background:rgba(79,255,176,.1);color:var(--acc);border:1px solid rgba(79,255,176,.2);
+  border-radius:3px;padding:2px 7px;font-size:10.5px;display:inline-flex;align-items:center;gap:4px}
+.ob-chip.ind{background:rgba(79,172,254,.1);color:var(--blue);border-color:rgba(79,172,254,.2)}
+.ob-chip.sow{background:rgba(255,159,67,.1);color:var(--orange);border-color:rgba(255,159,67,.2)}
+.ob-chip.cert{background:rgba(190,120,255,.1);color:#be78ff;border-color:rgba(190,120,255,.2)}
+.ob-chip .chip-x{cursor:pointer;opacity:.5;font-size:8px;line-height:1;margin-left:2px;
+  transition:opacity .12s}.ob-chip .chip-x:hover{opacity:1}
+.ob-chip-add{background:transparent;border:1px dashed var(--dim);color:var(--sub);
+  border-radius:3px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:var(--font);
+  display:inline-block;transition:all .12s}
+.ob-chip-add:hover{border-color:var(--acc);color:var(--acc)}
+.ob-chip-input{background:var(--bg4);border:1px solid var(--acc);color:var(--txt);
+  border-radius:3px;padding:2px 8px;font-size:10.5px;font-family:var(--font);width:130px;outline:none}
+.ob-sow-list{list-style:none;padding:0;margin:0}
+.ob-sow-list li{font-size:11px;color:var(--txt);padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);line-height:1.4}
+.ob-sow-list li:last-child{border-bottom:none}
+.ob-sow-list li::before{content:'→ ';color:var(--orange);font-size:9px}
 .ob-confidence{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--sub);margin-bottom:12px}
 .ob-conf-bar{flex:1;height:4px;background:var(--dim);border-radius:2px;overflow:hidden}
 .ob-conf-fill{height:100%;border-radius:2px;background:var(--acc);transition:width .5s var(--ease)}
@@ -328,6 +358,21 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 .ob-filters-kw{display:flex;flex-wrap:wrap;gap:4px}
 .ob-filter-kw{background:var(--bg4);border:1px solid var(--border);border-radius:3px;
   padding:2px 6px;font-size:10px;color:var(--sub)}
+/* ── Contract end preview ─────────────────── */
+.contract-end-preview{font-size:11.5px;color:var(--sub);margin-top:-4px;margin-bottom:12px;
+  padding:7px 10px;background:rgba(79,255,176,.06);border-radius:4px;border-left:2px solid var(--acc)}
+.contract-end-preview.warn{border-left-color:var(--yellow);background:rgba(249,202,36,.06);color:var(--yellow)}
+.contract-end-preview.soon{border-left-color:var(--red);background:rgba(255,107,107,.06);color:var(--red)}
+/* ── Bench Banner ─────────────────────────── */
+.bench-banner{display:flex;align-items:center;gap:14px;background:rgba(255,159,67,.07);
+  border:1px solid rgba(255,159,67,.2);border-radius:var(--r);padding:14px 16px;margin-bottom:16px}
+.bench-icon{font-size:22px;flex-shrink:0}
+.bench-title{font-size:13px;font-weight:700;color:var(--orange);margin-bottom:2px}
+.bench-sub{font-size:11px;color:var(--sub);line-height:1.5}
+.bench-cta{margin-left:auto;flex-shrink:0;background:rgba(255,159,67,.12);color:var(--orange);
+  border:1px solid rgba(255,159,67,.25);border-radius:4px;padding:6px 12px;font-size:11px;
+  font-weight:600;cursor:pointer;font-family:var(--font);white-space:nowrap;transition:all .12s}
+.bench-cta:hover{background:rgba(255,159,67,.22)}
 /* ── Signals feed enhancement ─────────────── */
 .signal-tier{display:inline-block;padding:2px 6px;border-radius:3px;font-size:9px;
   font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-left:6px}
@@ -436,6 +481,16 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
     <div class="page-header">
       <div class="page-title">Dashboard</div>
       <div class="page-sub" id="dash-date">Today</div>
+    </div>
+
+    <!-- Bench banner: shown when no active work detected -->
+    <div class="bench-banner" id="d-bench-banner" style="display:none">
+      <div class="bench-icon">⏸</div>
+      <div>
+        <div class="bench-title">No active contract</div>
+        <div class="bench-sub">You're currently on the bench. Numbers below are projections based on your rates &amp; burn — not live contract income. Add a contract in Pipeline to track actual work.</div>
+      </div>
+      <button class="bench-cta" onclick="navTo('pipeline')">Add contract →</button>
     </div>
 
     <!-- 3 headline numbers -->
@@ -626,6 +681,8 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
         <div class="field"><label>VAT Rate (%)</label><input type="number" id="s-vat" placeholder="21" min="0" max="30" step="1"></div>
         <div class="field"><label>Income Tax Reserve (%)</label><input type="number" id="s-tax" placeholder="35" min="0" max="60" step="1"></div>
         <div class="field"><label>Utilisation Target (%)</label><input type="number" id="s-util" placeholder="75" min="0" max="100" step="5"></div>
+        <div class="field"><label>Contract Start Date</label><input type="date" id="s-contract-start"></div>
+        <div class="field"><label>Contract Duration (months)</label><input type="number" id="s-contract-months" placeholder="6" min="1" max="60" step="1"></div>
       </div>
     </div>
 
@@ -732,39 +789,69 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
       <!-- Step 2: Profile Confirmation (Human-in-the-loop) -->
       <div class="ob-step" id="ob-step-2">
         <div class="ob-step-title">Is this you? ✓</div>
-        <div class="ob-step-sub">Nexus built your profile from your documents. Review and correct anything before we start searching for your next opportunity.</div>
+        <div class="ob-step-sub">Nexus built your profile from your documents. Click any field to edit. Add or remove skills and industries to sharpen your market intelligence.</div>
 
         <div class="ob-profile-card" id="ob-profile-card">
-          <div class="ob-profile-avatar" id="ob-avatar">👤</div>
-          <div class="ob-profile-name" id="ob-pname">—</div>
-          <div class="ob-profile-title" id="ob-ptitle">—</div>
+          <!-- Header: avatar + editable name/title -->
+          <div class="ob-profile-header">
+            <div class="ob-profile-avatar" id="ob-avatar">👤</div>
+            <div class="ob-profile-header-info">
+              <input class="ob-profile-name-edit" id="ob-pname" type="text" placeholder="Your full name" value="—">
+              <input class="ob-profile-title-edit" id="ob-ptitle" type="text" placeholder="e.g. Senior SimCorp Consultant" value="">
+            </div>
+          </div>
+
+          <!-- Meta: seniority | years exp | location -->
+          <div class="ob-profile-meta-row" id="ob-profile-meta">
+            <!-- populated by JS -->
+          </div>
+
+          <!-- Confidence bar -->
           <div class="ob-confidence">
             <span>Profile completeness</span>
             <div class="ob-conf-bar"><div class="ob-conf-fill" id="ob-conf-fill" style="width:0%"></div></div>
             <span id="ob-conf-pct">0%</span>
+            <span id="ob-conf-sources" style="color:var(--sub);font-size:10px"></span>
           </div>
-          <div class="ob-profile-tags" id="ob-profile-skills"></div>
-          <div class="ob-profile-tags" id="ob-profile-industries"></div>
-          <div class="ob-profile-tags" id="ob-profile-sow"></div>
+
+          <!-- Skills -->
+          <div class="ob-profile-section">
+            <div class="ob-profile-section-label">Skills &amp; Expertise</div>
+            <div class="ob-chip-wrap" id="ob-skills-chips">
+              <!-- chips populated by JS -->
+            </div>
+          </div>
+
+          <!-- Industries -->
+          <div class="ob-profile-section">
+            <div class="ob-profile-section-label">Industries &amp; Verticals</div>
+            <div class="ob-chip-wrap" id="ob-industries-chips">
+              <!-- chips populated by JS -->
+            </div>
+          </div>
+
+          <!-- Services from SOW -->
+          <div class="ob-profile-section" id="ob-services-section" style="display:none">
+            <div class="ob-profile-section-label">What clients hire you for <span style="color:var(--orange);margin-left:4px">from contracts</span></div>
+            <ul class="ob-sow-list" id="ob-sow-services"></ul>
+          </div>
+
+          <!-- Certifications -->
+          <div class="ob-profile-section" id="ob-certs-section" style="display:none">
+            <div class="ob-profile-section-label">Certifications</div>
+            <div class="ob-chip-wrap" id="ob-certs-chips"></div>
+          </div>
+
+          <!-- Rate / duration hints from SOW -->
+          <div id="ob-rate-hints" style="display:none;margin-top:4px">
+            <div class="ob-profile-section-label">Extracted from contracts</div>
+            <div id="ob-rate-hints-content" style="font-size:11px;color:var(--sub);line-height:1.7"></div>
+          </div>
         </div>
 
         <!-- Search filters summary -->
-        <div style="font-size:11px;color:var(--sub);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Auto-generated search filters</div>
+        <div style="font-size:10px;color:var(--sub);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Auto-generated intelligence search terms</div>
         <div class="ob-filters-kw" id="ob-filter-keywords" style="margin-bottom:16px"></div>
-
-        <!-- Editable overrides -->
-        <div class="ob-field">
-          <label>Add or correct your name</label>
-          <input type="text" id="ob-confirm-name" placeholder="Your full name">
-        </div>
-        <div class="ob-field">
-          <label>Add missing skills (comma-separated)</label>
-          <input type="text" id="ob-confirm-skills" placeholder="e.g. SimCorp Dimension, DORA, Fund Accounting">
-        </div>
-        <div class="ob-field">
-          <label>Add missing industries (comma-separated)</label>
-          <input type="text" id="ob-confirm-industries" placeholder="e.g. Asset Management, FinTech">
-        </div>
 
         <div class="ob-step-actions">
           <button class="ob-btn" onclick="obConfirmProfile()">Yes, that's me — start searching →</button>
@@ -810,6 +897,21 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
             <label>VAT Rate (%)</label>
             <input type="number" id="ob-vat" placeholder="21" min="0" max="30" step="1" oninput="obUpdatePreview()">
           </div>
+        </div>
+
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);font-weight:600;margin-bottom:10px;margin-top:4px">Current Contract</div>
+        <div class="ob-field-row">
+          <div class="ob-field">
+            <label>Contract Start</label>
+            <input type="date" id="ob-contract-start" oninput="obUpdateContractEnd()">
+          </div>
+          <div class="ob-field">
+            <label>Duration (months)</label>
+            <input type="number" id="ob-contract-months" placeholder="6" min="1" max="60" step="1" oninput="obUpdateContractEnd()">
+          </div>
+        </div>
+        <div id="ob-contract-end-preview" class="contract-end-preview" style="display:none">
+          Contract ends: <strong id="ob-contract-end-date"></strong> &nbsp;·&nbsp; <span id="ob-contract-days-left"></span>
         </div>
 
         <div class="ob-step-actions">
@@ -938,6 +1040,18 @@ document.querySelectorAll('.nav-item').forEach(el => {
     if (page === 'pipeline') renderPipeline();
   });
 });
+
+// Programmatic navigation (used by bench banner / nudge links)
+function navTo(page) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navEl = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (navEl) navEl.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const pageEl = $('page-' + page);
+  if (pageEl) pageEl.classList.add('active');
+  if (page === 'forecast') renderForecastPage();
+  if (page === 'pipeline') renderPipeline();
+}
 
 /* ─────────────────────────────────────────────────────────
    BOOT
@@ -1114,6 +1228,28 @@ function renderDashboard() {
   const savings = S.cfg.savings || 0;
   const months  = S.netCashflow;
 
+  // ── Bench banner ───────────────────────────────────────────────────────────
+  const hasRate    = (S.cfg.hourlyRate > 0 || S.cfg.dayRate > 0);
+  const hasContracts = (S.contracts || []).length > 0;
+
+  // Determine if "on bench": rate is configured but no active contract
+  // Show banner when: no contracts in Notion AND (no contract months set OR contract has ended)
+  let onBench = false;
+  if (!hasContracts) {
+    if (!S.cfg.contractMonths) {
+      onBench = true;
+    } else if (S.cfg.contractStartDate && S.cfg.contractMonths) {
+      const start  = new Date(S.cfg.contractStartDate);
+      const end    = new Date(start);
+      end.setMonth(end.getMonth() + S.cfg.contractMonths);
+      onBench = end < new Date();
+    }
+  }
+  const benchBanner = $('d-bench-banner');
+  if (benchBanner) {
+    benchBanner.style.display = (hasRate && onBench) ? '' : 'none';
+  }
+
   // Runway
   const surplusAvg = months.length > 0
     ? months.slice(0,3).reduce((a,m) => a + m.surplus, 0) / 3
@@ -1158,15 +1294,36 @@ function generateNudge() {
     $('d-nudge-text').innerHTML = 'Complete your profile to get personalised recommendations.';
     return;
   }
-  const thisMonth = months[0];
-  const nextMonth = months[1];
+  const thisMonth  = months[0];
+  const nextMonth  = months[1];
   const slowMonths = months.filter(m => m.weight < 0.6);
-  const rate = S.cfg?.hourlyRate || 0;
-  const burn = S.cfg?.burn || 0;
+  const rate       = S.cfg?.hourlyRate || 0;
+  const burn       = S.cfg?.burn || 0;
+  const hasRate    = rate > 0 || (S.cfg?.dayRate || 0) > 0;
+
+  // ── On-bench state: no active contract ──────────────────────────────────
+  const hasContracts = (S.contracts || []).length > 0;
+  let contractEndSoon = false;
+  let daysToEnd = null;
+  if (S.cfg?.contractStartDate && S.cfg?.contractMonths) {
+    const start = new Date(S.cfg.contractStartDate);
+    const end   = new Date(start);
+    end.setMonth(end.getMonth() + S.cfg.contractMonths);
+    daysToEnd = Math.round((end - new Date()) / (1000 * 60 * 60 * 24));
+    contractEndSoon = daysToEnd > 0 && daysToEnd <= 60;
+  }
 
   let nudge = '';
 
-  if (thisMonth.surplus < 0) {
+  if (!hasRate) {
+    nudge = '👋 <strong>Set your rates to unlock your forecast.</strong> Head to <a onclick="showOnboarding()" style="color:var(--acc);cursor:pointer;text-decoration:underline">Setup</a> to enter your day or hourly rate.';
+  } else if (!hasContracts && !S.cfg?.contractMonths) {
+    nudge = `<strong>📋 You have no active contract on record.</strong> Your forecast is based on projected rates, not confirmed work. <a onclick="navTo('pipeline')" style="color:var(--acc);cursor:pointer;text-decoration:underline">Add a contract →</a>`;
+  } else if (contractEndSoon) {
+    nudge = `<strong>⏰ Your contract ends in ${daysToEnd} days.</strong> Start your pipeline now — it typically takes 3–4 weeks to close a new contract. Don't let the bench time creep up on you.`;
+  } else if (daysToEnd !== null && daysToEnd <= 0) {
+    nudge = `<strong>🔴 Your last contract has ended.</strong> You're currently on the bench. Time on bench = unpaid time. Get your pipeline moving in <a onclick="navTo('pipeline')" style="color:var(--acc);cursor:pointer;text-decoration:underline">Pipeline →</a>`;
+  } else if (thisMonth.surplus < 0) {
     nudge = `<strong>⚠️ ${MONTHS[thisMonth.monthIndex]} looks tight.</strong> Projected deficit of <strong>${fmtEur(Math.abs(thisMonth.surplus))}</strong>. Consider taking on additional work or reducing spend this month.`;
   } else if (nextMonth && nextMonth.surplus < 0) {
     nudge = `<strong>📅 Next month (${MONTHS[nextMonth.monthIndex]}) shows a deficit.</strong> Start outreach now — it typically takes 3–4 weeks to close a contract.`;
@@ -1465,8 +1622,10 @@ function populateSettingsFields() {
   if (c.burn)              $('s-burn').value      = c.burn;
   if (c.savings)           $('s-savings').value   = c.savings;
   if (c.vatPct)            $('s-vat').value       = c.vatPct;
-  if (c.taxReservePct)     $('s-tax').value       = c.taxReservePct;
-  if (c.utilisation)       $('s-util').value      = c.utilisation;
+  if (c.taxReservePct)     $('s-tax').value              = c.taxReservePct;
+  if (c.utilisation)       $('s-util').value             = c.utilisation;
+  if (c.contractStartDate) $('s-contract-start').value   = c.contractStartDate;
+  if (c.contractMonths)    $('s-contract-months').value  = c.contractMonths;
   if (c.linkedin?.id) {
     $('li-connect-status').textContent = '✓ Connected as ' + (c.linkedin.name || c.linkedin.id);
     $('li-badge').textContent = 'Connected';
@@ -1497,9 +1656,11 @@ async function saveSettings() {
     availHoursPerWeek: parseFloat($('s-hours').value)  || null,
     burn:             parseFloat($('s-burn').value)     || null,
     savings:          parseFloat($('s-savings').value)  || null,
-    vatPct:           parseFloat($('s-vat').value)      || 21,
-    taxReservePct:    parseFloat($('s-tax').value)      || 35,
-    utilisation:      parseFloat($('s-util').value)     || 75,
+    vatPct:            parseFloat($('s-vat').value)             || 21,
+    taxReservePct:     parseFloat($('s-tax').value)             || 35,
+    utilisation:       parseFloat($('s-util').value)            || 75,
+    contractStartDate: $('s-contract-start').value              || null,
+    contractMonths:    parseFloat($('s-contract-months').value) || null,
   };
   try {
     const r = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -1563,14 +1724,18 @@ function showOnboarding() {
   // Pre-populate Step 3 fields from existing config (returning users / edit flow)
   if (S.cfg) {
     const c = S.cfg;
-    if (c.name)              { const el = $('ob-name');    if (el) el.value = c.name; }
-    if (c.dayRate)           { const el = $('ob-dayrate'); if (el) el.value = c.dayRate; }
-    if (c.hourlyRate)        { const el = $('ob-rate');    if (el) el.value = c.hourlyRate; }
-    if (c.availHoursPerWeek) { const el = $('ob-hours');   if (el) el.value = c.availHoursPerWeek; }
-    if (c.burn)              { const el = $('ob-burn');    if (el) el.value = c.burn; }
-    if (c.savings)           { const el = $('ob-savings'); if (el) el.value = c.savings; }
-    if (c.vatPct)            { const el = $('ob-vat');     if (el) el.value = c.vatPct; }
-    if (c.taxReservePct)     { const el = $('ob-taxres');  if (el) el.value = c.taxReservePct; }
+    if (c.name)              { const el = $('ob-name');             if (el) el.value = c.name; }
+    if (c.dayRate)           { const el = $('ob-dayrate');          if (el) el.value = c.dayRate; }
+    if (c.hourlyRate)        { const el = $('ob-rate');             if (el) el.value = c.hourlyRate; }
+    if (c.availHoursPerWeek) { const el = $('ob-hours');            if (el) el.value = c.availHoursPerWeek; }
+    if (c.burn)              { const el = $('ob-burn');             if (el) el.value = c.burn; }
+    if (c.savings)           { const el = $('ob-savings');          if (el) el.value = c.savings; }
+    if (c.vatPct)            { const el = $('ob-vat');              if (el) el.value = c.vatPct; }
+    if (c.taxReservePct)     { const el = $('ob-taxres');           if (el) el.value = c.taxReservePct; }
+    if (c.contractStartDate) { const el = $('ob-contract-start');   if (el) el.value = c.contractStartDate; }
+    if (c.contractMonths)    { const el = $('ob-contract-months');  if (el) el.value = c.contractMonths; }
+    // Trigger preview update if contract fields exist
+    if (c.contractStartDate || c.contractMonths) obUpdateContractEnd();
   }
   obGoTo(0);
 }
@@ -1694,59 +1859,154 @@ async function obBuildProfile() {
    PROFILE CONFIRMATION (Step 2)
 ───────────────────────────────────────────────────────── */
 
+// ── Chip helpers ──────────────────────────────────────────
+function makeChip(text, type, removable) {
+  const span = document.createElement('span');
+  span.className = 'ob-chip' + (type ? ' ' + type : '');
+  span.dataset.value = text;
+  span.textContent = text;
+  if (removable) {
+    const x = document.createElement('span');
+    x.className = 'chip-x';
+    x.textContent = '✕';
+    x.title = 'Remove';
+    x.onclick = () => span.remove();
+    span.appendChild(x);
+  }
+  return span;
+}
+
+function makeAddChipButton(wrapId, type, placeholder) {
+  const btn = document.createElement('button');
+  btn.className = 'ob-chip-add';
+  btn.textContent = '+ Add';
+  btn.onclick = () => {
+    btn.style.display = 'none';
+    const inp = document.createElement('input');
+    inp.className = 'ob-chip-input';
+    inp.placeholder = placeholder || 'skill name';
+    const wrap = $(wrapId);
+    wrap.insertBefore(inp, btn);
+    inp.focus();
+    function commit() {
+      const v = inp.value.trim();
+      if (v) {
+        v.split(',').map(s => s.trim()).filter(Boolean).forEach(s => {
+          wrap.insertBefore(makeChip(s, type, true), btn);
+        });
+      }
+      inp.remove();
+      btn.style.display = '';
+    }
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      if (e.key === 'Escape') { inp.remove(); btn.style.display = ''; }
+    });
+    inp.addEventListener('blur', commit);
+  };
+  return btn;
+}
+
+function getChipValues(wrapId) {
+  return [...$(wrapId).querySelectorAll('.ob-chip')].map(c => c.dataset.value).filter(Boolean);
+}
+
 function populateProfileConfirmation(profile, filters) {
-  // Avatar / name / title
+  // Avatar
   if (profile.picture) {
     $('ob-avatar').innerHTML = `<img src="${profile.picture}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
   } else {
     $('ob-avatar').textContent = (profile.name || 'U')[0].toUpperCase();
   }
-  $('ob-pname').textContent  = profile.name || 'Unknown';
-  $('ob-ptitle').textContent = profile.headline || profile.seniority || '';
 
-  // Confidence bar
+  // Inline-editable name & title
+  $('ob-pname').value  = profile.name || '';
+  $('ob-ptitle').value = profile.headline || '';
+
+  // Meta row: seniority | years exp | location
+  const meta = [];
+  if (profile.seniority)      meta.push(`👔 <strong>${profile.seniority}</strong>`);
+  if (profile.yearsExperience) meta.push(`📅 <strong>${profile.yearsExperience}+ yrs</strong> experience`);
+  if (profile.location)       meta.push(`📍 <strong>${profile.location}</strong>`);
+  $('ob-profile-meta').innerHTML = meta.map(m =>
+    `<span class="ob-profile-badge">${m}</span>`
+  ).join('');
+
+  // Confidence bar + sources
   const conf = profile.confidence || 0;
   $('ob-conf-fill').style.width = conf + '%';
   $('ob-conf-pct').textContent  = conf + '%';
+  const srcs = profile.sources || [];
+  $('ob-conf-sources').textContent = srcs.length ? '· from ' + srcs.join(', ') : '';
 
-  // Skills tags (first 8)
-  $('ob-profile-skills').innerHTML = (profile.skills || []).slice(0, 8).map(s =>
-    `<span class="ob-profile-tag">${s}</span>`
-  ).join('');
+  // Skills chips (removable + add button)
+  const skillsWrap = $('ob-skills-chips');
+  skillsWrap.innerHTML = '';
+  (profile.skills || []).slice(0, 20).forEach(s => skillsWrap.appendChild(makeChip(s, '', true)));
+  skillsWrap.appendChild(makeAddChipButton('ob-skills-chips', '', 'e.g. Python, SimCorp'));
 
-  // Industry tags
-  $('ob-profile-industries').innerHTML = (profile.industries || []).slice(0, 4).map(i =>
-    `<span class="ob-profile-tag ind">${i}</span>`
-  ).join('');
+  // Industries chips (removable + add button)
+  const indWrap = $('ob-industries-chips');
+  indWrap.innerHTML = '';
+  (profile.industries || []).forEach(i => indWrap.appendChild(makeChip(i, 'ind', true)));
+  indWrap.appendChild(makeAddChipButton('ob-industries-chips', 'ind', 'e.g. Asset Management'));
 
-  // SOW service tags (first 3)
-  $('ob-profile-sow').innerHTML = (profile.services || []).slice(0, 3).map(s =>
-    `<span class="ob-profile-tag sow">${s.slice(0, 40)}${s.length > 40 ? '…' : ''}</span>`
-  ).join('');
+  // Services from SOW
+  const services = profile.services || [];
+  if (services.length > 0) {
+    $('ob-services-section').style.display = '';
+    $('ob-sow-services').innerHTML = services.slice(0, 6).map(s =>
+      `<li>${s.slice(0, 90)}${s.length > 90 ? '…' : ''}</li>`
+    ).join('');
+  }
 
-  // Pre-fill editable fields
-  $('ob-confirm-name').value       = profile.name || '';
-  $('ob-confirm-skills').value     = '';
-  $('ob-confirm-industries').value = '';
+  // Certifications (extracted from skills that look like certs)
+  const CERT_PATTERNS = /\b(?:CFA|CAIA|FRM|CPA|ACCA|PMP|PRINCE2|AWS|Azure|GCP|Certified|Scrum|CISSP|CISM|CMT|CQF)\b/i;
+  const certs = (profile.skills || []).filter(s => CERT_PATTERNS.test(s));
+  if (certs.length > 0) {
+    $('ob-certs-section').style.display = '';
+    const certsWrap = $('ob-certs-chips');
+    certsWrap.innerHTML = '';
+    certs.forEach(c => certsWrap.appendChild(makeChip(c, 'cert', false)));
+  }
+
+  // Rate / duration hints from SOW
+  const hints = [];
+  if (profile.rateHints?.length) {
+    const rh = profile.rateHints[0];
+    hints.push(`💶 Rate hint from contract: <strong>${rh.raw || rh.value}</strong>`);
+  }
+  if (profile.avgContractDuration) {
+    hints.push(`📆 Avg. contract length: <strong>${profile.avgContractDuration.toFixed(1)} months</strong>`);
+  }
+  if (hints.length) {
+    $('ob-rate-hints').style.display = '';
+    $('ob-rate-hints-content').innerHTML = hints.join(' &nbsp;·&nbsp; ');
+  }
 
   // Search filter keywords
-  $('ob-filter-keywords').innerHTML = (filters?.keywords || []).slice(0, 12).map(kw =>
+  $('ob-filter-keywords').innerHTML = (filters?.keywords || []).slice(0, 15).map(kw =>
     `<span class="ob-filter-kw">${kw}</span>`
   ).join('');
 }
 
 async function obConfirmProfile() {
-  let profile = S.builtProfile || {};
+  let profile = { ...(S.builtProfile || {}) };
 
-  // Apply user edits
-  const nameOverride = $('ob-confirm-name')?.value.trim();
-  if (nameOverride) profile.name = nameOverride;
+  // Read from richer editable UI
+  const nameVal = $('ob-pname')?.value.trim();
+  if (nameVal) profile.name = nameVal;
 
-  const addSkills = ($('ob-confirm-skills')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
-  if (addSkills.length) profile.skills = [...new Set([...(profile.skills || []), ...addSkills])];
+  const titleVal = $('ob-ptitle')?.value.trim();
+  if (titleVal) profile.headline = titleVal;
 
-  const addInds = ($('ob-confirm-industries')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
-  if (addInds.length) profile.industries = [...new Set([...(profile.industries || []), ...addInds])];
+  // Read skills from chips (user may have added/removed)
+  const chipSkills = getChipValues('ob-skills-chips');
+  if (chipSkills.length) profile.skills = chipSkills;
+
+  // Read industries from chips
+  const chipInds = getChipValues('ob-industries-chips');
+  if (chipInds.length) profile.industries = chipInds;
 
   // Store confirmed profile on state
   S.confirmedProfile = profile;
@@ -1775,6 +2035,43 @@ async function obConfirmProfile() {
 /* ─────────────────────────────────────────────────────────
    NUMBERS STEP (Step 3)
 ───────────────────────────────────────────────────────── */
+
+function obUpdateContractEnd() {
+  const startVal  = $('ob-contract-start')?.value;
+  const monthsVal = parseFloat($('ob-contract-months')?.value) || 0;
+  const previewEl = $('ob-contract-end-preview');
+  if (!previewEl) return;
+
+  if (!startVal || !monthsVal) { previewEl.style.display = 'none'; return; }
+
+  const start   = new Date(startVal);
+  const end     = new Date(start);
+  end.setMonth(end.getMonth() + monthsVal);
+
+  const now     = new Date();
+  const daysLeft = Math.round((end - now) / (1000 * 60 * 60 * 24));
+
+  const dateStr = end.toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+  $('ob-contract-end-date').textContent = dateStr;
+
+  let daysLabel = '';
+  let cls = 'contract-end-preview';
+  if (daysLeft < 0) {
+    daysLabel = `expired ${Math.abs(daysLeft)} days ago`;
+    cls += ' soon';
+  } else if (daysLeft <= 30) {
+    daysLabel = `${daysLeft} days left — start pipeline now`;
+    cls += ' soon';
+  } else if (daysLeft <= 90) {
+    daysLabel = `${daysLeft} days remaining — plan your next contract`;
+    cls += ' warn';
+  } else {
+    daysLabel = `${daysLeft} days remaining`;
+  }
+  $('ob-contract-days-left').textContent = daysLabel;
+  previewEl.className = cls;
+  previewEl.style.display = '';
+}
 
 function obStep3Next() {
   const name    = $('ob-name').value.trim();
@@ -1870,9 +2167,12 @@ async function obComplete() {
   const profileIndustries = S.confirmedProfile?.industries || [];
   const industry = manualIndustry || profileIndustries[0] || '';
 
+  const contractStart  = $('ob-contract-start')?.value  || null;
+  const contractMonths = parseFloat($('ob-contract-months')?.value) || null;
+
   const payload = {
-    name, headline: S.linkedinData?.headline || '',
-    location: S.linkedinData?.location || '',
+    name, headline: S.linkedinData?.headline || S.confirmedProfile?.headline || '',
+    location: S.linkedinData?.location || S.confirmedProfile?.location || '',
     rates: {
       hourlyRate: rate,
       dayRate,
@@ -1883,6 +2183,8 @@ async function obComplete() {
       taxReservePct: taxRes,
     },
     industry,
+    contractStartDate: contractStart,
+    contractMonths,
     seasonData: S.incomeSeasonality,
     linkedinId: S.linkedinData?.id || null,
   };
@@ -1907,6 +2209,8 @@ async function obComplete() {
       availHoursPerWeek: hrs,
       burn, savings,
       vatPct, taxReservePct: taxRes,
+      contractStartDate: contractStart,
+      contractMonths,
     };
 
     // Re-run forecast engine with new profile
