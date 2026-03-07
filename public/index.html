@@ -429,6 +429,140 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 #toast.show{transform:none;opacity:1}
 #toast.ok{border-color:rgba(79,255,176,.3);color:var(--acc)}
 #toast.err{border-color:rgba(255,107,107,.3);color:var(--red)}
+
+/* ─────────────────────────────────────────────────────────
+   AVAILABILITY STATE — sidebar widget
+───────────────────────────────────────────────────────── */
+.sb-avail{
+  padding:11px 18px 13px;border-bottom:1px solid var(--border);
+  cursor:pointer;transition:background .12s;
+}
+.sb-avail:hover{background:rgba(255,255,255,.018)}
+.sb-avail-label{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.sb-avail-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11px;font-weight:600;padding:4px 9px;border-radius:20px;
+  border:1px solid transparent;transition:all .15s;
+}
+.sb-avail-pill.active{background:rgba(79,255,176,.1);color:var(--acc);border-color:rgba(79,255,176,.25)}
+.sb-avail-pill.notice{background:rgba(249,202,36,.1);color:var(--yellow);border-color:rgba(249,202,36,.25)}
+.sb-avail-pill.available{background:rgba(79,172,254,.1);color:var(--blue);border-color:rgba(79,172,254,.25)}
+.sb-avail-pill.bench{background:rgba(255,159,67,.1);color:var(--orange);border-color:rgba(255,159,67,.25)}
+.sb-avail-free{font-size:10px;color:var(--sub);margin-top:5px;line-height:1.4}
+.sb-avail-free strong{color:var(--txt)}
+
+/* ─────────────────────────────────────────────────────────
+   CONTRACT TIMELINE GANTT
+───────────────────────────────────────────────────────── */
+.gantt-wrap{padding:18px 20px 14px;border-bottom:1px solid var(--border)}
+.gantt-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.gantt-title{font-size:12.5px;font-weight:600;color:var(--txt)}
+.gantt-legend{display:flex;gap:12px}
+.gantt-leg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--sub)}
+.gantt-leg-dot{width:8px;height:8px;border-radius:2px}
+.gantt-leg-dot.confirmed{background:var(--acc)}
+.gantt-leg-dot.projected{background:var(--yellow);opacity:.7}
+.gantt-leg-dot.bench{background:var(--red);opacity:.6}
+.gantt-leg-dot.gap{background:var(--dim)}
+.gantt-months{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;margin-bottom:6px}
+.gantt-month{
+  height:28px;border-radius:3px;background:var(--dim);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:600;color:var(--sub);
+  position:relative;overflow:hidden;cursor:default;
+  transition:opacity .12s;
+}
+.gantt-month:hover{opacity:.8}
+.gantt-month.confirmed{background:rgba(79,255,176,.22);color:var(--acc)}
+.gantt-month.projected{background:rgba(249,202,36,.15);color:var(--yellow)}
+.gantt-month.bench{background:rgba(255,107,107,.18);color:var(--red)}
+.gantt-month.today-mark::after{
+  content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  width:2px;height:6px;background:var(--txt);border-radius:1px;opacity:.5;
+}
+.gantt-month-labels{display:grid;grid-template-columns:repeat(12,1fr);gap:3px}
+.gantt-month-label{font-size:9px;color:var(--sub);text-align:center;padding-top:3px}
+.gantt-summary{display:flex;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.gantt-sum-item{flex:1;text-align:center}
+.gantt-sum-val{font-size:16px;font-weight:700;letter-spacing:-.4px}
+.gantt-sum-val.green{color:var(--acc)}
+.gantt-sum-val.yellow{color:var(--yellow)}
+.gantt-sum-val.red{color:var(--red)}
+.gantt-sum-label{font-size:10px;color:var(--sub);margin-top:2px}
+.gantt-tooltip{
+  position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:var(--bg4);border:1px solid var(--border);border-radius:var(--r2);
+  padding:6px 9px;font-size:10.5px;color:var(--txt);white-space:nowrap;
+  z-index:50;pointer-events:none;opacity:0;transition:opacity .12s;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);
+}
+.gantt-month:hover .gantt-tooltip{opacity:1}
+
+/* ─────────────────────────────────────────────────────────
+   OUTREACH QUEUE
+───────────────────────────────────────────────────────── */
+.outreach-section{margin-top:16px}
+.outreach-item{
+  padding:13px 18px;border-bottom:1px solid var(--border);
+  display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;
+}
+.outreach-item:last-child{border-bottom:none}
+.outreach-rank{
+  width:24px;height:24px;border-radius:50%;
+  background:var(--bg3);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;color:var(--sub);flex-shrink:0;margin-top:1px;
+}
+.outreach-rank.hot{background:rgba(255,107,107,.12);border-color:rgba(255,107,107,.25);color:var(--red)}
+.outreach-rank.warm{background:rgba(249,202,36,.1);border-color:rgba(249,202,36,.2);color:var(--yellow)}
+.outreach-body{min-width:0}
+.outreach-company{font-size:12.5px;font-weight:600;color:var(--txt)}
+.outreach-why{font-size:11px;color:var(--sub);margin-top:2px;line-height:1.5}
+.outreach-why strong{color:var(--acc)}
+.outreach-hook{
+  font-size:11px;color:var(--txt);margin-top:6px;padding:7px 10px;
+  background:var(--bg3);border-radius:var(--r2);border-left:2px solid var(--acc);
+  font-style:italic;line-height:1.5;
+}
+.outreach-tags{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.outreach-tag{
+  font-size:9.5px;font-weight:600;padding:2px 6px;border-radius:3px;
+  background:var(--bg4);color:var(--sub);border:1px solid var(--border);
+}
+.outreach-tag.skill{background:rgba(79,255,176,.07);color:var(--acc);border-color:rgba(79,255,176,.15)}
+.outreach-tag.urgency{background:rgba(255,107,107,.08);color:var(--red);border-color:rgba(255,107,107,.15)}
+.outreach-tag.vertical{background:rgba(79,172,254,.07);color:var(--blue);border-color:rgba(79,172,254,.15)}
+.outreach-score-col{text-align:right;flex-shrink:0}
+.outreach-score{font-size:18px;font-weight:700;letter-spacing:-.4px;color:var(--txt)}
+.outreach-score-label{font-size:9.5px;color:var(--sub);margin-top:1px}
+.outreach-actions{display:flex;gap:6px;margin-top:8px}
+.outreach-act-btn{
+  font-size:10px;font-weight:600;padding:4px 10px;border-radius:var(--r2);
+  border:1px solid var(--border);background:var(--bg3);color:var(--sub);
+  cursor:pointer;font-family:var(--font);transition:all .12s;
+}
+.outreach-act-btn:hover{border-color:var(--acc);color:var(--acc);background:var(--acc-dim)}
+.outreach-act-btn.primary{background:var(--acc-dim);color:var(--acc);border-color:rgba(79,255,176,.25)}
+.signal-type{font-size:10px;color:var(--sub);margin-top:2px}
+.signal-tier{font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;letter-spacing:.3px}
+.signal-tier.HOT{background:rgba(255,107,107,.12);color:var(--red)}
+.signal-tier.WARM{background:rgba(249,202,36,.1);color:var(--yellow)}
+.signal-tier.MONITOR{background:rgba(79,255,176,.08);color:var(--acc)}
+.signal-score{font-size:13px;font-weight:700;color:var(--sub);flex-shrink:0}
+.signal-empty-cta{padding:28px 20px;text-align:center}
+.signal-cta-btn{
+  margin-top:12px;background:var(--acc);color:#0a1a12;
+  font-weight:700;font-size:12px;padding:8px 20px;border-radius:var(--r2);
+  border:none;cursor:pointer;font-family:var(--font);transition:opacity .12s;
+}
+.signal-cta-btn:hover{opacity:.85}
+.empty-msg{font-size:12px;color:var(--sub);line-height:1.6;max-width:380px;margin:0 auto}
+.signals-refresh{
+  font-size:10px;font-weight:600;color:var(--sub);background:var(--bg3);
+  border:1px solid var(--border);padding:4px 10px;border-radius:var(--r2);
+  cursor:pointer;font-family:var(--font);transition:all .12s;
+}
+.signals-refresh:hover{color:var(--txt);border-color:var(--dim)}
 </style>
 </head>
 <body>
@@ -446,6 +580,12 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
     <div class="sb-runway-label">Runway</div>
     <div class="sb-runway-val" id="sb-runway-val">—</div>
     <div class="sb-runway-sub" id="sb-runway-sub">Set up your profile to start</div>
+  </div>
+
+  <div class="sb-avail" id="sb-avail-strip" onclick="navTo('pipeline')" title="Click to view pipeline">
+    <div class="sb-avail-label">Availability</div>
+    <div class="sb-avail-pill bench" id="sb-avail-pill">⏸ Not set</div>
+    <div class="sb-avail-free" id="sb-avail-free" style="display:none"></div>
   </div>
 
   <nav>
@@ -591,6 +731,23 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
       <div class="page-sub">Contracts, scenarios, and market signals</div>
     </div>
 
+    <!-- Contract Timeline Gantt -->
+    <div class="list-card" style="margin-bottom:16px">
+      <div class="gantt-wrap" id="gantt-container">
+        <div class="gantt-title-row">
+          <span class="gantt-title">Contract Timeline — 12-month view</span>
+          <div class="gantt-legend">
+            <span class="gantt-leg"><span class="gantt-leg-dot confirmed"></span>Confirmed</span>
+            <span class="gantt-leg"><span class="gantt-leg-dot projected"></span>Projected</span>
+            <span class="gantt-leg"><span class="gantt-leg-dot bench"></span>Bench / Gap</span>
+          </div>
+        </div>
+        <div class="gantt-months" id="gantt-months"><!-- populated by JS --></div>
+        <div class="gantt-month-labels" id="gantt-labels"><!-- populated by JS --></div>
+        <div class="gantt-summary" id="gantt-summary"><!-- populated by JS --></div>
+      </div>
+    </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       <!-- Contracts -->
       <div class="list-card">
@@ -636,6 +793,19 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Outreach Queue -->
+    <div class="list-card outreach-section" style="margin-bottom:16px">
+      <div class="list-header" style="align-items:center">
+        <span class="list-title">🎯 Outreach Queue</span>
+        <span class="list-count" id="outreach-count">0</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--sub)">Signal × Profile match · ranked by priority</span>
+      </div>
+      <div id="outreach-list"><div class="empty"><div class="empty-icon">🎯</div>
+        <div style="font-size:12px;color:var(--sub);margin-top:6px">Outreach targets appear once market signals are matched to your profile.</div>
+        <button class="signal-cta-btn" onclick="showOnboarding()" style="margin-top:10px">Build my profile →</button>
+      </div></div>
     </div>
 
     <!-- Market signals -->
@@ -1062,6 +1232,7 @@ async function boot() {
   await loadSeasonalData();
   applyProfileToForecast();
   renderDashboard();
+  renderAvailabilitySidebar();
   checkNotionStatus();
   if (!S.cfg || !S.cfg.hourlyRate) showOnboarding();
 }
@@ -1216,6 +1387,7 @@ function applyProfileToForecast() {
     ? 'var(--acc)'
     : parseFloat(runway) > 1.5 ? 'var(--yellow)' : 'var(--red)';
   $('sb-runway-sub').textContent = avgSurplus >= 0 ? 'cashflow positive' : 'watch your burn';
+  renderAvailabilitySidebar();
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -1474,7 +1646,9 @@ function generateForecastInsight() {
    PIPELINE
 ───────────────────────────────────────────────────────── */
 function renderPipeline() {
+  renderGantt();
   renderContractList();
+  renderOutreachQueue();
   renderSignals();
 }
 
@@ -1549,6 +1723,372 @@ function renderSignals() {
       <div class="signal-score">${s.score || 0}</div>
     </div>`;
   }).join('');
+}
+
+// ─── AVAILABILITY STATE ───────────────────────────────────────────────────────
+
+/**
+ * Compute availability state from cfg.
+ * Returns { status, statusClass, label, freeFrom, daysUntilFree, urgencyScore, isOnBench }
+ */
+function computeAvailability() {
+  const cfg = S.cfg || {};
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  let freeFrom  = null;
+  let endDate   = null;
+
+  if (cfg.contractStartDate && cfg.contractMonths) {
+    const start = new Date(cfg.contractStartDate);
+    endDate = new Date(start);
+    endDate.setMonth(endDate.getMonth() + parseFloat(cfg.contractMonths));
+  }
+
+  if (endDate) {
+    freeFrom = endDate;
+  }
+
+  const daysUntilFree = freeFrom ? Math.round((freeFrom - today) / 86400000) : -999;
+  const benchDays     = daysUntilFree < 0 ? Math.abs(daysUntilFree) : 0;
+
+  // Urgency score (0–100)
+  const urgencyScore = Math.min(100, Math.max(0,
+    (benchDays * 3) + Math.max(0, (60 - daysUntilFree) * 0.5)
+  ));
+
+  let status, statusClass, label;
+  if (!cfg.contractStartDate || !cfg.contractMonths) {
+    status = 'NOT_SET'; statusClass = 'bench'; label = '⏸ Not set';
+  } else if (daysUntilFree > 60) {
+    status = 'ACTIVE'; statusClass = 'active'; label = '✓ Active';
+  } else if (daysUntilFree > 0) {
+    status = 'NOTICE_PERIOD'; statusClass = 'notice'; label = '⚠ Ending soon';
+  } else if (daysUntilFree <= 0) {
+    status = 'AVAILABLE_NOW'; statusClass = 'available'; label = '● Available now';
+    if (benchDays > 0) { status = 'BENCH'; statusClass = 'bench'; label = `⏸ Bench ${benchDays}d`; }
+  } else {
+    status = 'ACTIVE'; statusClass = 'active'; label = '✓ Active';
+  }
+
+  const isOnBench = status === 'BENCH' || status === 'AVAILABLE_NOW' || status === 'NOT_SET';
+
+  return { status, statusClass, label, freeFrom, daysUntilFree, urgencyScore, isOnBench, benchDays };
+}
+
+function renderAvailabilitySidebar() {
+  const av = computeAvailability();
+  const pill = $('sb-avail-pill');
+  const freeEl = $('sb-avail-free');
+  if (!pill) return;
+
+  pill.className = `sb-avail-pill ${av.statusClass}`;
+  pill.textContent = av.label;
+
+  if (av.freeFrom && av.daysUntilFree > 0) {
+    freeEl.style.display = 'block';
+    const d = av.freeFrom.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+    freeEl.innerHTML = `Free from <strong>${d}</strong>`;
+  } else if (av.isOnBench && av.benchDays > 0) {
+    freeEl.style.display = 'block';
+    freeEl.innerHTML = `On bench <strong>${av.benchDays} day${av.benchDays!==1?'s':''}</strong>`;
+  } else if (av.status === 'NOT_SET') {
+    freeEl.style.display = 'block';
+    freeEl.innerHTML = `<span style="cursor:pointer" onclick="showOnboarding()">Set availability →</span>`;
+  } else {
+    freeEl.style.display = 'none';
+  }
+}
+
+// ─── CONTRACT TIMELINE GANTT ──────────────────────────────────────────────────
+
+function renderGantt() {
+  const monthsEl  = $('gantt-months');
+  const labelsEl  = $('gantt-labels');
+  const summaryEl = $('gantt-summary');
+  if (!monthsEl) return;
+
+  const cfg   = S.cfg || {};
+  const today = new Date();
+  const SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Build a 12-month window starting from current month
+  const window12 = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    window12.push({ year: d.getFullYear(), month: d.getMonth(), label: SHORT[d.getMonth()] });
+  }
+
+  // Determine confirmed contract span from cfg
+  let confirmedEnd = null;
+  let confirmedStart = null;
+  if (cfg.contractStartDate && cfg.contractMonths) {
+    confirmedStart = new Date(cfg.contractStartDate);
+    confirmedEnd   = new Date(confirmedStart);
+    confirmedEnd.setMonth(confirmedEnd.getMonth() + parseFloat(cfg.contractMonths));
+  }
+
+  // Determine projected span from netCashflow (months with positive gross)
+  const projectedMonths = new Set();
+  if (S.netCashflow && S.netCashflow.length) {
+    S.netCashflow.forEach(m => {
+      if (m.gross > 0) projectedMonths.add(`${m.year}-${m.monthIndex ?? m.month}`);
+    });
+  }
+
+  let confirmedCount = 0, projectedCount = 0, benchCount = 0;
+
+  const monthCells = window12.map(({year, month, label}, i) => {
+    const cellDate = new Date(year, month, 15);
+    const isToday  = month === today.getMonth() && year === today.getFullYear();
+
+    let type   = 'gap';
+    let typeLabel = label;
+    let tooltip = `${label} ${year}`;
+
+    // Check confirmed contract
+    if (confirmedStart && confirmedEnd) {
+      const monthStart = new Date(year, month, 1);
+      const monthEnd   = new Date(year, month + 1, 0);
+      if (monthStart < confirmedEnd && monthEnd >= confirmedStart) {
+        type = 'confirmed';
+        confirmedCount++;
+        tooltip = `${label} ${year} · Confirmed contract`;
+        if (cellDate < today) typeLabel = '✓';
+      }
+    }
+
+    // Check projected (if not already confirmed)
+    if (type === 'gap') {
+      const key1 = `${year}-${month}`;
+      const key2 = `${year}-${month + 1}`;
+      if (projectedMonths.has(key1) || projectedMonths.has(key2)) {
+        type = 'projected';
+        projectedCount++;
+        tooltip = `${label} ${year} · Projected income`;
+      }
+    }
+
+    // Bench = gap AND in the past or present with no contract
+    if (type === 'gap') {
+      const isPast = cellDate < today;
+      if (isPast || isToday) {
+        type = 'bench';
+        benchCount++;
+        tooltip = `${label} ${year} · Bench / no contract`;
+      }
+    }
+
+    const todayClass = isToday ? ' today-mark' : '';
+    return `<div class="gantt-month ${type}${todayClass}" title="${tooltip}">
+      <span class="gantt-tooltip">${tooltip}</span>
+      ${typeLabel}
+    </div>`;
+  });
+
+  monthsEl.innerHTML = monthCells.join('');
+  labelsEl.innerHTML = window12.map(({label}) => `<div class="gantt-month-label">${label}</div>`).join('');
+
+  // Summary
+  const confirmedClass = confirmedCount >= 6 ? 'green' : confirmedCount >= 3 ? 'yellow' : 'red';
+  const benchClass     = benchCount === 0 ? 'green' : benchCount <= 2 ? 'yellow' : 'red';
+  const projectedClass = projectedCount >= 3 ? 'green' : projectedCount >= 1 ? 'yellow' : 'red';
+
+  summaryEl.innerHTML = `
+    <div class="gantt-sum-item">
+      <div class="gantt-sum-val ${confirmedClass}">${confirmedCount}</div>
+      <div class="gantt-sum-label">Confirmed months</div>
+    </div>
+    <div class="gantt-sum-item">
+      <div class="gantt-sum-val ${projectedClass}">${projectedCount}</div>
+      <div class="gantt-sum-label">Projected months</div>
+    </div>
+    <div class="gantt-sum-item">
+      <div class="gantt-sum-val ${benchClass}">${benchCount}</div>
+      <div class="gantt-sum-label">Bench / gap months</div>
+    </div>
+    <div class="gantt-sum-item">
+      <div class="gantt-sum-val" style="color:var(--sub)">${12 - confirmedCount - projectedCount - benchCount > 0 ? 12 - confirmedCount - projectedCount - benchCount : 0}</div>
+      <div class="gantt-sum-label">Unplanned ahead</div>
+    </div>
+  `;
+}
+
+// ─── OUTREACH QUEUE ───────────────────────────────────────────────────────────
+
+/**
+ * Derive outreach targets from signals × profile match.
+ * Returns array of OutreachTarget-like objects ranked by priorityScore.
+ */
+function deriveOutreachTargets() {
+  const signals  = S.signals || [];
+  const profile  = S.confirmedProfile || S.builtProfile || {};
+  const cfg      = S.cfg || {};
+  const av       = computeAvailability();
+
+  if (!signals.length) return [];
+
+  const skills     = profile.skills     || cfg.skills     || [];
+  const industries = profile.industries || cfg.industries || [];
+
+  // Group signals by company/source
+  const companyMap = new Map();
+  for (const sig of signals) {
+    const company = sig.source || sig.company || 'Unknown';
+    if (!companyMap.has(company)) {
+      companyMap.set(company, { company, signals: [], maxScore: 0, types: [] });
+    }
+    const entry = companyMap.get(company);
+    entry.signals.push(sig);
+    entry.maxScore = Math.max(entry.maxScore, sig.score || 0);
+    if (sig.type && !entry.types.includes(sig.type)) entry.types.push(sig.type);
+  }
+
+  const targets = [];
+  for (const [company, data] of companyMap) {
+    if (company === 'Unknown') continue;
+
+    // Signal strength: avg score of top 3 signals
+    const topSigs = data.signals.sort((a,b) => (b.score||0)-(a.score||0)).slice(0,3);
+    const signalStrength = topSigs.reduce((a,s) => a+(s.score||0), 0) / topSigs.length;
+
+    // Profile match: % of signal keywords that appear in profile skills/industries
+    const sigKeywords = topSigs.flatMap(s => [
+      ...(s.matchedSkills || []),
+      ...(s.matchedIndustries || []),
+      s.type || '',
+      s.title || '',
+    ]).map(k => k.toLowerCase());
+
+    const profileTerms = [...skills, ...industries].map(k => k.toLowerCase());
+    const matches = sigKeywords.filter(k => profileTerms.some(p => k.includes(p) || p.includes(k)));
+    const profileMatch = sigKeywords.length > 0 ? Math.min(100, (matches.length / sigKeywords.length) * 100 * 2) : 30;
+
+    // Availability urgency from state machine
+    const availUrgency = av.urgencyScore;
+
+    // Recency: most recent signal freshness (1=today, 0.1=30d ago)
+    const mostRecent = topSigs[0];
+    const ageMs = mostRecent?.publishedAt
+      ? Date.now() - new Date(mostRecent.publishedAt).getTime()
+      : 86400000 * 30;
+    const recency = Math.max(0.1, 1 - (ageMs / (86400000 * 30)));
+
+    // Network proximity: 0 for now (no contacts yet)
+    const networkProximity = 0;
+
+    // Composite priority score
+    const priorityScore = Math.round(
+      0.30 * signalStrength +
+      0.25 * profileMatch +
+      0.20 * networkProximity +
+      0.15 * availUrgency +
+      0.10 * (recency * 100)
+    );
+
+    // Build outreach context
+    const urgencyTypes = data.types.filter(t =>
+      ['Leadership change','Funding round','Regulatory deadline'].includes(t)
+    );
+    const matchedSkillsDisplay = topSigs.flatMap(s => s.matchedSkills || []).slice(0,3);
+
+    const why = [
+      urgencyTypes.length > 0 ? urgencyTypes[0] : data.types[0],
+      matchedSkillsDisplay.length > 0 ? `matches your ${matchedSkillsDisplay[0]} background` : '',
+    ].filter(Boolean).join(' — ');
+
+    const hook = matchedSkillsDisplay.length > 0
+      ? `Your ${matchedSkillsDisplay[0]} expertise aligns with their ${urgencyTypes[0] || data.types[0] || 'activity'}.`
+      : `${company} has recent activity matching your target verticals.`;
+
+    const tierBadge = data.maxScore >= 70 ? 'hot' : data.maxScore >= 40 ? 'warm' : '';
+
+    targets.push({
+      company,
+      priorityScore,
+      signalStrength: Math.round(signalStrength),
+      profileMatch:   Math.round(profileMatch),
+      tier: tierBadge,
+      why,
+      hook,
+      matchedSkills:  matchedSkillsDisplay,
+      industries:     data.signals.flatMap(s => s.matchedIndustries || []).slice(0,2),
+      urgencyTypes,
+      topSignalType:  data.types[0] || '',
+      signalCount:    data.signals.length,
+    });
+  }
+
+  return targets.sort((a,b) => b.priorityScore - a.priorityScore).slice(0, 8);
+}
+
+function renderOutreachQueue() {
+  const listEl = $('outreach-list');
+  const countEl = $('outreach-count');
+  if (!listEl) return;
+
+  const targets = deriveOutreachTargets();
+  if (countEl) countEl.textContent = targets.length;
+
+  if (!targets.length) {
+    const hasProfile = S.confirmedProfile || S.builtProfile;
+    listEl.innerHTML = hasProfile
+      ? `<div class="empty"><div class="empty-icon">🎯</div><div style="color:var(--sub);font-size:12px;margin-top:6px">Outreach targets will appear once market signals are matched to your profile. Try refreshing signals.</div></div>`
+      : `<div class="empty"><div class="empty-icon">🎯</div>
+          <div style="font-size:12px;color:var(--sub);margin-top:6px">Complete your profile to unlock smart outreach targeting.</div>
+          <button class="signal-cta-btn" onclick="showOnboarding()" style="margin-top:10px">Build my profile →</button>
+        </div>`;
+    return;
+  }
+
+  listEl.innerHTML = targets.map((t, i) => {
+    const rank = i + 1;
+    const rankClass = t.tier === 'hot' ? 'hot' : t.tier === 'warm' ? 'warm' : '';
+
+    const skillTags = t.matchedSkills.slice(0,3).map(s =>
+      `<span class="outreach-tag skill">${s}</span>`
+    ).join('');
+    const industryTags = t.industries.slice(0,2).map(v =>
+      `<span class="outreach-tag vertical">${v}</span>`
+    ).join('');
+    const urgencyTags = t.urgencyTypes.slice(0,1).map(u =>
+      `<span class="outreach-tag urgency">${u}</span>`
+    ).join('');
+
+    const channel = t.tier === 'hot' ? 'LinkedIn DM' : 'LinkedIn';
+    const cta = `<strong>${t.signalCount} signal${t.signalCount!==1?'s':''}</strong> · Priority: <strong>${t.priorityScore}</strong>`;
+
+    return `<div class="outreach-item">
+      <div class="outreach-rank ${rankClass}">${rank}</div>
+      <div class="outreach-body">
+        <div class="outreach-company">${t.company}</div>
+        <div class="outreach-why">${t.why || 'Matches your profile'}</div>
+        <div class="outreach-hook">${t.hook}</div>
+        <div class="outreach-tags">${skillTags}${industryTags}${urgencyTags}</div>
+        <div class="outreach-actions">
+          <button class="outreach-act-btn primary" onclick="copyOutreachHook('${encodeURIComponent(t.hook)}','${encodeURIComponent(t.company)}')">Copy hook</button>
+          <button class="outreach-act-btn">LinkedIn</button>
+          <button class="outreach-act-btn">Email</button>
+        </div>
+      </div>
+      <div class="outreach-score-col">
+        <div class="outreach-score">${t.priorityScore}</div>
+        <div class="outreach-score-label">priority</div>
+        <div class="outreach-score-label" style="margin-top:4px;font-size:9px">${cta}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function copyOutreachHook(encodedHook, encodedCompany) {
+  const hook = decodeURIComponent(encodedHook);
+  const company = decodeURIComponent(encodedCompany);
+  const text = `Hi [Name], ${hook} I'd love to connect and explore how I might support ${company}. Are you open to a 15-min call?`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => toast('Outreach hook copied!', 'ok'));
+  } else {
+    toast('Copy: ' + text.slice(0, 60) + '…');
+  }
 }
 
 async function loadSignals() {
