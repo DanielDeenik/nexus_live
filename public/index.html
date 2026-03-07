@@ -431,6 +431,53 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 #toast.err{border-color:rgba(255,107,107,.3);color:var(--red)}
 
 /* ─────────────────────────────────────────────────────────
+   LOGIN / WELCOME SCREEN
+───────────────────────────────────────────────────────── */
+#login-screen{
+  position:fixed;inset:0;z-index:900;background:var(--bg0);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;animation:fadeIn .22s var(--ease);
+}
+#login-screen.hidden{display:none}
+.login-wrap{width:340px;text-align:center}
+.login-logo{font-size:28px;font-weight:800;letter-spacing:-.8px;color:var(--txt);margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:10px}
+.login-logo-mark{color:var(--acc);font-size:32px}
+.login-tagline{font-size:11px;color:var(--sub);letter-spacing:.5px;text-transform:uppercase;margin-bottom:36px}
+.login-profile-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:22px 24px;margin-bottom:20px;text-align:left;position:relative;overflow:hidden}
+.login-profile-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--acc),var(--blue));opacity:.6}
+.login-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,rgba(79,255,176,.3),rgba(79,172,254,.3));border:2px solid rgba(79,255,176,.3);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--acc);margin-bottom:14px}
+.login-name{font-size:17px;font-weight:700;color:var(--txt);letter-spacing:-.3px}
+.login-headline{font-size:12px;color:var(--sub);margin-top:4px;line-height:1.4}
+.login-meta-row{display:flex;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.login-meta-item{flex:1}
+.login-meta-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--sub);margin-bottom:3px}
+.login-meta-val{font-size:13px;font-weight:600;color:var(--txt)}
+.login-meta-val.acc{color:var(--acc)}
+.login-pin-label{font-size:12px;color:var(--sub);margin-bottom:10px}
+.login-pin-dots{display:flex;gap:12px;justify-content:center;margin-bottom:16px}
+.login-pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--dim);background:transparent;transition:all .12s}
+.login-pin-dot.filled{background:var(--acc);border-color:var(--acc)}
+.login-pin-dot.error{background:var(--red);border-color:var(--red);animation:shake .3s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.login-pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px}
+.pin-key{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px 10px;font-size:16px;font-weight:600;color:var(--txt);cursor:pointer;transition:all .1s;font-family:var(--font);user-select:none}
+.pin-key:hover{background:var(--bg4);border-color:var(--dim)}
+.pin-key:active{transform:scale(.96)}
+.pin-key.del{font-size:14px;color:var(--sub)}
+.pin-key.zero{grid-column:2}
+.login-cta{width:100%;padding:13px;border-radius:var(--r);border:none;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;transition:opacity .12s;letter-spacing:.2px}
+.login-cta.primary{background:var(--acc);color:#0a1a12}
+.login-cta.primary:hover{opacity:.88}
+.login-cta.secondary{background:transparent;color:var(--sub);border:1px solid var(--border);margin-top:8px;font-weight:500}
+.login-cta.secondary:hover{color:var(--txt);border-color:var(--dim)}
+.login-error{font-size:11.5px;color:var(--red);margin-bottom:10px;min-height:16px}
+.login-setup-text{font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:20px}
+.pin-setup-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px}
+.pin-setup-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pin-setup-label{font-size:12.5px;font-weight:600;color:var(--txt)}
+.pin-setup-sub{font-size:11px;color:var(--sub);margin-top:2px}
+
+/* ─────────────────────────────────────────────────────────
    AVAILABILITY STATE — sidebar widget
 ───────────────────────────────────────────────────────── */
 .sb-avail{
@@ -566,6 +613,74 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 </style>
 </head>
 <body>
+
+<!-- ═══════════════════════════════════════════════════════
+     LOGIN / WELCOME SCREEN
+═══════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-wrap">
+
+    <!-- Logo -->
+    <div class="login-logo"><span class="login-logo-mark">⬡</span>Nexus Live</div>
+    <div class="login-tagline">Freelancer Financial OS</div>
+
+    <!-- Profile card (shown if profile exists) -->
+    <div class="login-profile-card" id="lp-profile-card" style="display:none">
+      <div class="login-avatar" id="lp-avatar">?</div>
+      <div class="login-name" id="lp-name">Loading…</div>
+      <div class="login-headline" id="lp-headline"></div>
+      <div class="login-meta-row" id="lp-meta-row" style="display:none">
+        <div class="login-meta-item">
+          <div class="login-meta-label">Rate</div>
+          <div class="login-meta-val acc" id="lp-rate">—</div>
+        </div>
+        <div class="login-meta-item">
+          <div class="login-meta-label">Availability</div>
+          <div class="login-meta-val" id="lp-avail">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- New-user text (shown if no profile) -->
+    <div id="lp-new-text" style="display:none">
+      <p class="login-setup-text">Welcome to Nexus Live.<br>Build your freelancer profile to unlock cash flow forecasting, market signals, and smart outreach.</p>
+    </div>
+
+    <!-- Error message -->
+    <div class="login-error" id="lp-error"></div>
+
+    <!-- PIN dots (shown if PIN is set) -->
+    <div id="lp-pin-section" style="display:none">
+      <div class="login-pin-label">Enter your PIN to continue</div>
+      <div class="login-pin-dots" id="lp-pin-dots">
+        <span class="login-pin-dot" id="lpd-0"></span>
+        <span class="login-pin-dot" id="lpd-1"></span>
+        <span class="login-pin-dot" id="lpd-2"></span>
+        <span class="login-pin-dot" id="lpd-3"></span>
+      </div>
+      <div class="login-pin-pad">
+        <button class="pin-key" onclick="loginPinKey('1')">1</button>
+        <button class="pin-key" onclick="loginPinKey('2')">2</button>
+        <button class="pin-key" onclick="loginPinKey('3')">3</button>
+        <button class="pin-key" onclick="loginPinKey('4')">4</button>
+        <button class="pin-key" onclick="loginPinKey('5')">5</button>
+        <button class="pin-key" onclick="loginPinKey('6')">6</button>
+        <button class="pin-key" onclick="loginPinKey('7')">7</button>
+        <button class="pin-key" onclick="loginPinKey('8')">8</button>
+        <button class="pin-key" onclick="loginPinKey('9')">9</button>
+        <button class="pin-key zero" onclick="loginPinKey('0')">0</button>
+        <button class="pin-key del" onclick="loginPinBackspace()">⌫</button>
+      </div>
+    </div>
+
+    <!-- CTA buttons -->
+    <div id="lp-cta-section">
+      <button class="login-cta primary" id="lp-enter-btn" onclick="loginEnter()" style="display:none">Enter Nexus →</button>
+      <button class="login-cta primary" id="lp-build-btn" onclick="loginBuildProfile()" style="display:none">Get started — Build my profile →</button>
+    </div>
+
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════
      SIDEBAR
@@ -885,6 +1000,47 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
             <div class="connect-status" id="wetdba-status">Profile incomplete — unable to assess</div>
           </div>
           <span class="connect-badge" id="wetdba-badge" style="background:var(--bg3);color:var(--sub)">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Security</div>
+      <div class="pin-setup-card">
+        <div class="pin-setup-row">
+          <div>
+            <div class="pin-setup-label">PIN Protection</div>
+            <div class="pin-setup-sub" id="pin-setup-sub">Add a 4-digit PIN to the login screen</div>
+          </div>
+          <button class="btn-secondary" id="pin-setup-btn" onclick="openPinSetup()" style="font-size:11px;padding:6px 14px">Set PIN</button>
+        </div>
+        <!-- Inline mini PIN pad for settings (hidden by default) -->
+        <div id="pin-setup-form" style="display:none;margin-top:14px">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:8px" id="pin-setup-form-label">Enter a new 4-digit PIN:</div>
+          <div class="login-pin-dots" id="sps-dots" style="justify-content:flex-start;gap:8px">
+            <span class="login-pin-dot" id="sps-0"></span>
+            <span class="login-pin-dot" id="sps-1"></span>
+            <span class="login-pin-dot" id="sps-2"></span>
+            <span class="login-pin-dot" id="sps-3"></span>
+          </div>
+          <div class="login-pin-pad" style="max-width:200px;margin-top:10px">
+            <button class="pin-key" onclick="settingsPinKey('1')">1</button>
+            <button class="pin-key" onclick="settingsPinKey('2')">2</button>
+            <button class="pin-key" onclick="settingsPinKey('3')">3</button>
+            <button class="pin-key" onclick="settingsPinKey('4')">4</button>
+            <button class="pin-key" onclick="settingsPinKey('5')">5</button>
+            <button class="pin-key" onclick="settingsPinKey('6')">6</button>
+            <button class="pin-key" onclick="settingsPinKey('7')">7</button>
+            <button class="pin-key" onclick="settingsPinKey('8')">8</button>
+            <button class="pin-key" onclick="settingsPinKey('9')">9</button>
+            <button class="pin-key zero" onclick="settingsPinKey('0')">0</button>
+            <button class="pin-key del" onclick="settingsPinBackspace()">⌫</button>
+          </div>
+          <div class="login-error" id="pin-setup-error"></div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn-secondary" style="font-size:11px;padding:6px 14px" onclick="cancelPinSetup()">Cancel</button>
+            <button class="btn-secondary" style="font-size:11px;padding:6px 14px;color:var(--red);border-color:rgba(255,107,107,.3)" id="pin-remove-btn" onclick="removePinSetup()" style="display:none">Remove PIN</button>
+          </div>
         </div>
       </div>
     </div>
@@ -2772,9 +2928,264 @@ async function obComplete() {
 }
 
 /* ─────────────────────────────────────────────────────────
+   LOGIN / WELCOME SCREEN
+───────────────────────────────────────────────────────── */
+
+// State for login screen
+const LOGIN = { pinBuffer: '', hasPin: false, hasProfile: false };
+// Settings page PIN setup state
+const PIN_SETUP = { buffer: '', step: 'enter', firstPin: '' };
+
+async function initLoginScreen() {
+  try {
+    const r = await fetch('/api/auth/status');
+    const d = await r.json();
+    LOGIN.hasPin     = d.hasPin;
+    LOGIN.hasProfile = d.hasProfile;
+
+    if (d.hasProfile) {
+      // Show profile card
+      $('lp-profile-card').style.display = 'block';
+      $('lp-new-text').style.display = 'none';
+
+      const name     = d.name || 'Your Profile';
+      const headline = d.headline || '';
+      $('lp-name').textContent    = name;
+      $('lp-headline').textContent = headline;
+      // Avatar initials
+      const initials = name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+      $('lp-avatar').textContent = initials;
+
+      // Meta row — load config for rate/avail
+      fetch('/api/config').then(r2 => r2.json()).then(cfg => {
+        const rate = cfg.dayRate || (cfg.hourlyRate ? cfg.hourlyRate * 8 : null);
+        const rateStr = rate ? '€' + Math.round(rate) + '/day' : '—';
+        let availStr = 'Not set';
+        if (cfg.contractStartDate && cfg.contractMonths) {
+          const end = new Date(cfg.contractStartDate);
+          end.setMonth(end.getMonth() + parseFloat(cfg.contractMonths));
+          const daysLeft = Math.round((end - new Date()) / 86400000);
+          availStr = daysLeft > 0 ? `${daysLeft}d left` : 'On bench';
+        }
+        $('lp-rate').textContent  = rateStr;
+        $('lp-avail').textContent = availStr;
+        $('lp-meta-row').style.display = 'flex';
+      }).catch(() => {});
+
+      if (d.hasPin) {
+        // Show PIN pad
+        $('lp-pin-section').style.display = 'block';
+        $('lp-enter-btn').style.display = 'none';
+        $('lp-build-btn').style.display = 'none';
+      } else {
+        // No PIN — just show Enter button
+        $('lp-pin-section').style.display = 'none';
+        $('lp-enter-btn').style.display = 'block';
+        $('lp-build-btn').style.display = 'none';
+      }
+    } else {
+      // New user
+      $('lp-profile-card').style.display = 'none';
+      $('lp-new-text').style.display = 'block';
+      $('lp-pin-section').style.display = 'none';
+      $('lp-enter-btn').style.display = 'none';
+      $('lp-build-btn').style.display = 'block';
+    }
+  } catch (e) {
+    // If server is not up, just let them in
+    loginDismiss();
+  }
+}
+
+function loginPinKey(digit) {
+  if (LOGIN.pinBuffer.length >= 4) return;
+  LOGIN.pinBuffer += digit;
+  updateLoginPinDots('lp', LOGIN.pinBuffer.length);
+  if (LOGIN.pinBuffer.length === 4) {
+    setTimeout(loginSubmitPin, 80);
+  }
+}
+
+function loginPinBackspace() {
+  LOGIN.pinBuffer = LOGIN.pinBuffer.slice(0, -1);
+  updateLoginPinDots('lp', LOGIN.pinBuffer.length);
+}
+
+function updateLoginPinDots(prefix, count) {
+  for (let i = 0; i < 4; i++) {
+    const dot = $(prefix + 'd-' + i);
+    if (dot) dot.className = 'login-pin-dot' + (i < count ? ' filled' : '');
+  }
+}
+
+function loginPinError() {
+  for (let i = 0; i < 4; i++) {
+    const dot = $('lpd-' + i);
+    if (dot) { dot.className = 'login-pin-dot error'; }
+  }
+  setTimeout(() => {
+    LOGIN.pinBuffer = '';
+    updateLoginPinDots('lp', 0);
+  }, 500);
+}
+
+async function loginSubmitPin() {
+  try {
+    const r = await fetch('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: LOGIN.pinBuffer }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      loginDismiss();
+    } else {
+      loginPinError();
+      $('lp-error').textContent = 'Incorrect PIN — try again';
+    }
+  } catch {
+    loginDismiss(); // Network error → just let them in
+  } finally {
+    LOGIN.pinBuffer = '';
+  }
+}
+
+function loginEnter() {
+  loginDismiss();
+}
+
+function loginBuildProfile() {
+  loginDismiss();
+  setTimeout(showOnboarding, 150);
+}
+
+function loginDismiss() {
+  const el = $('login-screen');
+  if (el) {
+    el.style.opacity = '0';
+    el.style.transition = 'opacity .22s';
+    setTimeout(() => el.classList.add('hidden'), 230);
+  }
+}
+
+// Keyboard support for PIN entry on login screen
+document.addEventListener('keydown', e => {
+  if ($('login-screen') && !$('login-screen').classList.contains('hidden')) {
+    if (/^[0-9]$/.test(e.key)) loginPinKey(e.key);
+    if (e.key === 'Backspace') loginPinBackspace();
+    if (e.key === 'Enter' && !LOGIN.hasPin) loginEnter();
+  }
+});
+
+// ─── SETTINGS PAGE PIN MANAGEMENT ────────────────────────────────────────────
+
+async function loadPinStatus() {
+  try {
+    const r = await fetch('/api/auth/status');
+    const d = await r.json();
+    const sub = $('pin-setup-sub');
+    const btn = $('pin-setup-btn');
+    if (d.hasPin) {
+      if (sub) sub.textContent = 'PIN is set — tap to change or remove';
+      if (btn) btn.textContent = 'Change PIN';
+    } else {
+      if (sub) sub.textContent = 'Add a 4–8 digit PIN to protect the login screen';
+      if (btn) btn.textContent = 'Set PIN';
+    }
+    // Show remove button only if PIN exists
+    const removeBtn = $('pin-remove-btn');
+    if (removeBtn) removeBtn.style.display = d.hasPin ? 'inline-block' : 'none';
+  } catch {}
+}
+
+function openPinSetup() {
+  PIN_SETUP.buffer = ''; PIN_SETUP.step = 'enter'; PIN_SETUP.firstPin = '';
+  $('pin-setup-form').style.display = 'block';
+  $('pin-setup-form-label').textContent = 'Enter a new 4-digit PIN:';
+  $('pin-setup-error').textContent = '';
+  updateSettingsPinDots(0);
+}
+
+function cancelPinSetup() {
+  $('pin-setup-form').style.display = 'none';
+  PIN_SETUP.buffer = '';
+}
+
+function settingsPinKey(digit) {
+  if (PIN_SETUP.buffer.length >= 4) return;
+  PIN_SETUP.buffer += digit;
+  updateSettingsPinDots(PIN_SETUP.buffer.length);
+  if (PIN_SETUP.buffer.length === 4) setTimeout(settingsPinSubmit, 80);
+}
+
+function settingsPinBackspace() {
+  PIN_SETUP.buffer = PIN_SETUP.buffer.slice(0, -1);
+  updateSettingsPinDots(PIN_SETUP.buffer.length);
+}
+
+function updateSettingsPinDots(count) {
+  for (let i = 0; i < 4; i++) {
+    const dot = $('sps-' + i);
+    if (dot) dot.className = 'login-pin-dot' + (i < count ? ' filled' : '');
+  }
+}
+
+async function settingsPinSubmit() {
+  if (PIN_SETUP.step === 'enter') {
+    PIN_SETUP.firstPin = PIN_SETUP.buffer;
+    PIN_SETUP.buffer   = '';
+    PIN_SETUP.step     = 'confirm';
+    $('pin-setup-form-label').textContent = 'Confirm your PIN:';
+    $('pin-setup-error').textContent = '';
+    updateSettingsPinDots(0);
+  } else {
+    // Confirm step
+    if (PIN_SETUP.buffer !== PIN_SETUP.firstPin) {
+      $('pin-setup-error').textContent = 'PINs don\'t match — try again';
+      PIN_SETUP.buffer = ''; PIN_SETUP.step = 'enter'; PIN_SETUP.firstPin = '';
+      $('pin-setup-form-label').textContent = 'Enter a new 4-digit PIN:';
+      updateSettingsPinDots(0);
+      return;
+    }
+    // Save
+    try {
+      await fetch('/api/auth/pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: PIN_SETUP.buffer }),
+      });
+      toast('PIN set successfully', 'ok');
+      cancelPinSetup();
+      loadPinStatus();
+    } catch {
+      toast('Failed to save PIN', 'err');
+    }
+  }
+}
+
+async function removePinSetup() {
+  // For simplicity: remove PIN directly (could ask for current PIN first)
+  try {
+    await fetch('/api/auth/pin/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: '' }),
+    });
+    toast('PIN removed', 'ok');
+    cancelPinSetup();
+    loadPinStatus();
+  } catch {
+    toast('Failed to remove PIN', 'err');
+  }
+}
+
+/* ─────────────────────────────────────────────────────────
    BOOT
 ───────────────────────────────────────────────────────── */
-boot().catch(console.error);
+initLoginScreen().then(() => {
+  boot().catch(console.error);
+  loadPinStatus();
+});
 </script>
 </body>
 </html>

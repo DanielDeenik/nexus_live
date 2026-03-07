@@ -1712,4 +1712,59 @@ router.get('/forecast/build', requireWorkspace, async (req, res) => {
   }
 });
 
+// ── PIN AUTH ───────────────────────────────────────────────────────────────────
+// Simple 4-digit PIN stored as SHA-256 hash in local store.
+// No JWT/sessions — the app is local-only, so unlocked state is session memory.
+
+const crypto = require('crypto');
+
+function hashPin(pin) {
+  return crypto.createHash('sha256').update(String(pin) + 'nexus-salt-v1').digest('hex');
+}
+
+// GET /api/auth/status — returns whether a PIN is set and whether app has a profile
+router.get('/auth/status', (_req, res) => {
+  const cfg       = store.get('config', {});
+  const auth      = store.get('auth', {});
+  const hasPin    = Boolean(auth.pinHash);
+  const hasProfile = Boolean(cfg.name || cfg.hourlyRate || cfg.headline);
+  res.json({ hasPin, hasProfile, name: cfg.name || null, headline: cfg.headline || null });
+});
+
+// POST /api/auth/pin — set or update PIN  { pin: '1234' }
+router.post('/auth/pin', (req, res) => {
+  const { pin } = req.body || {};
+  if (!pin || !/^\d{4,8}$/.test(String(pin))) {
+    return res.status(400).json({ error: 'PIN must be 4–8 digits' });
+  }
+  store.merge('auth', { pinHash: hashPin(pin) });
+  res.json({ ok: true });
+});
+
+// POST /api/auth/verify — verify PIN  { pin: '1234' }
+router.post('/auth/verify', (req, res) => {
+  const { pin } = req.body || {};
+  const auth    = store.get('auth', {});
+  if (!auth.pinHash) {
+    // No PIN set — always grant access
+    return res.json({ ok: true, noPin: true });
+  }
+  if (!pin) return res.status(401).json({ error: 'PIN required', locked: true });
+  if (hashPin(pin) !== auth.pinHash) {
+    return res.status(401).json({ error: 'Incorrect PIN', locked: true });
+  }
+  res.json({ ok: true });
+});
+
+// POST /api/auth/pin/remove — clear PIN (requires current PIN)
+router.post('/auth/pin/remove', (req, res) => {
+  const { pin } = req.body || {};
+  const auth    = store.get('auth', {});
+  if (auth.pinHash && hashPin(pin) !== auth.pinHash) {
+    return res.status(401).json({ error: 'Incorrect PIN' });
+  }
+  store.merge('auth', { pinHash: null });
+  res.json({ ok: true });
+});
+
 module.exports = router;
