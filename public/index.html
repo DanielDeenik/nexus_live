@@ -785,7 +785,7 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
         <div class="ob-field-row">
           <div class="ob-field">
             <label>Billable Hrs / Week</label>
-            <input type="number" id="ob-hours" placeholder="32" min="1" max="60" oninput="obUpdatePreview()">
+            <input type="number" id="ob-hours" placeholder="32" value="32" min="1" max="60" oninput="obUpdatePreview()">
           </div>
           <div class="ob-field">
             <label>Monthly Burn (€)</label>
@@ -1546,6 +1546,18 @@ function connectLinkedIn() {
 ───────────────────────────────────────────────────────── */
 function showOnboarding() {
   $('ob-overlay').classList.remove('hidden');
+  // Pre-populate Step 3 fields from existing config (returning users / edit flow)
+  if (S.cfg) {
+    const c = S.cfg;
+    if (c.name)              { const el = $('ob-name');    if (el) el.value = c.name; }
+    if (c.dayRate)           { const el = $('ob-dayrate'); if (el) el.value = c.dayRate; }
+    if (c.hourlyRate)        { const el = $('ob-rate');    if (el) el.value = c.hourlyRate; }
+    if (c.availHoursPerWeek) { const el = $('ob-hours');   if (el) el.value = c.availHoursPerWeek; }
+    if (c.burn)              { const el = $('ob-burn');    if (el) el.value = c.burn; }
+    if (c.savings)           { const el = $('ob-savings'); if (el) el.value = c.savings; }
+    if (c.vatPct)            { const el = $('ob-vat');     if (el) el.value = c.vatPct; }
+    if (c.taxReservePct)     { const el = $('ob-taxres');  if (el) el.value = c.taxReservePct; }
+  }
   obGoTo(0);
 }
 

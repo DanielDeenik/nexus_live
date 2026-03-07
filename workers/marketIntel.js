@@ -119,6 +119,55 @@ const REGULATORY_DEADLINES = [
     verticals:   ['Banking', 'Capital Markets'],
     type:        SIGNAL_TYPES.REGULATORY,
   },
+  // ── Upcoming 2026–2027 deadlines ─────────────────────────────────────────────
+  {
+    name:        'CSRD — Corporate Sustainability Reporting Directive',
+    deadline:    '2026-01-01',
+    description: 'Large EU non-listed companies and SMEs must publish ESG sustainability reports under CSRD (EU taxonomy, double materiality).',
+    keywords:    ['CSRD', 'sustainability reporting', 'double materiality', 'EU taxonomy', 'ESG reporting'],
+    verticals:   ['Asset Management', 'Private Equity / VC', 'Pension Funds', 'Banking'],
+    type:        SIGNAL_TYPES.REGULATORY,
+  },
+  {
+    name:        'T+1 Settlement — EU & UK equity markets',
+    deadline:    '2027-10-11',
+    description: 'EU and UK equity markets move to T+1 settlement cycle, requiring significant back-office and custody system upgrades.',
+    keywords:    ['T+1', 'settlement', 'custody', 'CSDR', 'back office', 'clearing'],
+    verticals:   ['Capital Markets', 'Asset Management', 'Banking'],
+    type:        SIGNAL_TYPES.REGULATORY,
+  },
+  {
+    name:        'MiCA — Markets in Crypto-Assets Regulation',
+    deadline:    '2026-12-30',
+    description: 'Full MiCA implementation: crypto-asset service providers need authorisation, stablecoin issuers face reserve requirements.',
+    keywords:    ['MiCA', 'crypto-assets', 'stablecoin', 'CASP', 'crypto regulation', 'digital assets'],
+    verticals:   ['Capital Markets', 'Banking', 'Asset Management'],
+    type:        SIGNAL_TYPES.REGULATORY,
+  },
+  {
+    name:        'DORA — ICT Third-Party Risk (first supervisory cycle)',
+    deadline:    '2026-04-30',
+    description: 'Financial entities must complete first DORA ICT third-party risk register and TLPT (threat-led penetration testing) cycles.',
+    keywords:    ['DORA', 'ICT third-party', 'TLPT', 'penetration testing', 'digital operational resilience'],
+    verticals:   ['Asset Management', 'Banking', 'Insurance'],
+    type:        SIGNAL_TYPES.REGULATORY,
+  },
+  {
+    name:        'AIFMD II — Alternative Investment Fund Managers Directive',
+    deadline:    '2026-04-16',
+    description: 'EU member states must transpose AIFMD II: new delegation rules, liquidity management tools, and loan-originating fund requirements.',
+    keywords:    ['AIFMD II', 'alternative investment', 'delegation', 'loan originating', 'liquidity management'],
+    verticals:   ['Asset Management', 'Private Equity / VC'],
+    type:        SIGNAL_TYPES.REGULATORY,
+  },
+  {
+    name:        'PRIIPS KID Review — Retail Investment Strategy',
+    deadline:    '2026-12-31',
+    description: 'Revised PRIIPS Key Information Document rules under the EU Retail Investment Strategy; asset managers must update fund KIDs.',
+    keywords:    ['PRIIPS', 'KID', 'retail investment', 'key information document', 'fund documentation'],
+    verticals:   ['Asset Management', 'Pension Funds'],
+    type:        SIGNAL_TYPES.REGULATORY,
+  },
 ];
 
 // ── Parse a single RSS item into a signal ─────────────────────────────────────
