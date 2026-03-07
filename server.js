@@ -18,7 +18,10 @@ const path    = require('path');
 
 const { load, checkConnectivity } = require('./lib/workspace');
 const apiRouter                   = require('./routes/api');
+const budgetAppRouter             = require('./routes/budget-app');
+const onboardRouter               = require('./routes/onboard');
 const scheduler                   = require('./lib/scheduler');
+const basicAuth                   = require('./lib/basicAuth');
 
 // ── Multer for PDF file uploads ───────────────────────────────────────────────
 let multer;
@@ -33,6 +36,14 @@ const app = express();
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// cookie-parser for LinkedIn OAuth state CSRF check (optional — graceful fallback)
+try {
+  const cookieParser = require('cookie-parser');
+  app.use(cookieParser());
+} catch { /* not installed — CSRF check skipped */ }
+
+app.use(basicAuth);  // no-op if SANDBOX_USER/SANDBOX_PASS not set
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── PDF upload middleware (only for /api/contracts/parse) ─────────────────────
@@ -48,12 +59,17 @@ if (multer) {
       }
     },
   });
-  // Apply only to the parse endpoint
+  // Apply only to the parse endpoint (onboard/extract handles its own multer instance)
   app.use('/api/contracts/parse', upload.single('contract'));
 }
 
+// ── Health check (exempt from basic auth — used by uptime monitors) ───────────
+app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
+
 // ── API routes ────────────────────────────────────────────────────────────────
 app.use('/api', apiRouter);
+app.use('/api/budget-app', budgetAppRouter);
+app.use('/api/onboard', onboardRouter);
 
 // ── Catch-all: serve index.html for client-side navigation ────────────────────
 app.get('*', (_req, res) => {

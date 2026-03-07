@@ -1,0 +1,17 @@
+# ── Railway.app deployment config ────────────────────────────────────────────
+# Deploy: https://railway.app → New Project → Deploy from GitHub repo
+# Set environment variables in Railway dashboard under "Variables".
+# Railway auto-detects Node.js and runs "npm start" by default.
+#
+# Free tier: $5 credit/month (~500 hours). Hobby plan ($5/mo) recommended.
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm ci --omit=dev"
+
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 10
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

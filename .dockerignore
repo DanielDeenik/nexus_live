@@ -1,0 +1,19 @@
+# Never include in Docker image
+.env
+.env.*
+*.env
+node_modules
+npm-debug.log
+*.command
+*.docx
+*.pdf
+diagnose*.js
+seed.js
+setup-scenarios.js
+market-intel/
+workers/
+.git
+.gitignore
+README.md
+DEPLOY.md
+Nexus_*.docx

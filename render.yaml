@@ -1,0 +1,55 @@
+# ── Render.com deployment config ─────────────────────────────────────────────
+# Deploy: https://dashboard.render.com → New → Web Service → connect repo
+# Then set environment variables in the Render dashboard under "Environment".
+#
+# Free tier: 512MB RAM, spins down after 15 min inactivity (first request ~30s cold start).
+# Starter tier ($7/mo): always-on — recommended for sandbox demos.
+
+services:
+  - type: web
+    name: nexus-live-sandbox
+    runtime: node
+    plan: starter          # Change to "free" for zero cost (cold starts apply)
+    buildCommand: npm ci --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /health
+
+    # Auto-deploy on every push to main
+    autoDeploy: true
+
+    envVars:
+      # ── Required: copy from your .env ─────────────────────────────────────
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3333"
+
+      # Notion credentials — set these in Render dashboard, NOT here
+      - key: NOTION_TOKEN
+        sync: false   # Render will prompt you to set this securely
+      - key: DB_PROFILE
+        sync: false
+      - key: DB_EXPENSES
+        sync: false
+      - key: DB_CONTRACTS
+        sync: false
+      - key: DB_SIGNALS
+        sync: false
+      - key: DB_CASHFLOW
+        sync: false
+      - key: DB_COMPANIES
+        sync: false
+      - key: DB_OPPORTUNITIES
+        sync: false
+      - key: DB_HISTORY
+        sync: false
+
+      # Sandbox access control — share these credentials with testers
+      - key: SANDBOX_USER
+        sync: false   # e.g. "tester"
+      - key: SANDBOX_PASS
+        sync: false   # e.g. a memorable phrase like "nexus-demo-2026"
+
+      # Budget app — disable in hosted mode (set to empty or internal URL)
+      - key: BUDGET_APP_URL
+        value: ""

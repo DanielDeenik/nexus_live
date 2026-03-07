@@ -399,6 +399,19 @@ table.hist-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.
 .fc-intel-source .src-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600}
 .src-badge.live{background:rgba(79,255,176,0.1);color:var(--acc)}
 .src-badge.stale{background:rgba(249,202,36,0.1);color:var(--acc3)}
+.src-badge.offline{background:rgba(255,107,107,0.1);color:var(--acc4)}
+/* ── Budget App Sync Modal ── */
+#ba-sync-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;align-items:center;justify-content:center}
+#ba-sync-modal.open{display:flex}
+.ba-modal-box{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:28px;width:min(480px,92vw);max-height:80vh;overflow-y:auto}
+.ba-modal-box h3{margin:0 0 16px;font-size:15px;font-weight:700;color:var(--txt)}
+.ba-modal-row{display:flex;gap:10px;margin-bottom:12px}
+.ba-modal-row>div{flex:1;display:flex;flex-direction:column;gap:4px}
+.ba-modal-row label{font-size:11px;color:var(--sub);font-weight:600}
+.ba-modal-row input,.ba-modal-row select{background:var(--bg);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:7px 10px;color:var(--txt);font-size:13px}
+.ba-result-item{font-size:11px;color:var(--sub);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.ba-result-item strong{color:var(--txt)}
+.ba-status{font-size:12px;padding:10px;background:rgba(255,255,255,.03);border-radius:8px;margin-top:12px;color:var(--sub);min-height:40px;white-space:pre-wrap}
 .fc-anomaly{display:flex;gap:10px;padding:10px 12px;background:rgba(255,107,107,0.05);border:1px solid rgba(255,107,107,0.15);border-radius:var(--r2);margin-bottom:6px}
 .fc-anomaly .an-cat{font-size:12px;font-weight:600;color:var(--acc4);min-width:100px}
 .fc-anomaly .an-msg{font-size:11px;color:var(--sub);flex:1;line-height:1.5}
@@ -703,6 +716,7 @@ table.hist-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.
     <div id="exp-table-wrap" style="display:none"></div>
     <select id="exp-filter-cat" style="display:none"></select>
     <select id="exp-filter-yr"  style="display:none"></select>
+    <span id="exp-mo-filter-label" style="display:none;font-size:11px;color:var(--acc3);cursor:pointer;margin-left:8px" onclick="clearMonthFilter()"></span>
 
     <!-- Contract Lifecycle (expiring engagements) -->
     <div class="fc-lifecycle" id="fc-lifecycle" style="margin-top:16px"></div>
@@ -719,6 +733,11 @@ table.hist-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.
           <div class="fc-intel-source"><span class="src-name">Cashflow Months DB</span><span class="src-badge live" id="fc-src-cashflow">Live</span></div>
           <div class="fc-intel-source"><span class="src-name">Expenses DB</span><span class="src-badge live" id="fc-src-expenses">Live</span></div>
           <div class="fc-intel-source"><span class="src-name">Engagements DB</span><span class="src-badge live" id="fc-src-engagements">Live</span></div>
+          <div class="fc-intel-source" style="border-top:1px solid rgba(255,255,255,.06);margin-top:6px;padding-top:8px">
+            <span class="src-name">Nexus Budget App <span style="font-weight:400;font-size:10px;color:var(--dim)">:8501</span></span>
+            <span class="src-badge offline" id="fc-src-budget-app" style="cursor:default">Checking…</span>
+            <button class="btn btn-ghost btn-sm" id="ba-sync-btn" onclick="openBudgetSync()" style="margin-left:8px;font-size:11px;padding:2px 10px;display:none">⬇ Sync Expenses</button>
+          </div>
         </div>
       </div>
 
@@ -981,6 +1000,7 @@ table.hist-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.
       <div class="page-title">⚙️ Profile & Rates</div>
       <div class="page-actions">
         <button class="btn btn-ghost btn-sm" onclick="reloadAll()">↻ Sync</button>
+        <button class="btn btn-ghost btn-sm" onclick="showOnboarding()" title="Re-run the setup wizard">✦ Setup Wizard</button>
         <button class="btn btn-acc btn-sm" onclick="saveSettings()">Save to Notion</button>
       </div>
     </div>
@@ -1507,6 +1527,12 @@ async function loadAll() {
 
   // Load spending engine data in background (non-blocking)
   loadSeasonalBaselines();
+
+  // Show onboarding wizard if no profile name is set yet
+  if (!config?.name) {
+    // Small delay so the main UI renders first
+    setTimeout(() => maybeShowOnboarding(), 600);
+  }
 }
 
 async function reloadAll() {
@@ -6029,7 +6055,7 @@ function switchFcTab(tab) {
     if (sub) sub.style.display  = t === tab ? '' : 'none';
     if (btn) btn.classList.toggle('active', t === tab);
   });
-  if (tab === 'intelligence') loadIntelligenceTab();
+  if (tab === 'intelligence') { loadIntelligenceTab(); checkBudgetAppHealth(); }
   if (tab === 'pipeline')     loadPipelineTab();
 }
 
@@ -6073,6 +6099,7 @@ function loadFcBuild() {
       renderLifecycle(data.expiringSoon || []);
     })
     .catch(e => console.error('[fc-build]', e));
+  setTimeout(checkBudgetAppHealth, 400);
 }
 
 function el(id) { return document.getElementById(id); }
@@ -6411,12 +6438,12 @@ function selectRole(roleId) {
   const card = el(`fc-role-${roleId}`);
   if (card) card.classList.add('selected');
   _fcSelectedRole = _fcOpportunities.find(r => r.id === roleId);
-  renderRadar(_fcSelectedRole);
+  renderFcRadar(_fcSelectedRole);
 }
 
 // ── Radar chart (SVG, 6-axis spider) ─────────────────────────────────────────
 // Axes derived from Profile Skills in Notion (cfg.skills from /api/config)
-function renderRadar(role) {
+function renderFcRadar(role) {
   const radarSec = el('fc-radar-section');
   const svg      = el('fc-radar-svg');
   if (!radarSec || !svg) return;
@@ -6678,6 +6705,1129 @@ function showToast(msg) {
 // ── Wire nav switch ───────────────────────────────────────────────────────────
 // (loadScenarios is called lazily when user visits the page)
 // (loadFcBuild is called from showPage() when forecast page activates)
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  NEXUS BUDGET APP INTEGRATION
+//  Bridge to the local FastAPI budget app (http://localhost:8501)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Health check ─────────────────────────────────────────────────────────────
+function checkBudgetAppHealth() {
+  const badge = el('fc-src-budget-app');
+  const btn   = el('ba-sync-btn');
+  if (!badge) return;
+
+  fetch('/api/budget-app/health')
+    .then(r => r.json())
+    .then(data => {
+      if (data.reachable) {
+        badge.className   = 'src-badge live';
+        const txnCount    = data.transactions ? ` · ${data.transactions.toLocaleString('nl-NL')} txns` : '';
+        badge.textContent = `Live${txnCount}`;
+        if (btn) btn.style.display = '';
+      } else {
+        badge.className   = 'src-badge offline';
+        badge.textContent = 'Offline';
+        if (btn) btn.style.display = 'none';
+      }
+    })
+    .catch(() => {
+      if (badge) { badge.className = 'src-badge offline'; badge.textContent = 'Offline'; }
+      if (btn) btn.style.display = 'none';
+    });
+}
+
+// ── Open sync modal ───────────────────────────────────────────────────────────
+function openBudgetSync() {
+  const modal = el('ba-sync-modal');
+  if (!modal) return;
+  // Default since date: 90 days ago
+  const d = new Date();
+  d.setDate(d.getDate() - 90);
+  const sinceEl = el('ba-since');
+  if (sinceEl) sinceEl.value = d.toISOString().slice(0, 10);
+  const statusEl = el('ba-sync-status');
+  if (statusEl) statusEl.textContent = 'Configure import below and click Preview or Sync.';
+  const listEl = el('ba-sync-results');
+  if (listEl) listEl.innerHTML = '';
+  modal.classList.add('open');
+}
+
+function closeBudgetSync() {
+  const modal = el('ba-sync-modal');
+  if (modal) modal.classList.remove('open');
+}
+
+// ── Preview (dry run) ─────────────────────────────────────────────────────────
+function previewBudgetSync() {
+  _runBudgetSync(true);
+}
+
+function submitBudgetSync() {
+  _runBudgetSync(false);
+}
+
+function _runBudgetSync(dryRun) {
+  const since    = el('ba-since')?.value  || '';
+  const limitEl  = el('ba-limit');
+  const limit    = parseInt(limitEl?.value || '500', 10);
+  const statusEl = el('ba-sync-status');
+  const listEl   = el('ba-sync-results');
+  const preBtn   = el('ba-preview-btn');
+  const syncBtn  = el('ba-submit-btn');
+
+  if (statusEl) statusEl.textContent = dryRun ? 'Fetching preview from budget app…' : 'Syncing to Notion Expenses…';
+  if (listEl)   listEl.innerHTML = '';
+  if (preBtn)   preBtn.disabled = true;
+  if (syncBtn)  syncBtn.disabled = true;
+
+  fetch('/api/budget-app/sync', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ ws: currentWorkspace, limit, since, dryRun }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) throw new Error(data.error);
+
+    if (dryRun) {
+      const preview = data.preview || [];
+      statusEl.textContent = `Preview: ${data.total} expense rows found. Showing first ${preview.length}.`;
+      listEl.innerHTML = preview.map(t =>
+        `<div class="ba-result-item"><strong>${t.date}</strong> · ${t.description.slice(0,40)} · <strong>${fmtEur(t.amount)}</strong> · <span style="color:var(--acc3)">${t.category}</span></div>`
+      ).join('') || '<div style="color:var(--sub);font-size:12px">No expense transactions found for this period.</div>';
+    } else {
+      statusEl.textContent = `Done — imported ${data.imported}, skipped ${data.skipped || 0}, errors ${data.errors}. Notion Expenses DB updated.`;
+      listEl.innerHTML = (data.items || []).slice(0, 10).map(t =>
+        `<div class="ba-result-item">✓ <strong>${t.date}</strong> · ${t.description.slice(0,40)} · <strong>${fmtEur(t.amount)}</strong></div>`
+      ).join('');
+      if (data.imported > 0) showToast(`Imported ${data.imported} expenses from Nexus Budget ✓`);
+    }
+  })
+  .catch(e => {
+    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+    console.error('[budget-app sync]', e);
+  })
+  .finally(() => {
+    if (preBtn)  preBtn.disabled  = false;
+    if (syncBtn) syncBtn.disabled = false;
+  });
+}
+
 </script>
+
+<!-- ── Budget App Sync Modal ── -->
+<div id="ba-sync-modal">
+  <div class="ba-modal-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <h3>⬇ Import Expenses from Nexus Budget App</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeBudgetSync()">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:14px">
+      Pulls ML-classified transactions from your local budget app (localhost:8501) and writes expense entries to your Notion Expenses database. Only negative transactions (money out) are imported.
+    </div>
+    <div class="ba-modal-row">
+      <div>
+        <label>Import since</label>
+        <input id="ba-since" type="date">
+      </div>
+      <div>
+        <label>Max rows</label>
+        <select id="ba-limit">
+          <option value="100">100</option>
+          <option value="250">250</option>
+          <option value="500" selected>500</option>
+          <option value="1000">1 000</option>
+          <option value="5000">All (5 000+)</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <button id="ba-preview-btn" class="btn btn-ghost" onclick="previewBudgetSync()">🔍 Preview</button>
+      <button id="ba-submit-btn" class="btn btn-acc" onclick="submitBudgetSync()">⬇ Sync to Notion</button>
+      <button class="btn btn-ghost" onclick="closeBudgetSync()">Cancel</button>
+    </div>
+    <div class="ba-status" id="ba-sync-status">Configure import above and click Preview or Sync.</div>
+    <div id="ba-sync-results" style="margin-top:10px;max-height:200px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────────── -->
+<!-- ⬡  Onboarding Wizard Overlay                                   -->
+<!-- ─────────────────────────────────────────────────────────────── -->
+<style>
+/* ── Onboarding overlay ────────────────────────────────────────── */
+#onboard-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(10,12,20,0.85);
+  backdrop-filter: blur(6px);
+  z-index: 9000;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+#onboard-overlay.visible { display: flex; }
+
+#onboard-card {
+  background: var(--bg2, #141622);
+  border: 1px solid var(--border, #252840);
+  border-radius: 18px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 40px 44px;
+  position: relative;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+}
+
+/* progress bar */
+#onboard-progress {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 36px;
+}
+.ob-step-dot {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border, #252840);
+  transition: background 0.3s;
+}
+.ob-step-dot.done { background: var(--acc1, #6c7aff); }
+.ob-step-dot.active { background: var(--acc2, #a78bfa); }
+
+/* step content */
+.ob-step { display: none; }
+.ob-step.active { display: block; }
+
+.ob-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text1, #e8eaf2);
+  margin: 0 0 6px;
+  letter-spacing: -0.3px;
+}
+.ob-sub {
+  font-size: 13px;
+  color: var(--text3, #6b7280);
+  margin: 0 0 28px;
+  line-height: 1.55;
+}
+
+/* upload zone */
+#ob-drop-zone {
+  border: 2px dashed var(--border, #252840);
+  border-radius: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  margin-bottom: 20px;
+}
+#ob-drop-zone:hover, #ob-drop-zone.dragover {
+  border-color: var(--acc1, #6c7aff);
+  background: rgba(108,122,255,0.05);
+}
+#ob-drop-zone .drop-icon { font-size: 36px; margin-bottom: 10px; }
+#ob-drop-zone .drop-label { font-size: 14px; color: var(--text2, #aab0c0); }
+#ob-drop-zone .drop-hint  { font-size: 11px; color: var(--text3, #6b7280); margin-top: 6px; }
+#ob-file-input { display: none; }
+
+#ob-extract-status {
+  font-size: 12px;
+  color: var(--acc3, #34d399);
+  min-height: 20px;
+  margin-bottom: 4px;
+}
+#ob-extract-error {
+  font-size: 12px;
+  color: #ff6b6b;
+  min-height: 16px;
+}
+
+/* form fields */
+.ob-field {
+  margin-bottom: 18px;
+}
+.ob-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text3, #6b7280);
+  margin-bottom: 6px;
+}
+.ob-field input,
+.ob-field select,
+.ob-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg3, #1c1f30);
+  border: 1px solid var(--border, #252840);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text1, #e8eaf2);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.ob-field input:focus,
+.ob-field select:focus {
+  border-color: var(--acc1, #6c7aff);
+}
+.ob-field .ob-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* industry chip picker */
+.ob-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.ob-chip {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border, #252840);
+  font-size: 12px;
+  color: var(--text2, #aab0c0);
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+}
+.ob-chip:hover { border-color: var(--acc1, #6c7aff); color: var(--text1, #e8eaf2); }
+.ob-chip.selected {
+  background: var(--acc1, #6c7aff);
+  border-color: var(--acc1, #6c7aff);
+  color: #fff;
+}
+
+/* skills list */
+#ob-skills-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 140px;
+  overflow-y: auto;
+  padding: 4px 0;
+  margin-bottom: 10px;
+}
+.ob-skill-chip {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  border: 1px solid var(--border, #252840);
+  color: var(--text2, #aab0c0);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.ob-skill-chip.active {
+  background: rgba(108,122,255,0.15);
+  border-color: var(--acc1, #6c7aff);
+  color: var(--acc1, #6c7aff);
+}
+
+/* seasonality chart */
+#ob-season-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 80px;
+  margin: 20px 0 6px;
+}
+.ob-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.ob-bar {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  transition: height 0.4s;
+  min-height: 2px;
+}
+.ob-bar.peak { background: var(--acc1, #6c7aff); }
+.ob-bar.slow { background: var(--border, #252840); }
+.ob-bar.mid  { background: rgba(108,122,255,0.4); }
+.ob-bar-label {
+  font-size: 9px;
+  color: var(--text3, #6b7280);
+  text-align: center;
+}
+
+#ob-season-callout {
+  font-size: 12px;
+  color: var(--text2, #aab0c0);
+  line-height: 1.55;
+  background: rgba(108,122,255,0.07);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+}
+
+/* navigation buttons */
+.ob-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 28px;
+  gap: 10px;
+}
+.ob-btn-back {
+  background: transparent;
+  border: 1px solid var(--border, #252840);
+  color: var(--text3, #6b7280);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ob-btn-back:hover { border-color: var(--text2, #aab0c0); color: var(--text2, #aab0c0); }
+.ob-btn-next {
+  background: var(--acc1, #6c7aff);
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  margin-left: auto;
+}
+.ob-btn-next:hover { opacity: 0.85; }
+.ob-btn-next:disabled { opacity: 0.4; cursor: not-allowed; }
+.ob-btn-skip {
+  background: transparent;
+  border: none;
+  color: var(--text3, #6b7280);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.ob-btn-skip:hover { color: var(--text2, #aab0c0); }
+
+#ob-save-status {
+  font-size: 12px;
+  color: var(--acc3, #34d399);
+  text-align: center;
+  min-height: 18px;
+  margin-top: 8px;
+}
+
+/* security badge */
+.ob-security-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text3, #6b7280);
+  background: rgba(52,211,153,0.05);
+  border: 1px solid rgba(52,211,153,0.15);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 16px;
+}
+.ob-security-badge .icon { color: #34d399; font-size: 14px; }
+</style>
+
+<!-- Wizard HTML -->
+<div id="onboard-overlay" role="dialog" aria-modal="true" aria-label="Setup Wizard">
+  <div id="onboard-card">
+    <!-- Progress dots -->
+    <div id="onboard-progress">
+      <div class="ob-step-dot active" id="obdot-0"></div>
+      <div class="ob-step-dot" id="obdot-1"></div>
+      <div class="ob-step-dot" id="obdot-2"></div>
+      <div class="ob-step-dot" id="obdot-3"></div>
+      <div class="ob-step-dot" id="obdot-4"></div>
+    </div>
+
+    <!-- Step 0: Upload / Welcome -->
+    <div class="ob-step active" id="ob-step-0">
+      <div class="ob-title">Welcome to Nexus ⬡</div>
+      <div class="ob-sub">Let's build your professional profile in under 2 minutes.<br>Connect LinkedIn to auto-fill — then optionally upload a CV to add skills.</div>
+
+      <!-- LinkedIn connect button -->
+      <button id="ob-li-btn" onclick="obConnectLinkedIn()" style="
+        display:flex;align-items:center;justify-content:center;gap:10px;
+        width:100%;padding:13px 20px;margin-bottom:14px;
+        background:#0077b5;color:#fff;border:none;border-radius:12px;
+        font-size:15px;font-weight:600;cursor:pointer;letter-spacing:0.02em;
+        transition:background 0.15s;
+      " onmouseover="this.style.background='#005885'" onmouseout="this.style.background='#0077b5'">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+        </svg>
+        Connect with LinkedIn
+      </button>
+      <div id="ob-li-status" style="text-align:center;font-size:13px;color:#6c7aff;min-height:20px;margin-bottom:8px"></div>
+
+      <!-- Divider -->
+      <div style="display:flex;align-items:center;gap:10px;margin:4px 0 14px">
+        <div style="flex:1;height:1px;background:var(--border,#252840)"></div>
+        <span style="font-size:12px;color:var(--text3,#6b7280)">or upload a CV / LinkedIn PDF</span>
+        <div style="flex:1;height:1px;background:var(--border,#252840)"></div>
+      </div>
+
+      <div id="ob-drop-zone" onclick="document.getElementById('ob-file-input').click()"
+           ondragover="obDragOver(event)" ondragleave="obDragLeave(event)" ondrop="obDrop(event)">
+        <div class="drop-icon">📄</div>
+        <div class="drop-label">Drop your CV here</div>
+        <div class="drop-hint">or click to browse · PDF only · never stored to disk</div>
+      </div>
+      <input id="ob-file-input" type="file" accept=".pdf" onchange="obHandleFile(this.files[0])">
+      <div id="ob-extract-status"></div>
+      <div id="ob-extract-error"></div>
+      <div class="ob-security-badge">
+        <span class="icon">🔒</span>
+        <span>Your data is never stored by Nexus. LinkedIn gives us only your name, headline &amp; email. Everything stays in your own Notion workspace.</span>
+      </div>
+      <div class="ob-nav">
+        <button class="ob-btn-skip" onclick="obSkipToStep(1)">Enter manually →</button>
+        <button id="ob-next-0" class="ob-btn-next" onclick="obGoStep(1)" style="display:none">Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 1: Identity -->
+    <div class="ob-step" id="ob-step-1">
+      <div class="ob-title">Who are you?</div>
+      <div class="ob-sub">Your professional identity — how clients will see you.</div>
+      <div class="ob-field">
+        <label>Full Name</label>
+        <input id="ob-name" type="text" placeholder="Alex Johnson">
+      </div>
+      <div class="ob-field">
+        <label>Professional Headline</label>
+        <input id="ob-headline" type="text" placeholder="Senior Fund Operations Consultant">
+      </div>
+      <div class="ob-field ob-row">
+        <div>
+          <label>Specialty / Niche</label>
+          <input id="ob-specialty" type="text" placeholder="SimCorp · OTC Derivatives">
+        </div>
+        <div>
+          <label>Country</label>
+          <input id="ob-location" type="text" placeholder="City, Country">
+        </div>
+      </div>
+      <div class="ob-field">
+        <label>Entity Type</label>
+        <select id="ob-entity">
+          <option value="">Select…</option>
+          <option value="Sole Trader / Self-Employed">Sole Trader / Self-Employed</option>
+          <option value="Freelancer">Freelancer</option>
+          <option value="Independent Contractor">Independent Contractor</option>
+          <option value="Limited Company (Ltd)">Limited Company (Ltd)</option>
+          <option value="Private Limited (BV / GmbH / SRL)">Private Limited (BV / GmbH / SRL)</option>
+          <option value="LLC">LLC</option>
+          <option value="S-Corp / C-Corp">S-Corp / C-Corp</option>
+          <option value="Partnership">Partnership</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="ob-field">
+        <label>Email</label>
+        <input id="ob-email" type="email" placeholder="you@example.com">
+      </div>
+      <div class="ob-nav">
+        <button class="ob-btn-back" onclick="obGoStep(0)">← Back</button>
+        <button class="ob-btn-next" onclick="obGoStep(2)">Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Rates & Finances -->
+    <div class="ob-step" id="ob-step-2">
+      <div class="ob-title">Your Rates & Finances</div>
+      <div class="ob-sub">Used to calculate runway, invoicing, and tax estimates.</div>
+      <div class="ob-field ob-row">
+        <div>
+          <label>Day Rate</label>
+          <input id="ob-dayrate" type="number" min="0" placeholder="920">
+        </div>
+        <div>
+          <label>Hourly Rate</label>
+          <input id="ob-hourrate" type="number" min="0" placeholder="115">
+        </div>
+      </div>
+      <div class="ob-field ob-row">
+        <div>
+          <label>Monthly Burn</label>
+          <input id="ob-burn" type="number" min="0" placeholder="3200">
+        </div>
+        <div>
+          <label>Currency</label>
+          <select id="ob-currency">
+            <option value="EUR">EUR €</option>
+            <option value="GBP">GBP £</option>
+            <option value="USD">USD $</option>
+            <option value="CAD">CAD $</option>
+            <option value="CHF">CHF</option>
+          </select>
+        </div>
+      </div>
+      <div class="ob-field ob-row">
+        <div>
+          <label>Tax Reserve %</label>
+          <input id="ob-tax" type="number" min="0" max="60" placeholder="35">
+        </div>
+        <div>
+          <label>VAT / BTW %</label>
+          <input id="ob-btw" type="number" min="0" max="30" placeholder="21">
+        </div>
+      </div>
+      <div class="ob-field">
+        <label>Cash Runway (months)</label>
+        <input id="ob-runway" type="number" min="0" placeholder="6">
+      </div>
+      <div class="ob-nav">
+        <button class="ob-btn-back" onclick="obGoStep(1)">← Back</button>
+        <button class="ob-btn-next" onclick="obGoStep(3)">Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Work Preferences + Skills -->
+    <div class="ob-step" id="ob-step-3">
+      <div class="ob-title">Your Work Style</div>
+      <div class="ob-sub">Help Nexus understand your ideal engagements and confirm your core skills.</div>
+      <div class="ob-field ob-row">
+        <div>
+          <label>Available From</label>
+          <input id="ob-available" type="date">
+        </div>
+        <div>
+          <label>Engagement Length</label>
+          <select id="ob-englen">
+            <option value="">Flexible</option>
+            <option value="Short (1–3 months)">Short (1–3 months)</option>
+            <option value="Medium (3–6 months)">Medium (3–6 months)</option>
+            <option value="Long (6–12 months)">Long (6–12 months)</option>
+            <option value="Ongoing">Ongoing</option>
+          </select>
+        </div>
+      </div>
+      <div class="ob-field">
+        <label>Work Mode</label>
+        <div class="ob-chip-group" id="ob-workmode-chips">
+          <button class="ob-chip" onclick="obToggleWorkMode(this,'Remote')">Remote</button>
+          <button class="ob-chip" onclick="obToggleWorkMode(this,'Hybrid')">Hybrid</button>
+          <button class="ob-chip" onclick="obToggleWorkMode(this,'On-site')">On-site</button>
+        </div>
+      </div>
+      <div class="ob-field">
+        <label>Target Industries <span style="font-weight:400;text-transform:none;letter-spacing:0">(select all that apply)</span></label>
+        <div class="ob-chip-group" id="ob-industry-chips">
+          <!-- Finance -->
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Asset Management</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Wealth Management</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Banking</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Capital Markets</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">FinTech</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Insurance</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Private Equity / VC</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Accounting &amp; Audit</button>
+          <!-- Consulting & Services -->
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Management Consulting</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Project Management</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Compliance &amp; Regulatory</button>
+          <!-- Technology -->
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Software Engineering</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">AI / Machine Learning</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Data &amp; Analytics</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Cloud / Infrastructure</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Cybersecurity</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Product Management</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">UX / Product Design</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">SaaS / Software</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">DevOps / Platform</button>
+          <!-- Marketing & Creative -->
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Digital Marketing</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Content &amp; SEO</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Branding / Creative</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Advertising / Media</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">PR &amp; Communications</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Graphic Design</button>
+          <!-- Legal & HR -->
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Legal</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">HR &amp; People</button>
+          <!-- Healthcare -->
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Healthcare</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Life Sciences</button>
+          <!-- Operations -->
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Supply Chain &amp; Logistics</button>
+          <!-- Real Estate -->
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Real Estate</button>
+          <!-- Energy & Sustainability -->
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Energy &amp; Sustainability</button>
+          <!-- Other -->
+          <button class="ob-chip" onclick="obToggleIndustry(this)">E-commerce / Retail</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Media &amp; Entertainment</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Education</button>
+          <button class="ob-chip" onclick="obToggleIndustry(this)">Non-profit / NGO</button>
+        </div>
+      </div>
+      <div class="ob-field">
+        <label>Core Skills <span style="font-weight:400;text-transform:none;letter-spacing:0">(toggle to confirm / deselect)</span></label>
+        <div id="ob-skills-list"></div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <input id="ob-skill-add" type="text" placeholder="Add a skill…" style="flex:1;background:var(--bg3,#1c1f30);border:1px solid var(--border,#252840);border-radius:8px;padding:8px 10px;color:var(--text1,#e8eaf2);font-size:13px;outline:none">
+          <button class="ob-btn-next" style="padding:8px 14px;font-size:13px" onclick="obAddSkill()">+</button>
+        </div>
+      </div>
+      <div class="ob-nav">
+        <button class="ob-btn-back" onclick="obGoStep(2)">← Back</button>
+        <button class="ob-btn-next" onclick="obGoStep(4)">Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Seasonality + Launch -->
+    <div class="ob-step" id="ob-step-4">
+      <div class="ob-title">Your Market Rhythm</div>
+      <div class="ob-sub">Based on your industry, here's when hiring activity peaks — so you know when to push outreach.</div>
+      <div id="ob-season-chart"></div>
+      <div id="ob-season-callout"></div>
+      <div id="ob-save-status"></div>
+      <div class="ob-nav">
+        <button class="ob-btn-back" onclick="obGoStep(3)">← Back</button>
+        <button id="ob-launch-btn" class="ob-btn-next" onclick="obComplete()">Launch Nexus →</button>
+      </div>
+    </div>
+
+  </div><!-- /onboard-card -->
+</div><!-- /onboard-overlay -->
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// ⬡  Onboarding Wizard
+// ─────────────────────────────────────────────────────────────────────────────
+
+const OB = {
+  currentStep: 0,
+  totalSteps: 5,
+  profile: {},      // extracted from CV
+  data: {},         // merged profile: LinkedIn OAuth + CV (LinkedIn takes precedence)
+  skills: [],       // { name, source }
+  workModes: [],
+  industries: [],
+  seasonData: null,
+};
+
+function maybeShowOnboarding() {
+  // Only show if onboarding hasn't been completed
+  fetch('/api/onboard/status')
+    .then(r => r.json())
+    .then(d => { if (!d.completed) showOnboarding(); })
+    .catch(() => showOnboarding()); // if endpoint errors, still show
+}
+
+function showOnboarding() {
+  OB.currentStep = 0;
+  document.getElementById('onboard-overlay').classList.add('visible');
+  obUpdateProgress(0);
+  obRenderStep(0);
+  // Pre-fill today as available date
+  const today = new Date().toISOString().slice(0, 10);
+  const avEl = document.getElementById('ob-available');
+  if (avEl && !avEl.value) avEl.value = today;
+}
+
+// ── LinkedIn OAuth ────────────────────────────────────────────────────────────
+
+function obConnectLinkedIn() {
+  const btn    = document.getElementById('ob-li-btn');
+  const status = document.getElementById('ob-li-status');
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+  status.textContent = 'Opening LinkedIn…';
+
+  // Open popup centred on screen
+  const w = 560, h = 640;
+  const left = Math.round(screen.width  / 2 - w / 2);
+  const top  = Math.round(screen.height / 2 - h / 2);
+  const popup = window.open(
+    '/api/onboard/linkedin/auth',
+    'nexus-linkedin',
+    `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes`
+  );
+
+  if (!popup) {
+    status.textContent = '⚠ Popup blocked — allow popups for this page and try again.';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
+}
+
+// Listen for LinkedIn callback postMessage
+window.addEventListener('message', (evt) => {
+  if (!evt.data || evt.data.source !== 'nexus-linkedin') return;
+  const { ok, profile, error } = evt.data.payload || {};
+  const btn    = document.getElementById('ob-li-btn');
+  const status = document.getElementById('ob-li-status');
+
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+
+  if (!ok || !profile) {
+    if (status) status.textContent = `❌ ${error || 'LinkedIn connection failed'}`;
+    return;
+  }
+
+  // ── Pre-fill wizard from LinkedIn profile ──
+  if (status) status.textContent = `✅ Connected as ${profile.name || 'LinkedIn user'}`;
+
+  OB.data.name     = profile.name     || OB.data.name;
+  OB.data.headline = profile.headline || OB.data.headline;
+  OB.data.email    = profile.email    || OB.data.email;
+  OB.data.location = profile.country  || OB.data.location;
+  OB.data.source   = 'linkedin-oauth';
+
+  // Store photo for potential future use
+  if (profile.picture) OB.data.picture = profile.picture;
+
+  // Show "Continue" button and update its label
+  const nextBtn = document.getElementById('ob-next-0');
+  if (nextBtn) {
+    nextBtn.style.display = 'inline-block';
+    nextBtn.textContent   = 'Continue →';
+  }
+
+  // Auto-advance to Step 1 after a moment
+  setTimeout(() => obGoStep(1), 800);
+});
+
+function obGoStep(step) {
+  if (step < 0 || step >= OB.totalSteps) return;
+  obCollectCurrentStep(OB.currentStep);
+  OB.currentStep = step;
+  obRenderStep(step);
+  obUpdateProgress(step);
+}
+
+function obSkipToStep(step) { obGoStep(step); }
+
+function obUpdateProgress(activeStep) {
+  for (let i = 0; i < OB.totalSteps; i++) {
+    const dot = document.getElementById(`obdot-${i}`);
+    if (!dot) continue;
+    dot.className = 'ob-step-dot';
+    if (i < activeStep)       dot.classList.add('done');
+    else if (i === activeStep) dot.classList.add('active');
+  }
+}
+
+function obRenderStep(step) {
+  document.querySelectorAll('.ob-step').forEach((el, i) => {
+    el.classList.toggle('active', i === step);
+  });
+
+  // When reaching Step 1, fill fields from OB.data (populated by LinkedIn or CV)
+  if (step === 1) {
+    const set = (id, val) => { const el = document.getElementById(id); if (el && val && !el.value) el.value = val; };
+    set('ob-name',     OB.data.name);
+    set('ob-headline', OB.data.headline);
+    set('ob-email',    OB.data.email);
+    set('ob-location', OB.data.location);
+
+    // Show profile photo badge if we got one from LinkedIn
+    if (OB.data.picture) {
+      const existing = document.getElementById('ob-li-photo');
+      if (!existing) {
+        const badge = document.createElement('div');
+        badge.id = 'ob-li-photo';
+        badge.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg3,#1c1f30);border-radius:10px;border:1px solid var(--border,#252840)';
+        badge.innerHTML = `<img src="${OB.data.picture}" style="width:40px;height:40px;border-radius:50%;object-fit:cover" alt="LinkedIn photo">
+          <div><div style="font-size:13px;font-weight:600;color:var(--text1,#e8eaf2)">${OB.data.name || ''}</div>
+          <div style="font-size:11px;color:#0077b5">● Connected via LinkedIn</div></div>`;
+        const step1 = document.getElementById('ob-step-1');
+        if (step1) step1.insertBefore(badge, step1.querySelector('.ob-field'));
+      }
+    }
+  }
+
+  if (step === 3) obRenderSkillChips();
+  if (step === 4) obRenderSeasonality();
+}
+
+// ── Step 0: CV Upload ─────────────────────────────────────────────────────────
+
+function obDragOver(e) {
+  e.preventDefault();
+  document.getElementById('ob-drop-zone').classList.add('dragover');
+}
+function obDragLeave(e) {
+  document.getElementById('ob-drop-zone').classList.remove('dragover');
+}
+function obDrop(e) {
+  e.preventDefault();
+  document.getElementById('ob-drop-zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) obHandleFile(file);
+}
+
+async function obHandleFile(file) {
+  if (!file || !file.name.endsWith('.pdf')) {
+    document.getElementById('ob-extract-error').textContent = 'Please upload a PDF file.';
+    return;
+  }
+  document.getElementById('ob-extract-error').textContent = '';
+  document.getElementById('ob-extract-status').textContent = '⏳ Parsing your CV…';
+  document.getElementById('ob-drop-zone').querySelector('.drop-label').textContent = file.name;
+
+  const fd = new FormData();
+  fd.append('cv', file);
+
+  try {
+    const res  = await fetch('/api/onboard/extract', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Extraction failed');
+
+    OB.profile = data.profile || {};
+    obPopulateFromProfile(OB.profile);
+    document.getElementById('ob-extract-status').textContent = `✓ Profile extracted (${OB.profile.confidence || 0}% confidence)`;
+  } catch (e) {
+    document.getElementById('ob-extract-status').textContent = '';
+    document.getElementById('ob-extract-error').textContent = `⚠ ${e.message} — you can fill in details manually.`;
+  }
+}
+
+function obPopulateFromProfile(profile) {
+  // Merge into OB.data — existing LinkedIn fields take precedence
+  if (profile.name     && !OB.data.name)     OB.data.name     = profile.name;
+  if (profile.headline && !OB.data.headline) OB.data.headline = profile.headline;
+  if (profile.email    && !OB.data.email)    OB.data.email    = profile.email;
+  if (profile.location && !OB.data.location) OB.data.location = profile.location;
+
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+  set('ob-name',      OB.data.name     || profile.name);
+  set('ob-headline',  OB.data.headline || profile.headline);
+  set('ob-email',     OB.data.email    || profile.email);
+  set('ob-location',  OB.data.location || profile.location);
+
+  // Pre-select industries from CV
+  if (profile.industries?.length) {
+    profile.industries.forEach(ind => {
+      document.querySelectorAll('#ob-industry-chips .ob-chip').forEach(chip => {
+        if (chip.textContent.trim() === ind) {
+          chip.classList.add('selected');
+          if (!OB.industries.includes(ind)) OB.industries.push(ind);
+        }
+      });
+    });
+  }
+
+  // Load extracted skills
+  if (profile.skills?.length) {
+    profile.skills.forEach(name => {
+      if (!OB.skills.find(s => s.name === name)) {
+        OB.skills.push({ name, source: 'cv' });
+      }
+    });
+  }
+}
+
+// ── Step 1: collect identity ──────────────────────────────────────────────────
+
+function obCollectCurrentStep(step) {
+  if (step === 1) {
+    // identity collected at complete time via obBuildPayload
+  } else if (step === 3) {
+    // collected dynamically
+  }
+}
+
+// ── Step 3: skills ────────────────────────────────────────────────────────────
+
+function obRenderSkillChips() {
+  const list = document.getElementById('ob-skills-list');
+  if (!list) return;
+  if (OB.skills.length === 0) {
+    list.innerHTML = '<span style="font-size:12px;color:var(--text3,#6b7280)">No skills extracted — add yours below.</span>';
+    return;
+  }
+  list.innerHTML = OB.skills.map((s, i) =>
+    `<button class="ob-skill-chip active" onclick="obToggleSkill(${i})">${obEsc(s.name)}</button>`
+  ).join('');
+}
+
+function obToggleSkill(idx) {
+  const chips = document.querySelectorAll('#ob-skills-list .ob-skill-chip');
+  if (!chips[idx]) return;
+  OB.skills[idx]._active = !(OB.skills[idx]._active ?? true);
+  chips[idx].classList.toggle('active', OB.skills[idx]._active !== false);
+}
+
+function obAddSkill() {
+  const input = document.getElementById('ob-skill-add');
+  const name  = (input?.value || '').trim();
+  if (!name) return;
+  if (!OB.skills.find(s => s.name.toLowerCase() === name.toLowerCase())) {
+    OB.skills.push({ name, source: 'manual', _active: true });
+    obRenderSkillChips();
+  }
+  if (input) input.value = '';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && document.activeElement?.id === 'ob-skill-add') {
+    e.preventDefault();
+    obAddSkill();
+  }
+});
+
+// ── Step 3: chips ─────────────────────────────────────────────────────────────
+
+function obToggleIndustry(btn) {
+  btn.classList.toggle('selected');
+  const ind = btn.textContent.trim();
+  if (btn.classList.contains('selected')) {
+    if (!OB.industries.includes(ind)) OB.industries.push(ind);
+  } else {
+    OB.industries = OB.industries.filter(i => i !== ind);
+  }
+  // Refresh seasonality preview if on step 4
+  if (OB.currentStep === 4) obRenderSeasonality();
+}
+
+function obToggleWorkMode(btn, mode) {
+  // Single-select
+  document.querySelectorAll('#ob-workmode-chips .ob-chip').forEach(c => c.classList.remove('selected'));
+  btn.classList.add('selected');
+  OB.workModes = [mode];
+}
+
+// ── Step 4: Seasonality ───────────────────────────────────────────────────────
+
+async function obRenderSeasonality() {
+  const industries = OB.industries.length ? OB.industries : [];
+  const qs = industries.length ? `?industries=${encodeURIComponent(industries.join(','))}` : '';
+  try {
+    const data = await fetch(`/api/onboard/seasonality${qs}`).then(r => r.json());
+    OB.seasonData = data;
+    obDrawSeasonBars(data);
+    obDrawSeasonCallout(data);
+  } catch (e) {
+    obDrawSeasonBars({ industry: 'General', months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], data: [82,85,80,72,72,62,25,20,68,80,52,20], peak: ['Jan','Feb','Mar'], slow: ['Aug','Jul','Dec'] });
+  }
+}
+
+function obDrawSeasonBars(data) {
+  const chart  = document.getElementById('ob-season-chart');
+  if (!chart) return;
+  const maxVal = Math.max(...data.data);
+  chart.innerHTML = data.months.map((mo, i) => {
+    const val    = data.data[i];
+    const pct    = val / maxVal;
+    const h      = Math.max(4, Math.round(pct * 76));
+    const cls    = data.peak?.includes(mo) ? 'peak' : data.slow?.includes(mo) ? 'slow' : 'mid';
+    return `<div class="ob-bar-wrap">
+      <div class="ob-bar ${cls}" style="height:${h}px"></div>
+      <div class="ob-bar-label">${mo}</div>
+    </div>`;
+  }).join('');
+}
+
+function obDrawSeasonCallout(data) {
+  const el = document.getElementById('ob-season-callout');
+  if (!el) return;
+  const industry = data.industry || 'Your market';
+  const peak = data.peak?.join(', ') || '—';
+  const slow = data.slow?.join(', ') || '—';
+  el.innerHTML = `<strong>${industry}:</strong> Peak hiring in <strong style="color:var(--acc1,#6c7aff)">${peak}</strong> — start outreach 4–6 weeks before. Quiet months: <strong>${slow}</strong> — focus on upskilling and pipeline building.`;
+}
+
+// ── Completion ────────────────────────────────────────────────────────────────
+
+function obBuildPayload() {
+  const g = id => (document.getElementById(id)?.value || '').trim();
+  const activeSkills = OB.skills.filter(s => s._active !== false);
+
+  return {
+    identity: {
+      name:       g('ob-name'),
+      headline:   g('ob-headline'),
+      email:      g('ob-email'),
+      location:   g('ob-location'),
+      entityType: g('ob-entity'),
+      specialty:  g('ob-specialty'),
+      yearsExp:   OB.profile.yearsExperience || null,
+    },
+    rates: {
+      dayRate:      parseFloat(g('ob-dayrate'))  || null,
+      hourlyRate:   parseFloat(g('ob-hourrate')) || null,
+      monthlyBurn:  parseFloat(g('ob-burn'))     || null,
+      taxReservePct: parseFloat(g('ob-tax'))     || null,
+      vatPct:        parseFloat(g('ob-btw'))     || null,
+      currency:      g('ob-currency') || 'EUR',
+      runway:        parseFloat(g('ob-runway'))  || null,
+    },
+    preferences: {
+      availableFrom: g('ob-available'),
+      engagementLen: g('ob-englen'),
+      workMode:      OB.workModes[0] || '',
+      industries:    OB.industries,
+    },
+    skills: activeSkills,
+  };
+}
+
+async function obComplete() {
+  const btn = document.getElementById('ob-launch-btn');
+  const status = document.getElementById('ob-save-status');
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = '⏳ Saving to Notion…';
+
+  try {
+    const payload = obBuildPayload();
+    const res  = await fetch('/api/onboard/complete', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Save failed');
+
+    if (status) status.textContent = `✓ ${data.message || 'Profile saved!'}`;
+
+    // Close wizard and reload data
+    setTimeout(() => {
+      document.getElementById('onboard-overlay').classList.remove('visible');
+      if (status) status.textContent = '';
+      if (btn) btn.disabled = false;
+      toast('Profile saved — syncing Nexus…', 'ok');
+      reloadAll();
+    }, 1200);
+
+  } catch (e) {
+    if (status) status.textContent = `⚠ ${e.message}`;
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+
+function obEsc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Close on overlay click (outside card)
+document.getElementById('onboard-overlay').addEventListener('click', function(e) {
+  if (e.target === this) {
+    // Allow dismissal only if user has a name set (not first-time)
+    if (NX?.config?.name) {
+      this.classList.remove('visible');
+    }
+  }
+});
+</script>
+
 </body>
 </html>
