@@ -286,6 +286,60 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 .ob-linkedin-btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(79,172,254,.06)}
 .ob-linkedin-btn svg{width:16px;height:16px;fill:currentColor}
 
+/* ── Upload drop zone ─────────────────────── */
+.ob-dropzone{
+  border:1.5px dashed var(--border);border-radius:var(--r);
+  padding:20px;text-align:center;cursor:pointer;
+  transition:border-color .15s,background .15s;margin-bottom:12px;
+  position:relative;
+}
+.ob-dropzone:hover,.ob-dropzone.dragover{border-color:var(--acc);background:rgba(79,255,176,.04)}
+.ob-dropzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.ob-dz-icon{font-size:22px;margin-bottom:6px}
+.ob-dz-label{font-size:12.5px;color:var(--txt);font-weight:600}
+.ob-dz-sub{font-size:11px;color:var(--sub);margin-top:3px}
+.ob-dz-files{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.ob-dz-file{background:var(--bg3);border:1px solid var(--border);border-radius:4px;
+  padding:3px 8px;font-size:10.5px;color:var(--acc);display:flex;align-items:center;gap:4px}
+.ob-dz-file .rm{cursor:pointer;color:var(--sub);font-size:9px;margin-left:2px}
+.ob-dz-file .rm:hover{color:var(--red)}
+/* ── Profile confirmation card ────────────── */
+.ob-profile-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);
+  padding:16px;margin-bottom:16px}
+.ob-profile-avatar{width:44px;height:44px;border-radius:50%;background:var(--bg4);
+  border:2px solid var(--acc);display:flex;align-items:center;justify-content:center;
+  font-size:18px;margin-bottom:10px}
+.ob-profile-name{font-size:15px;font-weight:700;color:var(--txt);margin-bottom:2px}
+.ob-profile-title{font-size:12px;color:var(--sub);margin-bottom:10px}
+.ob-profile-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.ob-profile-tag{background:rgba(79,255,176,.1);color:var(--acc);border:1px solid rgba(79,255,176,.2);
+  border-radius:3px;padding:2px 7px;font-size:10.5px}
+.ob-profile-tag.ind{background:rgba(79,172,254,.1);color:var(--blue);border-color:rgba(79,172,254,.2)}
+.ob-profile-tag.sow{background:rgba(255,159,67,.1);color:var(--orange);border-color:rgba(255,159,67,.2)}
+.ob-confidence{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--sub);margin-bottom:12px}
+.ob-conf-bar{flex:1;height:4px;background:var(--dim);border-radius:2px;overflow:hidden}
+.ob-conf-fill{height:100%;border-radius:2px;background:var(--acc);transition:width .5s var(--ease)}
+.ob-filters-summary{font-size:11px;color:var(--sub);line-height:1.7;margin-bottom:12px}
+.ob-filters-kw{display:flex;flex-wrap:wrap;gap:4px}
+.ob-filter-kw{background:var(--bg4);border:1px solid var(--border);border-radius:3px;
+  padding:2px 6px;font-size:10px;color:var(--sub)}
+/* ── Signals feed enhancement ─────────────── */
+.signal-tier{display:inline-block;padding:2px 6px;border-radius:3px;font-size:9px;
+  font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-left:6px}
+.signal-tier.HOT{background:rgba(255,107,107,.15);color:var(--red)}
+.signal-tier.WARM{background:rgba(249,202,36,.12);color:var(--yellow)}
+.signal-tier.MONITOR{background:rgba(79,172,254,.1);color:var(--blue)}
+.signal-type{font-size:9.5px;color:var(--sub);text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+.signal-score{font-size:11px;font-weight:700;color:var(--sub);min-width:28px;text-align:right}
+.signals-refresh{cursor:pointer;font-size:10.5px;color:var(--sub);padding:3px 8px;
+  border:1px solid var(--border);border-radius:4px;background:transparent;
+  transition:all .12s;font-family:var(--font)}
+.signals-refresh:hover{color:var(--acc);border-color:var(--acc)}
+.signal-empty-cta{text-align:center;padding:28px 20px}
+.signal-empty-cta .empty-icon{font-size:28px;margin-bottom:8px}
+.signal-empty-cta .empty-msg{font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:12px}
+.signal-cta-btn{background:var(--acc);color:#0a1a12;font-weight:700;font-size:11.5px;
+  padding:8px 16px;border-radius:6px;border:none;cursor:pointer;font-family:var(--font)}
 /* Preview panel (right side) */
 .ob-preview-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--sub);margin-bottom:14px}
 .ob-runway-preview{text-align:center;padding:20px 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px}
@@ -526,11 +580,16 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 
     <!-- Market signals -->
     <div class="list-card">
-      <div class="list-header">
+      <div class="list-header" style="align-items:center">
         <span class="list-title">Market Signals</span>
         <span class="list-count" id="signals-count">0</span>
+        <button class="signals-refresh" id="signals-refresh-btn" onclick="refreshSignals()" style="margin-left:auto" title="Refresh signals">↻ Refresh</button>
       </div>
-      <div id="signals-list"><div class="empty"><div class="empty-icon">📡</div>No signals yet</div></div>
+      <div id="signals-list"><div class="signal-empty-cta">
+        <div class="empty-icon">📡</div>
+        <div class="empty-msg">No signals yet. Complete your profile to start receiving daily market intelligence — leadership changes, funding rounds, tech purchases, and regulatory deadlines in your target verticals.</div>
+        <button class="signal-cta-btn" onclick="showOnboarding()">Build my profile →</button>
+      </div></div>
     </div>
   </div>
 
@@ -618,22 +677,94 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
         <div class="ob-step-dot active" id="dot-0"></div>
         <div class="ob-step-dot" id="dot-1"></div>
         <div class="ob-step-dot" id="dot-2"></div>
+        <div class="ob-step-dot" id="dot-3"></div>
+        <div class="ob-step-dot" id="dot-4"></div>
       </div>
 
       <!-- Step 0: LinkedIn -->
       <div class="ob-step active" id="ob-step-0">
         <div class="ob-step-title">Welcome to Nexus ⬡</div>
-        <div class="ob-step-sub">Your freelancer financial OS. Connect LinkedIn to pre-fill your profile and see your first cashflow forecast in seconds.</div>
+        <div class="ob-step-sub">Your freelancer financial OS. Start with LinkedIn for a quick profile pull, or upload your CV and contracts to build a full market intelligence profile.</div>
 
         <button class="ob-linkedin-btn" onclick="connectLinkedIn()">
           <svg viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
           Continue with LinkedIn
         </button>
-        <button class="ob-btn-ghost" onclick="obSkipLinkedIn()">Skip — I'll enter manually</button>
+        <button class="ob-btn" onclick="obGoTo(1)" style="margin-top:6px">Upload CV + Contracts →</button>
+        <button class="ob-btn-ghost" onclick="obGoTo(3)">Skip — I'll enter manually</button>
       </div>
 
-      <!-- Step 1: Profile + Rate -->
+      <!-- Step 1: Document Upload -->
       <div class="ob-step" id="ob-step-1">
+        <div class="ob-step-title">Upload your documents</div>
+        <div class="ob-step-sub">Nexus reads your CV and contracts to understand who you are, what you're paid for, and which companies need you next. Everything stays private.</div>
+
+        <!-- CV upload -->
+        <div class="ob-dropzone" id="dz-cv" ondragover="dzDragOver(event,'dz-cv')" ondragleave="dzDragLeave('dz-cv')" ondrop="dzDrop(event,'cv')">
+          <input type="file" accept=".pdf" id="file-cv" onchange="dzFile(event,'cv')">
+          <div class="ob-dz-icon">📄</div>
+          <div class="ob-dz-label">CV / Résumé</div>
+          <div class="ob-dz-sub">Drag & drop or click — PDF only</div>
+          <div class="ob-dz-files" id="dz-cv-files"></div>
+        </div>
+
+        <!-- SOW / Contract upload -->
+        <div class="ob-dropzone" id="dz-sow" ondragover="dzDragOver(event,'dz-sow')" ondragleave="dzDragLeave('dz-sow')" ondrop="dzDrop(event,'sow')">
+          <input type="file" accept=".pdf" multiple id="file-sow" onchange="dzFile(event,'sow')">
+          <div class="ob-dz-icon">📋</div>
+          <div class="ob-dz-label">SOW / Contracts</div>
+          <div class="ob-dz-sub">Up to 5 contracts — drag & drop or click</div>
+          <div class="ob-dz-files" id="dz-sow-files"></div>
+        </div>
+
+        <div id="ob-build-status" style="font-size:11px;color:var(--sub);text-align:center;min-height:18px;margin-bottom:6px"></div>
+        <button class="ob-btn" id="ob-build-btn" onclick="obBuildProfile()">Build my profile →</button>
+        <button class="ob-btn-ghost" onclick="obGoTo(3)">Skip — enter manually</button>
+      </div>
+
+      <!-- Step 2: Profile Confirmation (Human-in-the-loop) -->
+      <div class="ob-step" id="ob-step-2">
+        <div class="ob-step-title">Is this you? ✓</div>
+        <div class="ob-step-sub">Nexus built your profile from your documents. Review and correct anything before we start searching for your next opportunity.</div>
+
+        <div class="ob-profile-card" id="ob-profile-card">
+          <div class="ob-profile-avatar" id="ob-avatar">👤</div>
+          <div class="ob-profile-name" id="ob-pname">—</div>
+          <div class="ob-profile-title" id="ob-ptitle">—</div>
+          <div class="ob-confidence">
+            <span>Profile completeness</span>
+            <div class="ob-conf-bar"><div class="ob-conf-fill" id="ob-conf-fill" style="width:0%"></div></div>
+            <span id="ob-conf-pct">0%</span>
+          </div>
+          <div class="ob-profile-tags" id="ob-profile-skills"></div>
+          <div class="ob-profile-tags" id="ob-profile-industries"></div>
+          <div class="ob-profile-tags" id="ob-profile-sow"></div>
+        </div>
+
+        <!-- Search filters summary -->
+        <div style="font-size:11px;color:var(--sub);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Auto-generated search filters</div>
+        <div class="ob-filters-kw" id="ob-filter-keywords" style="margin-bottom:16px"></div>
+
+        <!-- Editable overrides -->
+        <div class="ob-field">
+          <label>Add or correct your name</label>
+          <input type="text" id="ob-confirm-name" placeholder="Your full name">
+        </div>
+        <div class="ob-field">
+          <label>Add missing skills (comma-separated)</label>
+          <input type="text" id="ob-confirm-skills" placeholder="e.g. SimCorp Dimension, DORA, Fund Accounting">
+        </div>
+        <div class="ob-field">
+          <label>Add missing industries (comma-separated)</label>
+          <input type="text" id="ob-confirm-industries" placeholder="e.g. Asset Management, FinTech">
+        </div>
+
+        <button class="ob-btn" onclick="obConfirmProfile()">Yes, that's me — start searching →</button>
+        <button class="ob-btn-ghost" onclick="obGoTo(3)">Skip intelligence — enter numbers only</button>
+      </div>
+
+      <!-- Step 3: Profile + Rate -->
+      <div class="ob-step" id="ob-step-3">
         <div class="ob-step-title">Your numbers</div>
         <div class="ob-step-sub">Nexus uses these to build your cashflow forecast. You can change them at any time in Settings.</div>
 
@@ -672,11 +803,11 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
           </div>
         </div>
 
-        <button class="ob-btn" onclick="obStep1Next()">See your forecast →</button>
+        <button class="ob-btn" onclick="obStep3Next()">See your forecast →</button>
       </div>
 
-      <!-- Step 2: Seasonality -->
-      <div class="ob-step" id="ob-step-2">
+      <!-- Step 4: Seasonality -->
+      <div class="ob-step" id="ob-step-4">
         <div class="ob-step-title">When do you work?</div>
         <div class="ob-step-sub">Tell Nexus your busy and slow months so the forecast reflects reality, not just averages.</div>
 
@@ -684,14 +815,18 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
           <label>Industry</label>
           <select id="ob-industry">
             <option value="">Select your industry…</option>
-            <option value="tech">Tech / Software</option>
-            <option value="finance">Finance / Consulting</option>
-            <option value="marketing">Marketing / Creative</option>
-            <option value="design">Design / UX</option>
-            <option value="legal">Legal / Compliance</option>
-            <option value="healthcare">Healthcare / MedTech</option>
-            <option value="construction">Construction / Engineering</option>
-            <option value="other">Other</option>
+            <option value="Asset Management">Asset Management / Fund Ops</option>
+            <option value="Banking">Banking / Capital Markets</option>
+            <option value="FinTech">FinTech</option>
+            <option value="Compliance &amp; Regulatory">Compliance &amp; Regulatory</option>
+            <option value="Software Engineering">Tech / Software Engineering</option>
+            <option value="AI / Machine Learning">AI / Machine Learning</option>
+            <option value="Management Consulting">Management Consulting</option>
+            <option value="Digital Marketing">Marketing / Creative</option>
+            <option value="UX / Product Design">Design / UX</option>
+            <option value="Legal">Legal</option>
+            <option value="Healthcare">Healthcare / MedTech</option>
+            <option value="Construction &amp; Architecture">Construction / Engineering</option>
           </select>
         </div>
         <div class="ob-field">
@@ -747,7 +882,10 @@ const S = {
   toggDash:     { income:true, burn:true, season:false },
   toggFc:       { income:true, burn:true, net:true, season:false },
   obStep:       0,
-  linkedinData: null,
+  linkedinData:     null,
+  builtProfile:     null,  // AI-synthesized profile (pre-confirmation)
+  builtFilters:     null,  // AI-generated search filters (pre-confirmation)
+  confirmedProfile: null,  // User-confirmed profile
 };
 
 /* ─────────────────────────────────────────────────────────
@@ -830,14 +968,7 @@ async function loadContracts() {
   } catch(e) { console.warn('contracts load failed', e); }
 }
 
-async function loadSignals() {
-  try {
-    const r = await fetch('/api/signals');
-    if (!r.ok) return;
-    const data = await r.json();
-    S.signals = data?.signals || data || [];
-  } catch(e) { console.warn('signals load failed', e); }
-}
+// loadSignals is defined below with the market intel functions
 
 async function loadSeasonalData() {
   try {
@@ -1208,20 +1339,72 @@ function renderSignals() {
   $('signals-count').textContent = signals.length;
 
   if (!signals.length) {
-    list.innerHTML = '<div class="empty"><div class="empty-icon">📡</div>No market signals configured</div>';
+    const hasProfile = S.confirmedProfile || S.builtProfile;
+    list.innerHTML = hasProfile
+      ? `<div class="empty"><div class="empty-icon">⏳</div><div style="color:var(--sub);font-size:12px;margin-top:8px">Signals refreshing — check back in a minute</div></div>`
+      : `<div class="signal-empty-cta">
+          <div class="empty-icon">📡</div>
+          <div class="empty-msg">Upload your CV and contracts to receive daily market intelligence — leadership changes, funding rounds, tech purchases, and regulatory deadlines in your target verticals.</div>
+          <button class="signal-cta-btn" onclick="showOnboarding()">Build my profile →</button>
+        </div>`;
     return;
   }
 
-  list.innerHTML = signals.slice(0, 5).map(s => {
-    const heat = s.heat || s.urgency || 'ok';
-    return `<div class="signal-item">
-      <div class="signal-dot ${heat}"></div>
-      <div>
-        <div class="signal-title">${s.title || s.name || 'Signal'}</div>
-        <div class="signal-meta">${s.source || ''} ${s.date ? '· ' + s.date : ''}</div>
+  list.innerHTML = signals.slice(0, 8).map(s => {
+    const tier     = s.tier || 'MONITOR';
+    const typeIcon = {
+      'Leadership change':   '👤',
+      'Funding round':       '💰',
+      'Tech/vendor purchase':'⚙️',
+      'Regulatory deadline': '📋',
+      'Ad spend spike':      '📈',
+      'Job posting':         '💼',
+      'Company news':        '📰',
+    }[s.type] || '📡';
+
+    const dateStr = s.publishedAt
+      ? new Date(s.publishedAt).toLocaleDateString('en-NL', { day:'numeric', month:'short' })
+      : '';
+
+    return `<div class="signal-item" style="cursor:${s.link ? 'pointer' : 'default'}" ${s.link ? `onclick="window.open('${s.link}','_blank')"` : ''}>
+      <div class="signal-dot ${tier === 'HOT' ? 'hot' : tier === 'WARM' ? '' : 'ok'}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="signal-title" style="display:flex;align-items:baseline;gap:4px;flex-wrap:wrap">
+          <span>${typeIcon} ${s.title || 'Signal'}</span>
+          <span class="signal-tier ${tier}">${tier}</span>
+        </div>
+        <div class="signal-meta">${s.source || ''}${dateStr ? ' · ' + dateStr : ''}</div>
+        <div class="signal-type">${s.type || ''}</div>
       </div>
+      <div class="signal-score">${s.score || 0}</div>
     </div>`;
   }).join('');
+}
+
+async function loadSignals() {
+  try {
+    const r = await fetch('/api/profile/signals?limit=20');
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d.signals) {
+      S.signals = d.signals;
+      renderSignals();
+    }
+  } catch { /* silently ignore */ }
+}
+
+async function refreshSignals() {
+  const btn = $('signals-refresh-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    await fetch('/api/profile/signals/refresh', { method: 'POST' });
+    toast('Signal refresh triggered — results in ~30s');
+    setTimeout(loadSignals, 8000);
+  } catch (e) {
+    toast('Refresh failed: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh'; }
+  }
 }
 
 function runWhatIf() {
@@ -1342,22 +1525,24 @@ function connectLinkedIn() {
 
     // Pre-fill onboarding fields
     if (li.name)     { $('ob-name').value = li.name; }
-    if (li.headline) { $('s-headline').value = li.headline; }
+    if (li.headline) { try { $('s-headline').value = li.headline; } catch {} }
 
     // Update settings badges
-    $('li-connect-status').textContent = '✓ Connected as ' + (li.name || li.sub || li.id || 'LinkedIn user');
-    $('li-badge').textContent = 'Connected';
-    $('li-badge').className   = 'connect-badge connected';
+    try {
+      $('li-connect-status').textContent = '✓ Connected as ' + (li.name || li.sub || li.id || 'LinkedIn user');
+      $('li-badge').textContent = 'Connected';
+      $('li-badge').className   = 'connect-badge connected';
+    } catch {}
 
-    toast('LinkedIn connected — profile pre-filled ✓');
+    toast('LinkedIn connected ✓ — now upload your CV for a full profile');
 
-    // If in onboarding, advance to step 1
+    // If in onboarding step 0, advance to document upload
     if (S.obStep === 0) obGoTo(1);
   }, false);
 }
 
 /* ─────────────────────────────────────────────────────────
-   ONBOARDING
+   ONBOARDING — CORE NAVIGATION
 ───────────────────────────────────────────────────────── */
 function showOnboarding() {
   $('ob-overlay').classList.remove('hidden');
@@ -1365,23 +1550,207 @@ function showOnboarding() {
 }
 
 function obGoTo(step) {
-  // Hide all steps
   document.querySelectorAll('.ob-step').forEach(el => el.classList.remove('active'));
   $('ob-step-' + step).classList.add('active');
   S.obStep = step;
 
-  // Update dots
-  for (let i = 0; i < 3; i++) {
+  // Update dots (5 steps: 0-4)
+  for (let i = 0; i < 5; i++) {
     const dot = $('dot-' + i);
+    if (!dot) continue;
     dot.className = 'ob-step-dot' + (i < step ? ' done' : i === step ? ' active' : '');
   }
 }
 
 function obSkipLinkedIn() {
-  obGoTo(1);
+  obGoTo(3);
 }
 
-function obStep1Next() {
+/* ─────────────────────────────────────────────────────────
+   DOCUMENT UPLOAD (Step 1)
+───────────────────────────────────────────────────────── */
+
+// Track selected files
+const OB_FILES = { cv: null, sow: [] };
+
+function dzDragOver(e, id) {
+  e.preventDefault();
+  $(id).classList.add('dragover');
+}
+function dzDragLeave(id) {
+  $(id).classList.remove('dragover');
+}
+function dzDrop(e, type) {
+  e.preventDefault();
+  const id = 'dz-' + (type === 'cv' ? 'cv' : 'sow');
+  $(id).classList.remove('dragover');
+  const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.pdf'));
+  handleFiles(type, files);
+}
+function dzFile(e, type) {
+  handleFiles(type, [...e.target.files]);
+}
+
+function handleFiles(type, files) {
+  if (type === 'cv') {
+    OB_FILES.cv = files[0] || null;
+    renderFileList('dz-cv-files', OB_FILES.cv ? [OB_FILES.cv] : []);
+  } else {
+    OB_FILES.sow = [...OB_FILES.sow, ...files].slice(0, 5);
+    renderFileList('dz-sow-files', OB_FILES.sow);
+  }
+}
+
+function renderFileList(containerId, files) {
+  $(containerId).innerHTML = files.map((f, i) =>
+    `<div class="ob-dz-file">
+      📄 ${f.name.slice(0, 24)}${f.name.length > 24 ? '…' : ''}
+      <span class="rm" onclick="removeFile('${containerId}',${i})">✕</span>
+    </div>`
+  ).join('');
+}
+
+function removeFile(containerId, idx) {
+  if (containerId.includes('cv')) {
+    OB_FILES.cv = null;
+    $('file-cv').value = '';
+    $('dz-cv-files').innerHTML = '';
+  } else {
+    OB_FILES.sow.splice(idx, 1);
+    renderFileList('dz-sow-files', OB_FILES.sow);
+  }
+}
+
+async function obBuildProfile() {
+  if (!OB_FILES.cv && OB_FILES.sow.length === 0) {
+    // Skip to numbers if no files — just go manual
+    obGoTo(3);
+    return;
+  }
+
+  const btn    = $('ob-build-btn');
+  const status = $('ob-build-status');
+
+  btn.disabled = true;
+  btn.textContent = 'Analysing…';
+  status.textContent = '🔍 Reading your documents…';
+
+  try {
+    const fd = new FormData();
+
+    if (OB_FILES.cv)    fd.append('cv', OB_FILES.cv, OB_FILES.cv.name);
+    for (const f of OB_FILES.sow) fd.append('sow', f, f.name);
+    if (S.linkedinData) fd.append('linkedin', JSON.stringify(S.linkedinData));
+
+    const r = await fetch('/api/profile/build', { method: 'POST', body: fd });
+    if (!r.ok) throw new Error(await r.text());
+
+    const data = await r.json();
+    S.builtProfile  = data.profile;
+    S.builtFilters  = data.filters;
+
+    status.textContent = `✓ Profile built from ${data.sources.cv ? 'CV' : ''}${data.sources.sow > 0 ? ` + ${data.sources.sow} contract${data.sources.sow > 1 ? 's' : ''}` : ''}`;
+
+    populateProfileConfirmation(data.profile, data.filters);
+    obGoTo(2);
+
+  } catch (e) {
+    status.textContent = '⚠ ' + e.message;
+    toast('Profile build failed — entering manually', 'err');
+    setTimeout(() => obGoTo(3), 1200);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Build my profile →';
+  }
+}
+
+/* ─────────────────────────────────────────────────────────
+   PROFILE CONFIRMATION (Step 2)
+───────────────────────────────────────────────────────── */
+
+function populateProfileConfirmation(profile, filters) {
+  // Avatar / name / title
+  if (profile.picture) {
+    $('ob-avatar').innerHTML = `<img src="${profile.picture}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+  } else {
+    $('ob-avatar').textContent = (profile.name || 'U')[0].toUpperCase();
+  }
+  $('ob-pname').textContent  = profile.name || 'Unknown';
+  $('ob-ptitle').textContent = profile.headline || profile.seniority || '';
+
+  // Confidence bar
+  const conf = profile.confidence || 0;
+  $('ob-conf-fill').style.width = conf + '%';
+  $('ob-conf-pct').textContent  = conf + '%';
+
+  // Skills tags (first 8)
+  $('ob-profile-skills').innerHTML = (profile.skills || []).slice(0, 8).map(s =>
+    `<span class="ob-profile-tag">${s}</span>`
+  ).join('');
+
+  // Industry tags
+  $('ob-profile-industries').innerHTML = (profile.industries || []).slice(0, 4).map(i =>
+    `<span class="ob-profile-tag ind">${i}</span>`
+  ).join('');
+
+  // SOW service tags (first 3)
+  $('ob-profile-sow').innerHTML = (profile.services || []).slice(0, 3).map(s =>
+    `<span class="ob-profile-tag sow">${s.slice(0, 40)}${s.length > 40 ? '…' : ''}</span>`
+  ).join('');
+
+  // Pre-fill editable fields
+  $('ob-confirm-name').value       = profile.name || '';
+  $('ob-confirm-skills').value     = '';
+  $('ob-confirm-industries').value = '';
+
+  // Search filter keywords
+  $('ob-filter-keywords').innerHTML = (filters?.keywords || []).slice(0, 12).map(kw =>
+    `<span class="ob-filter-kw">${kw}</span>`
+  ).join('');
+}
+
+async function obConfirmProfile() {
+  let profile = S.builtProfile || {};
+
+  // Apply user edits
+  const nameOverride = $('ob-confirm-name')?.value.trim();
+  if (nameOverride) profile.name = nameOverride;
+
+  const addSkills = ($('ob-confirm-skills')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (addSkills.length) profile.skills = [...new Set([...(profile.skills || []), ...addSkills])];
+
+  const addInds = ($('ob-confirm-industries')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (addInds.length) profile.industries = [...new Set([...(profile.industries || []), ...addInds])];
+
+  // Store confirmed profile on state
+  S.confirmedProfile = profile;
+
+  // Save to backend asynchronously (non-blocking)
+  fetch('/api/profile/confirm', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ profile }),
+  }).then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        toast('Profile confirmed ✓ Signals refreshing…');
+        setTimeout(loadSignals, 3000); // Give worker a moment to run
+      }
+    })
+    .catch(e => console.warn('Profile confirm failed (non-fatal):', e.message));
+
+  // Pre-fill name in numbers step
+  if (profile.name) $('ob-name').value = profile.name;
+
+  // Proceed to numbers
+  obGoTo(3);
+}
+
+/* ─────────────────────────────────────────────────────────
+   NUMBERS STEP (Step 3)
+───────────────────────────────────────────────────────── */
+
+function obStep3Next() {
   const name    = $('ob-name').value.trim();
   const rate    = parseFloat($('ob-rate').value) || 0;
   const dayRate = parseFloat($('ob-dayrate').value) || 0;
@@ -1389,8 +1758,11 @@ function obStep1Next() {
   if (!name) { toast('Please enter your name', 'err'); return; }
   if (!rate && !dayRate) { toast('Please enter your hourly or day rate', 'err'); return; }
 
-  obGoTo(2);
+  obGoTo(4);
 }
+
+// Alias for old code references
+function obStep1Next() { obStep3Next(); }
 
 // Live preview during onboarding
 function obUpdatePreview() {
@@ -1459,7 +1831,7 @@ function obUpdatePreview() {
 }
 
 async function obComplete() {
-  const name    = $('ob-name')?.value.trim()          || '';
+  const name    = $('ob-name')?.value.trim()          || (S.confirmedProfile?.name || '');
   const rate    = parseFloat($('ob-rate')?.value)     || 0;
   const dayRate = parseFloat($('ob-dayrate')?.value)  || 0;
   const hrs     = parseFloat($('ob-hours')?.value)    || 32;
@@ -1467,7 +1839,10 @@ async function obComplete() {
   const savings = parseFloat($('ob-savings')?.value)  || 0;
   const vatPct  = parseFloat($('ob-vat')?.value)      || 21;
   const taxRes  = parseFloat($('ob-taxres')?.value)   || 35;
-  const industry = $('ob-industry')?.value            || '';
+  // Auto-detect industry from confirmed profile if not manually selected
+  const manualIndustry = $('ob-industry')?.value || '';
+  const profileIndustries = S.confirmedProfile?.industries || [];
+  const industry = manualIndustry || profileIndustries[0] || '';
 
   const payload = {
     name, headline: S.linkedinData?.headline || '',

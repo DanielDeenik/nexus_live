@@ -20,8 +20,10 @@ const { load, checkConnectivity } = require('./lib/workspace');
 const apiRouter                   = require('./routes/api');
 const budgetAppRouter             = require('./routes/budget-app');
 const onboardRouter               = require('./routes/onboard');
+const profileRouter               = require('./routes/profile');
 const scheduler                   = require('./lib/scheduler');
 const basicAuth                   = require('./lib/basicAuth');
+const intel                       = require('./workers/marketIntel');
 
 // ── Multer for PDF file uploads ───────────────────────────────────────────────
 let multer;
@@ -70,6 +72,7 @@ app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 app.use('/api', apiRouter);
 app.use('/api/budget-app', budgetAppRouter);
 app.use('/api/onboard', onboardRouter);
+app.use('/api/profile', profileRouter);
 
 // ── Catch-all: serve index.html for client-side navigation ────────────────────
 app.get('*', (_req, res) => {
@@ -108,4 +111,7 @@ app.listen(PORT, async () => {
 
   // Start scheduled background jobs (feed refresh, etc.)
   scheduler.start();
+
+  // Start market intel scheduler (runs daily signal refresh when profile is set)
+  intel.startScheduler();
 });
