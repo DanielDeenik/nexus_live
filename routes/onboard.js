@@ -1,4 +1,5 @@
 'use strict';
+const store = require('../lib/store');
 /**
  * routes/onboard.js — Onboarding wizard API
  *
@@ -207,10 +208,47 @@ router.post('/extract', (req, res, next) => {
  */
 router.post('/complete', async (req, res) => {
   try {
-    const { identity = {}, rates = {}, preferences = {}, skills = [] } = req.body;
+    // Support both legacy { identity, rates, preferences, skills } and the
+    // current flat format sent by the onboarding wizard:
+    // { name, headline, location, rates:{...}, industry, seasonData, linkedinId }
+    const body = req.body || {};
+    const isFlat = body.name !== undefined || body.rates !== undefined;
 
+    let identity, rates, preferences, skills;
+    if (isFlat) {
+      identity    = { name: body.name, headline: body.headline, location: body.location };
+      rates       = body.rates || {};
+      preferences = { industries: body.industry ? [body.industry] : [] };
+      skills      = body.skills || [];
+    } else {
+      ({ identity = {}, rates = {}, preferences = {}, skills = [] } = body);
+    }
+
+    // ── Always save to local store first (zero-key) ────────────────────────
+    const cfgPatch = {
+      name:              identity.name          || null,
+      headline:          identity.headline       || null,
+      location:          identity.location       || null,
+      hourlyRate:        rates.hourlyRate         || null,
+      dayRate:           rates.dayRate            || null,
+      availHoursPerWeek: rates.availHoursPerWeek  || 32,
+      burn:              rates.burn || rates.monthlyBurn || null,
+      savings:           rates.savings            || null,
+      vatPct:            rates.vatPct             || 21,
+      taxReservePct:     rates.taxReservePct       || 35,
+      targetIndustries:  preferences.industries    || [],
+      linkedinId:        body.linkedinId           || null,
+    };
+    // Remove nulls to avoid overwriting real data with null on re-saves
+    Object.keys(cfgPatch).forEach(k => cfgPatch[k] === null && delete cfgPatch[k]);
+    store.merge('config', cfgPatch);
+
+    // ── Optional: sync to Notion ───────────────────────────────────────────
     const notion = notionClient();
     const dbId   = profileDbId();
+    if (!notion || !dbId) {
+      return res.json({ ok: true, saved: 0, message: 'Saved locally — Notion not configured' });
+    }
     const existing = await fetchExistingRows(notion, dbId);
 
     const rows = [];

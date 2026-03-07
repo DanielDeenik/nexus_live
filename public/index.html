@@ -287,6 +287,11 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 .ob-linkedin-btn svg{width:16px;height:16px;fill:currentColor}
 
 /* ── Upload drop zone ─────────────────────── */
+.ob-step-actions{
+  position:sticky;bottom:0;background:var(--bg1);
+  padding:14px 0 24px;margin-top:8px;
+  border-top:1px solid var(--border);
+}
 .ob-dropzone{
   border:1.5px dashed var(--border);border-radius:var(--r);
   padding:20px;text-align:center;cursor:pointer;
@@ -717,9 +722,11 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
           <div class="ob-dz-files" id="dz-sow-files"></div>
         </div>
 
-        <div id="ob-build-status" style="font-size:11px;color:var(--sub);text-align:center;min-height:18px;margin-bottom:6px"></div>
-        <button class="ob-btn" id="ob-build-btn" onclick="obBuildProfile()">Build my profile →</button>
-        <button class="ob-btn-ghost" onclick="obGoTo(3)">Skip — enter manually</button>
+        <div class="ob-step-actions">
+          <div id="ob-build-status" style="font-size:11px;color:var(--sub);text-align:center;min-height:18px;margin-bottom:8px"></div>
+          <button class="ob-btn" id="ob-build-btn" onclick="obBuildProfile()">Build my profile →</button>
+          <button class="ob-btn-ghost" onclick="obGoTo(3)">Skip — enter manually</button>
+        </div>
       </div>
 
       <!-- Step 2: Profile Confirmation (Human-in-the-loop) -->
@@ -759,8 +766,10 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
           <input type="text" id="ob-confirm-industries" placeholder="e.g. Asset Management, FinTech">
         </div>
 
-        <button class="ob-btn" onclick="obConfirmProfile()">Yes, that's me — start searching →</button>
-        <button class="ob-btn-ghost" onclick="obGoTo(3)">Skip intelligence — enter numbers only</button>
+        <div class="ob-step-actions">
+          <button class="ob-btn" onclick="obConfirmProfile()">Yes, that's me — start searching →</button>
+          <button class="ob-btn-ghost" onclick="obGoTo(3)">Skip intelligence — enter numbers only</button>
+        </div>
       </div>
 
       <!-- Step 3: Profile + Rate -->
@@ -803,7 +812,9 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
           </div>
         </div>
 
-        <button class="ob-btn" onclick="obStep3Next()">See your forecast →</button>
+        <div class="ob-step-actions">
+          <button class="ob-btn" onclick="obStep3Next()">See your forecast →</button>
+        </div>
       </div>
 
       <!-- Step 4: Seasonality -->
@@ -834,8 +845,10 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
           <input type="number" id="ob-taxres" placeholder="35" min="0" max="60" step="1" oninput="obUpdatePreview()">
         </div>
 
-        <button class="ob-btn" onclick="obComplete()">Launch my dashboard →</button>
-        <button class="ob-btn-ghost" onclick="obComplete()">Skip seasonality</button>
+        <div class="ob-step-actions">
+          <button class="ob-btn" onclick="obComplete()">Launch my dashboard →</button>
+          <button class="ob-btn-ghost" onclick="obComplete()">Skip seasonality</button>
+        </div>
       </div>
     </div>
 
@@ -1511,16 +1524,17 @@ function connectLinkedIn() {
     `width=${w},height=${h},left=${left},top=${top},scrollbars=yes`);
 
   window.addEventListener('message', async function handler(e) {
-    if (e.data?.type !== 'linkedin-callback') return;
+    if (e.data?.source !== 'nexus-linkedin') return;
     window.removeEventListener('message', handler);
     if (popup && !popup.closed) popup.close();
 
-    if (e.data.error) {
-      toast('LinkedIn: ' + e.data.error, 'err');
+    const payload = e.data.payload || {};
+    if (!payload.ok || payload.error) {
+      toast('LinkedIn: ' + (payload.error || 'Connection failed'), 'err');
       return;
     }
 
-    const li = e.data.profile || {};
+    const li = payload.profile || {};
     S.linkedinData = li;
 
     // Pre-fill onboarding fields

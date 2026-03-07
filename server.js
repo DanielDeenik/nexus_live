@@ -24,6 +24,7 @@ const profileRouter               = require('./routes/profile');
 const scheduler                   = require('./lib/scheduler');
 const basicAuth                   = require('./lib/basicAuth');
 const intel                       = require('./workers/marketIntel');
+const store                       = require('./lib/store');
 
 // ── Multer for PDF file uploads ───────────────────────────────────────────────
 let multer;
@@ -111,6 +112,13 @@ app.listen(PORT, async () => {
 
   // Start scheduled background jobs (feed refresh, etc.)
   scheduler.start();
+
+  // Restore saved profile into market intel worker (survives server restarts)
+  const savedProfile = store.get('profile');
+  if (savedProfile) {
+    intel.setProfile(savedProfile);
+    console.log('  ✓  Restored profile from local store —', savedProfile.name || 'unnamed');
+  }
 
   // Start market intel scheduler (runs daily signal refresh when profile is set)
   intel.startScheduler();

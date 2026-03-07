@@ -20,6 +20,7 @@ const { getFeed, refresh: refreshFeed, getFeedMeta } = require('../workers/jobFe
 const { assessContract } = require('../lib/forecast');
 const { parsePdf, extractContractFields } = require('../lib/pdfParser');
 const scenarioStore                     = require('../lib/scenarioStore');
+const store                             = require('../lib/store');
 
 const router = Router();
 
@@ -60,8 +61,17 @@ router.get('/status', async (_req, res) => {
 // ── GET /api/config ────────────────────────────────────────────────────────────
 // Reads the Profile DB (key-value rows) and returns a merged config object.
 // No hardcoded defaults — all values come from Notion.
-router.get('/config', requireWorkspace, async (req, res) => {
-  const key = ck('config', req.ws);
+router.get('/config', async (req, res) => {
+  // ── Local store fast-path (zero-key) ─────────────────────────────────────
+  // If Notion is not configured or unreachable, return the locally stored config.
+  const ws = getWorkspace(req.query.ws);
+  if (!ws?.token) {
+    const local = store.get('config', {});
+    return res.json(local);
+  }
+  req.ws = ws;
+
+  const key    = ck('config', req.ws);
   const cached = cache.get(key);
   if (cached) return res.json(cached);
 
@@ -120,12 +130,67 @@ router.get('/config', requireWorkspace, async (req, res) => {
       return true;
     });
 
-    cache.set(key, cfg);
-    res.json(cfg);
+    // Merge with any locally stored overrides (e.g. from POST /api/config)
+    const localOverride = store.get('config', {});
+    const merged = { ...cfg, ...localOverride };
+
+    cache.set(key, merged);
+    res.json(merged);
   } catch (e) {
-    console.error('[config]', e.message);
-    res.status(500).json({ error: translateError(e) });
+    console.error('[config] Notion failed, falling back to local store:', e.message);
+    // Notion unreachable — return local store
+    return res.json(store.get('config', {}));
   }
+});
+
+// ── POST /api/config ───────────────────────────────────────────────────────────
+// Save config. Always writes to local store (zero-key). Also syncs to Notion
+// if a token is configured (fire-and-forget, non-blocking).
+router.post('/config', async (req, res) => {
+  const payload = req.body || {};
+
+  // Always save locally first — works with zero external keys
+  store.merge('config', payload);
+
+  // Optional: async Notion sync (don't block response)
+  const ws = getWorkspace(req.query.ws);
+  if (ws?.token && ws?.dbs?.profile) {
+    setImmediate(async () => {
+      try {
+        const { upsertProfileRow } = require('../lib/notion');
+        const FIELD_MAP = {
+          name:              'Full Name',
+          headline:          'Professional Title',
+          location:          'Location',
+          hourlyRate:        'Hourly Rate EUR',
+          dayRate:           'Day Rate EUR',
+          availHoursPerWeek: 'Avail Hours Per Week',
+          burn:              'Monthly Burn EUR',
+          vatPct:            'VAT Pct',
+          taxReservePct:     'Tax Reserve Pct',
+          utilisation:       'Utilisation Pct',
+        };
+        const pages = await queryAll(ws.client, ws.dbs.profile);
+        for (const [jsKey, notionParam] of Object.entries(FIELD_MAP)) {
+          if (payload[jsKey] != null) {
+            const page = pages.find(p => prop(p, 'Parameter') === notionParam);
+            if (page) {
+              await ws.client.pages.update({
+                page_id: page.id,
+                properties: { 'Value': { rich_text: [{ text: { content: String(payload[jsKey]) } }] } },
+              });
+            }
+          }
+        }
+        // Bust cache so next GET reflects changes
+        cache.del(ck('config', ws));
+      } catch (e) {
+        console.warn('[config POST] Notion sync skipped:', e.message);
+      }
+    });
+  }
+
+  res.json({ ok: true, saved: 'local' });
 });
 
 // ── PATCH /api/config ─────────────────────────────────────────────────────────

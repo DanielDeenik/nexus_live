@@ -1,0 +1,11 @@
+{
+  "config": {
+    "name": "Dan",
+    "hourlyRate": 95,
+    "dayRate": 760,
+    "availHoursPerWeek": 32,
+    "burn": 3200,
+    "vatPct": 21,
+    "taxReservePct": 35
+  }
+}

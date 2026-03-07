@@ -30,6 +30,7 @@
 const express    = require('express');
 const router     = express.Router();
 const { Client } = require('@notionhq/client');
+const store      = require('../lib/store');
 
 const { parsePdf }              = require('../lib/pdfParser');
 const { extractCvProfile }      = require('../lib/cvParser');
@@ -238,7 +239,10 @@ router.post('/confirm', async (req, res) => {
     console.warn('[profile/confirm] Notion save failed (non-fatal):', e.message);
   }
 
-  // 2. Set profile in market intel worker
+  // 2. Always save profile to local store (zero-key)
+  store.set('profile', profile);
+
+  // 3. Set profile in market intel worker
   intel.setProfile(profile);
 
   // 3. Trigger initial refresh (fire-and-forget — don't block response)
