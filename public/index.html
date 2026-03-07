@@ -1565,6 +1565,25 @@ async function loadSeasonalBaselines() {
       const nProj = _netCashflow.months.filter(m => !m.isActual).length;
       console.log(`[SpendingEngine] Net cashflow loaded: ${nAct} actual + ${nProj} projected months`);
     }
+
+    // ── Profile → Forecast: fetch income seasonality for this user's industries ──
+    // Then apply profile-derived income projections on top of any server data
+    if (NX?.config?.hourlyRate) {
+      try {
+        const industries = (NX.config.targetIndustries || []).join(',');
+        const qs = industries ? `?industries=${encodeURIComponent(industries)}` : '';
+        const incomeSeason = await fetch(`/api/onboard/seasonality${qs}`).then(r => r.json());
+        if (incomeSeason?.data?.length) {
+          _incomeSeasonality = incomeSeason;
+          console.log(`[ProfileForecast] Income seasonality loaded for: ${incomeSeason.industry}`);
+        }
+      } catch (e) {
+        console.warn('[ProfileForecast] Could not load income seasonality:', e.message);
+      }
+      // Apply profile-derived projections (uses _incomeSeasonality if available)
+      applyProfileToForecast(NX.config, _incomeSeasonality);
+    }
+
     // Re-render forecast + overlay with fresh data
     renderForecast();
     renderIncomeSpendOverlay();
@@ -1585,6 +1604,107 @@ async function loadNetCashflow() {
   } catch(e) {
     console.warn('[SpendingEngine] Could not reload net-cashflow:', e.message);
   }
+}
+
+// ── Profile → Forecast: chain-of-thought income projection engine ─────────────
+//
+// Chain of thought:
+//   1. What do we know?  rate + billable hours/wk + burn + tax rates + seasonality
+//   2. What's the monthly capacity?  rate × hoursPerWeek × 4.33 × 75% utilisation
+//   3. Apply seasonal weight (industry-specific 0–100 index → 0–1 multiplier)
+//   4. Derive gross → net (minus VAT provision + tax reserve) → surplus vs burn
+//   5. Merge projections into _netCashflow (keep actuals, replace projected months)
+//   6. Re-render forecast — forecast now reflects the user's actual profile
+//
+// Called: (a) after wizard completes, (b) after profile loads + seasonality fetched
+//
+function applyProfileToForecast(cfg, incomeSeasonData) {
+  // ── 1. Extract profile parameters ─────────────────────────────────────────
+  const rate          = cfg?.hourlyRate || 0;
+  const hoursPerWeek  = cfg?.availHoursPerWeek || 32;   // billable hrs/wk
+  const burn          = cfg?.burn          || 0;
+  const vatPct        = (cfg?.vatPct        ?? 21) / 100;
+  const taxResPct     = (cfg?.taxReservePct ?? 35) / 100;
+  const UTILISATION   = 0.75; // freelancers rarely hit 100% — 75% is realistic
+
+  // ── 2. Must have a rate to project income ─────────────────────────────────
+  if (!rate) {
+    console.log('[ProfileForecast] No hourly rate configured — skipping income projection');
+    return;
+  }
+
+  // ── 3. Peak monthly gross at full capacity (with utilisation discount) ─────
+  // 4.33 = average weeks per month (52 ÷ 12)
+  const peakMonthlyGross = rate * hoursPerWeek * 4.33 * UTILISATION;
+
+  // ── 4. Extract seasonality weights (0–100 per month index 0–11) ───────────
+  // incomeSeasonData.data is the array from /api/onboard/seasonality
+  const seasonWeights = incomeSeasonData?.data || null;
+
+  // ── 5. Find last actual month so we never overwrite real data ─────────────
+  const actualMonths = (_netCashflow?.months || [])
+    .filter(m => m.isActual)
+    .map(m => m.month)
+    .sort();
+  const lastActual = actualMonths.length ? actualMonths[actualMonths.length - 1] : null;
+
+  // ── 6. Build 12 forward months of profile-derived income projections ───────
+  const today = new Date();
+  const projections = [];
+
+  for (let i = 0; i < 12; i++) {
+    const d      = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    const yyyymm = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label  = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+    const calMo  = d.getMonth(); // 0–11
+
+    // Never overwrite months with actual data
+    if (lastActual && yyyymm <= lastActual) continue;
+
+    // ── 7. Apply seasonal weight — busy months project higher income ─────────
+    // seasonWeights[0] = Jan index (0–100). Normalise: 78 → 0.78.
+    const rawWeight    = seasonWeights ? (seasonWeights[calMo] ?? 78) : 78;
+    const seasonFactor = rawWeight / 100;
+    const grossRevenue = Math.round(peakMonthlyGross * seasonFactor);
+
+    // ── 8. Derive net figures (mirrors server net-cashflow calculation) ───────
+    const vatProvision = Math.round(grossRevenue * vatPct);
+    const taxProvision = Math.round(grossRevenue * taxResPct);
+    const netRevenue   = grossRevenue - vatProvision - taxProvision;
+    const surplus      = netRevenue - burn;
+
+    projections.push({
+      month:            yyyymm,
+      label,
+      isActual:         false,
+      isProfileDerived: true,   // flag so renderForecast can style differently
+      grossRevenue,
+      netRevenue,
+      burn,
+      surplus,
+      projectedIncome:  grossRevenue,
+      vatProvision,
+      taxProvision,
+    });
+  }
+
+  if (!projections.length) return;
+
+  // ── 9. Merge into _netCashflow: preserve actuals, replace projected ─────────
+  if (!_netCashflow) _netCashflow = { months: [] };
+  const actuals = (_netCashflow.months || []).filter(m => m.isActual);
+  _netCashflow.months           = [...actuals, ...projections];
+  _netCashflow.profileDerivedAt = new Date().toISOString();
+  _netCashflow.profileRate      = rate;
+  _netCashflow.profileHoursPerWk = hoursPerWeek;
+
+  // ── 10. Re-render forecast with fresh profile-driven data ──────────────────
+  const peakFmt = Math.round(peakMonthlyGross).toLocaleString();
+  console.log(
+    `[ProfileForecast] ${rate}/hr × ${hoursPerWeek}h/wk × ${UTILISATION * 100}% util` +
+    ` → peak ~${peakFmt}/mo gross · ${projections.length} months projected`
+  );
+  renderForecast();
 }
 
 // ── Push income projections to spending engine (integration step 3) ──────────
@@ -5013,6 +5133,7 @@ let _netCashflow        = null; // { months: [...] } from /api/spending/net-cash
 let _activeCatFilter    = null; // category clicked in donut chart
 let _abundanceScore     = null;   // { score, date, label }
 let _incomeSpendChart   = null;   // Chart.js instance for overlay chart
+let _incomeSeasonality  = null;   // { data: [0-100 x12], peak: [], slow: [] } from /api/onboard/seasonality
 
 const SCENARIO_COLOURS = [
   '#4FFFB0', '#3B9EFF', '#FFD54F', '#FF6B6B', '#CE93D8',
@@ -7286,9 +7407,15 @@ function _runBudgetSync(dryRun) {
           <input id="ob-btw" type="number" min="0" max="30" placeholder="21">
         </div>
       </div>
-      <div class="ob-field">
-        <label>Cash Runway (months)</label>
-        <input id="ob-runway" type="number" min="0" placeholder="6">
+      <div class="ob-field ob-row">
+        <div>
+          <label>Cash Runway (months)</label>
+          <input id="ob-runway" type="number" min="0" placeholder="6">
+        </div>
+        <div>
+          <label>Billable Hours / Week</label>
+          <input id="ob-hours" type="number" min="1" max="60" placeholder="32" title="How many hours per week you expect to bill. Used for income forecasting.">
+        </div>
       </div>
       <div class="ob-nav">
         <button class="ob-btn-back" onclick="obGoStep(1)">← Back</button>
@@ -7711,11 +7838,15 @@ async function obRenderSeasonality() {
   const qs = industries.length ? `?industries=${encodeURIComponent(industries.join(','))}` : '';
   try {
     const data = await fetch(`/api/onboard/seasonality${qs}`).then(r => r.json());
-    OB.seasonData = data;
+    OB.seasonData      = data;
+    _incomeSeasonality = data; // keep global in sync so forecast uses latest selection
     obDrawSeasonBars(data);
     obDrawSeasonCallout(data);
   } catch (e) {
-    obDrawSeasonBars({ industry: 'General', months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], data: [82,85,80,72,72,62,25,20,68,80,52,20], peak: ['Jan','Feb','Mar'], slow: ['Aug','Jul','Dec'] });
+    const fallback = { industry: 'General', months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], data: [82,85,80,72,72,62,25,20,68,80,52,20], peak: ['Jan','Feb','Mar'], slow: ['Aug','Jul','Dec'] };
+    OB.seasonData      = fallback;
+    _incomeSeasonality = fallback;
+    obDrawSeasonBars(fallback);
   }
 }
 
@@ -7761,14 +7892,16 @@ function obBuildPayload() {
       yearsExp:   OB.profile.yearsExperience || null,
     },
     rates: {
-      dayRate:      parseFloat(g('ob-dayrate'))  || null,
-      hourlyRate:   parseFloat(g('ob-hourrate')) || null,
-      monthlyBurn:  parseFloat(g('ob-burn'))     || null,
-      taxReservePct: parseFloat(g('ob-tax'))     || null,
-      vatPct:        parseFloat(g('ob-btw'))     || null,
-      currency:      g('ob-currency') || 'EUR',
-      runway:        parseFloat(g('ob-runway'))  || null,
+      dayRate:           parseFloat(g('ob-dayrate'))  || null,
+      hourlyRate:        parseFloat(g('ob-hourrate')) || null,
+      monthlyBurn:       parseFloat(g('ob-burn'))     || null,
+      taxReservePct:     parseFloat(g('ob-tax'))      || null,
+      vatPct:            parseFloat(g('ob-btw'))       || null,
+      currency:          g('ob-currency') || 'EUR',
+      runway:            parseFloat(g('ob-runway'))   || null,
+      availHoursPerWeek: parseFloat(g('ob-hours'))    || 32,
     },
+    seasonData: OB.seasonData || null,
     preferences: {
       availableFrom: g('ob-available'),
       engagementLen: g('ob-englen'),
@@ -7797,13 +7930,27 @@ async function obComplete() {
 
     if (status) status.textContent = `✓ ${data.message || 'Profile saved!'}`;
 
+    // ── Immediately apply profile → forecast (don't wait for Notion reload) ──
+    // Build a lightweight config from wizard fields for instant forecast update
+    const p = obBuildPayload();
+    const immediateConfig = {
+      hourlyRate:        p.rates.hourlyRate || (p.rates.dayRate ? p.rates.dayRate / 8 : 0),
+      availHoursPerWeek: p.rates.availHoursPerWeek || 32,
+      burn:              p.rates.monthlyBurn      || NX?.config?.burn || 0,
+      vatPct:            p.rates.vatPct           ?? NX?.config?.vatPct ?? 21,
+      taxReservePct:     p.rates.taxReservePct    ?? NX?.config?.taxReservePct ?? 35,
+    };
+    // Use wizard's freshly-fetched income seasonality if available
+    const wizardSeason = p.seasonData || _incomeSeasonality;
+    applyProfileToForecast(immediateConfig, wizardSeason);
+
     // Close wizard and reload data
     setTimeout(() => {
       document.getElementById('onboard-overlay').classList.remove('visible');
       if (status) status.textContent = '';
       if (btn) btn.disabled = false;
-      toast('Profile saved — syncing Nexus…', 'ok');
-      reloadAll();
+      toast('Profile saved — forecast updated ✓', 'ok');
+      reloadAll(); // Full reload will re-run applyProfileToForecast with persisted data
     }, 1200);
 
   } catch (e) {

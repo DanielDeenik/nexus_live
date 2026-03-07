@@ -74,6 +74,7 @@ router.get('/config', requireWorkspace, async (req, res) => {
       burn: null, wiseBalance: null, contractEnd: null, agency: null,
       client: null, mkbPct: null, zvwPct: null, fxBuffer: null,
       payLagDays: null, taxReservePct: null, vatPct: null, tags: [], skills: [],
+      availHoursPerWeek: null, targetIndustries: [], headline: null, location: null,
     };
 
     for (const page of pages) {
@@ -98,7 +99,12 @@ router.get('/config', requireWorkspace, async (req, res) => {
         case 'FX Buffer Pct':      cfg.fxBuffer       = parseFloat(v); break;
         case 'Payment Lag Days':   cfg.payLagDays     = parseInt(v); break;
         case 'Tax Reserve Pct':    cfg.taxReservePct  = parseFloat(v); break;
-        case 'BTW Rate Pct':       cfg.vatPct         = parseFloat(v); break;
+        case 'BTW Rate Pct':       cfg.vatPct            = parseFloat(v); break;
+        case 'VAT Pct':            cfg.vatPct            = parseFloat(v); break;
+        case 'Avail Hours Per Week': cfg.availHoursPerWeek = parseFloat(v); break;
+        case 'Target Industries':  cfg.targetIndustries  = v.split(',').map(s => s.trim()).filter(Boolean); break;
+        case 'Professional Title': cfg.headline          = v; break;
+        case 'Location':           cfg.location          = v; break;
         default:
           if (category === 'Skills — Tier 1') cfg.skills.push({ label: parameter, tier: 1 });
           else if (category === 'Skills — Tier 2') cfg.skills.push({ label: parameter, tier: 2 });

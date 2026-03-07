@@ -231,7 +231,8 @@ router.post('/complete', async (req, res) => {
     if (rates.taxReservePct)    rows.push(['Tax Reserve Pct',    String(rates.taxReservePct),'Rate',    'Self Reported']);
     if (rates.vatPct != null)   rows.push(['VAT Pct',             String(rates.vatPct),   'Rate',       'Self Reported']);
     if (rates.currency)         rows.push(['Invoice Currency',   rates.currency,         'Identity',   'Self Reported']);
-    if (rates.runway != null)   rows.push(['Runway Months',      String(rates.runway),   'Identity',   'Self Reported']);
+    if (rates.runway != null)        rows.push(['Runway Months',       String(rates.runway),            'Identity',   'Self Reported']);
+    if (rates.availHoursPerWeek)     rows.push(['Avail Hours Per Week', String(rates.availHoursPerWeek), 'Identity',   'Self Reported']);
 
     // ── Work Preferences ──────────────────────────────────────────────────────
     if (preferences.availableFrom) rows.push(['Available From',     preferences.availableFrom, 'Constraint', 'Self Reported']);
