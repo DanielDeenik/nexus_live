@@ -222,8 +222,10 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
   background:rgba(5,7,14,.96);
   display:flex;align-items:center;justify-content:center;
   backdrop-filter:blur(8px);
+  animation:obReveal .28s var(--ease);
 }
 #ob-overlay.hidden{display:none}
+@keyframes obReveal{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:none}}
 .ob-modal{
   background:var(--bg1);border:1px solid var(--border);border-radius:12px;
   width:100%;max-width:860px;margin:16px;
@@ -482,6 +484,59 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 .pin-setup-sub{font-size:11px;color:var(--sub);margin-top:2px}
 
 /* ─────────────────────────────────────────────────────────
+   LOADING SCREEN — post-login boot progress
+───────────────────────────────────────────────────────── */
+#loading-screen{
+  position:fixed;inset:0;z-index:890;background:var(--bg0);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;
+  transition:opacity .3s var(--ease);
+}
+#loading-screen.hidden{display:none}
+#loading-screen.fading{opacity:0;pointer-events:none}
+.ld-wrap{width:280px;text-align:left}
+.ld-logo{font-size:22px;font-weight:800;letter-spacing:-.6px;color:var(--txt);margin-bottom:32px;display:flex;align-items:center;gap:8px}
+.ld-logo-mark{color:var(--acc);font-size:26px}
+.ld-step{
+  display:flex;align-items:center;gap:12px;
+  padding:8px 0;font-size:13px;color:var(--dim);
+  transition:color .2s;
+  border-bottom:1px solid transparent;
+}
+.ld-step.loading{color:var(--sub)}
+.ld-step.done{color:var(--txt)}
+.ld-step-icon{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.ld-step-icon.spin::after{
+  content:'';display:block;width:13px;height:13px;border-radius:50%;
+  border:2px solid rgba(79,255,176,.2);border-top-color:var(--acc);
+  animation:ldSpin .7s linear infinite;
+}
+@keyframes ldSpin{to{transform:rotate(360deg)}}
+.ld-step-icon.check::after{content:'✓';color:var(--acc);font-size:12px;font-weight:700}
+.ld-step-icon.pending::after{content:'·';color:var(--dim);font-size:18px;line-height:1}
+.ld-ready{
+  margin-top:28px;font-size:11px;color:var(--sub);
+  letter-spacing:.6px;text-transform:uppercase;
+  opacity:0;transition:opacity .3s;
+}
+.ld-ready.show{opacity:1}
+
+/* ─── New-user benefit tiles ─────────────────────────── */
+.lp-hero{font-size:16px;font-weight:700;color:var(--txt);letter-spacing:-.3px;margin-bottom:6px;line-height:1.3}
+.lp-hero-sub{font-size:11.5px;color:var(--sub);margin-bottom:20px;line-height:1.5}
+.lp-benefits{display:flex;flex-direction:column;gap:0;margin-bottom:20px}
+.lp-benefit{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:11px 14px;border-radius:var(--r2);
+  background:var(--bg2);border:1px solid var(--border);
+  margin-bottom:6px;
+}
+.lp-benefit-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+.lp-benefit-title{font-size:12.5px;font-weight:600;color:var(--txt)}
+.lp-benefit-sub{font-size:11px;color:var(--sub);margin-top:2px}
+.lp-time-hint{font-size:10.5px;color:var(--dim);text-align:center;margin-top:10px}
+
+/* ─────────────────────────────────────────────────────────
    AVAILABILITY STATE — sidebar widget
 ───────────────────────────────────────────────────────── */
 .sb-avail{
@@ -682,11 +737,64 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 
     <!-- ── VIEW C: New user / no profile ─────────────────── -->
     <div id="lp-view-new" style="display:none">
-      <p class="login-setup-text">Welcome to Nexus Live.<br>Build your freelancer profile to unlock cash flow forecasting, market signals, and smart outreach.</p>
-      <button class="login-cta primary" onclick="loginBuildProfile()">Get started — Build my profile →</button>
-      <button class="login-cta secondary" id="lp-back-btn" onclick="loginShowEnterView()" style="display:none">← Back</button>
+      <div class="lp-hero" id="lp-hero-text">Your freelancer financial OS</div>
+      <div class="lp-hero-sub" id="lp-hero-sub">4 minutes to your first cash-flow forecast.</div>
+      <div class="lp-benefits" id="lp-benefits-block">
+        <div class="lp-benefit">
+          <span class="lp-benefit-icon">💰</span>
+          <div>
+            <div class="lp-benefit-title">Cash flow forecast</div>
+            <div class="lp-benefit-sub">Runway, income gaps, and bench risk — at a glance</div>
+          </div>
+        </div>
+        <div class="lp-benefit">
+          <span class="lp-benefit-icon">🎯</span>
+          <div>
+            <div class="lp-benefit-title">Smart outreach targets</div>
+            <div class="lp-benefit-sub">Companies matched to your skills before jobs are posted</div>
+          </div>
+        </div>
+        <div class="lp-benefit">
+          <span class="lp-benefit-icon">📊</span>
+          <div>
+            <div class="lp-benefit-title">12-month pipeline</div>
+            <div class="lp-benefit-sub">Track contracts, notice periods, and gaps on one timeline</div>
+          </div>
+        </div>
+      </div>
+      <button class="login-cta primary" id="lp-new-primary-btn" onclick="loginBuildProfile()">Build my profile →</button>
+      <div class="lp-time-hint" id="lp-time-hint">Takes about 4 minutes · No account needed</div>
+      <button class="login-cta secondary" id="lp-back-btn" onclick="loginShowEnterView()" style="display:none;margin-top:8px">← Back</button>
     </div>
 
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     LOADING SCREEN — post-login boot progress
+═══════════════════════════════════════════════════════ -->
+<div id="loading-screen" class="hidden">
+  <div class="ld-wrap">
+    <div class="ld-logo"><span class="ld-logo-mark">⬡</span>Nexus Live</div>
+    <div id="ld-steps">
+      <div class="ld-step" id="lds-profile">
+        <span class="ld-step-icon pending" id="ldi-profile"></span>
+        <span>Loading your profile</span>
+      </div>
+      <div class="ld-step" id="lds-forecast">
+        <span class="ld-step-icon pending" id="ldi-forecast"></span>
+        <span>Loading forecast</span>
+      </div>
+      <div class="ld-step" id="lds-contracts">
+        <span class="ld-step-icon pending" id="ldi-contracts"></span>
+        <span>Loading contracts</span>
+      </div>
+      <div class="ld-step" id="lds-signals">
+        <span class="ld-step-icon pending" id="ldi-signals"></span>
+        <span>Loading market signals</span>
+      </div>
+    </div>
+    <div class="ld-ready" id="ld-ready">All systems ready</div>
   </div>
 </div>
 
@@ -1392,13 +1500,37 @@ function navTo(page) {
 ───────────────────────────────────────────────────────── */
 async function boot() {
   $('dash-date').textContent = new Date().toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
-  await Promise.all([loadConfig(), loadCashflow(), loadContracts(), loadSignals()]);
+
+  // Sequenced loading with progress steps for the loading screen
+  setBootStep('profile', 'loading');
+  await loadConfig();
+  setBootStep('profile', 'done');
+
+  setBootStep('forecast', 'loading');
+  await loadCashflow();
+  setBootStep('forecast', 'done');
+
+  setBootStep('contracts', 'loading');
+  await loadContracts();
+  setBootStep('contracts', 'done');
+
+  setBootStep('signals', 'loading');
+  await loadSignals();
   await loadSeasonalData();
+  setBootStep('signals', 'done');
+
   applyProfileToForecast();
   renderDashboard();
   renderAvailabilitySidebar();
   checkNotionStatus();
-  if (!S.cfg || !S.cfg.hourlyRate) showOnboarding();
+
+  // Dismiss loading screen (or go straight to onboarding for new users)
+  if (!S.cfg || !S.cfg.hourlyRate) {
+    hideLoadingScreen();
+    setTimeout(() => showOnboarding(), 200);
+  } else {
+    hideLoadingScreen();
+  }
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -2957,6 +3089,48 @@ async function obComplete() {
    LOGIN / WELCOME SCREEN
 ───────────────────────────────────────────────────────── */
 
+// ─── LOADING SCREEN helpers ──────────────────────────────────────────────────
+function showLoadingScreen() {
+  const el = $('loading-screen');
+  if (!el) return;
+  // Reset all steps to pending
+  ['profile','forecast','contracts','signals'].forEach(k => {
+    const row = $('lds-' + k);
+    const ico = $('ldi-' + k);
+    if (row) row.className = 'ld-step';
+    if (ico) ico.className = 'ld-step-icon pending';
+  });
+  const ready = $('ld-ready');
+  if (ready) ready.classList.remove('show');
+  el.classList.remove('hidden', 'fading');
+}
+
+function setBootStep(key, state) {
+  // state: 'loading' | 'done'
+  const row = $('lds-' + key);
+  const ico = $('ldi-' + key);
+  if (!row || !ico) return;
+  if (state === 'loading') {
+    row.className = 'ld-step loading';
+    ico.className = 'ld-step-icon spin';
+  } else if (state === 'done') {
+    row.className = 'ld-step done';
+    ico.className = 'ld-step-icon check';
+  }
+}
+
+function hideLoadingScreen() {
+  const ready = $('ld-ready');
+  if (ready) ready.classList.add('show');
+  setTimeout(() => {
+    const el = $('loading-screen');
+    if (el) {
+      el.classList.add('fading');
+      setTimeout(() => el.classList.add('hidden'), 320);
+    }
+  }, 420);
+}
+
 // State for login screen
 const LOGIN = { pinBuffer: '', hasPin: false, hasProfile: false };
 // Settings page PIN setup state
@@ -3039,13 +3213,19 @@ async function initLoginScreen() {
     if (!d.hasProfile && savedObStep !== null && savedObStep > 0) {
       // ── Partial onboarding: offer resume ──
       loginShowView('lp-view-new');
-      // Swap text + button to show resume prompt
-      const setupText = document.querySelector('#lp-view-new .login-setup-text');
-      const primaryBtn = document.querySelector('#lp-view-new .login-cta.primary');
-      if (setupText) setupText.innerHTML = `You started setting up Nexus Live but didn't finish.<br><span style="color:var(--acc)">Pick up from where you left off — Step ${savedObStep + 1} of 5.</span>`;
+      // Update hero text to show resume prompt
+      const heroText = $('lp-hero-text');
+      const heroSub  = $('lp-hero-sub');
+      const benefits = $('lp-benefits-block');
+      const primaryBtn = $('lp-new-primary-btn');
+      const timeHint = $('lp-time-hint');
+      if (heroText) heroText.textContent = 'Welcome back';
+      if (heroSub)  heroSub.innerHTML = `You're on Step ${savedObStep + 1} of 5 — <span style="color:var(--acc)">pick up where you left off.</span>`;
+      if (benefits) benefits.style.display = 'none';
       if (primaryBtn) { primaryBtn.textContent = 'Resume setup →'; primaryBtn.onclick = loginResumeOnboarding; }
+      if (timeHint) timeHint.style.display = 'none';
       // Secondary: start over
-      const secBtn = document.querySelector('#lp-view-new .login-cta.secondary');
+      const secBtn = $('lp-back-btn');
       if (secBtn) { secBtn.style.display = 'block'; secBtn.textContent = 'Start over'; secBtn.onclick = loginBuildProfile; }
     } else if (!d.hasProfile) {
       // ── New user: show build-profile view immediately ──
@@ -3107,6 +3287,7 @@ async function loginSubmitPin() {
     const d = await r.json();
     if (d.ok) {
       if ($('lp-error')) $('lp-error').textContent = '';
+      showLoadingScreen();
       loginDismiss();
     } else {
       loginPinError();
@@ -3121,20 +3302,24 @@ async function loginSubmitPin() {
 
 function loginEnter() {
   if (LOGIN.autoDismissTimer) clearTimeout(LOGIN.autoDismissTimer);
+  showLoadingScreen();
   loginDismiss();
 }
 
 function loginBuildProfile() {
   if (LOGIN.autoDismissTimer) clearTimeout(LOGIN.autoDismissTimer);
   obClearProgress(); // Fresh start
+  // Show onboarding first (z-index 500, below login screen z-index 900)
+  // then fade the login screen out to reveal it — seamless transition
+  showOnboarding(0);
   loginDismiss();
-  setTimeout(() => showOnboarding(0), 150);
 }
 
 function loginResumeOnboarding() {
   if (LOGIN.autoDismissTimer) clearTimeout(LOGIN.autoDismissTimer);
+  // Same reveal-through technique
+  showOnboarding();
   loginDismiss();
-  setTimeout(() => showOnboarding(), 150); // showOnboarding reads saved step
 }
 
 function loginDismiss() {
