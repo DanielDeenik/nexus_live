@@ -130,15 +130,15 @@ router.post('/build', (req, res) => {
         try { linkedin = JSON.parse(req.body.linkedin); } catch { /* ignore */ }
       }
 
-      // 2. Parse CV PDF
+      // 2. Parse CV PDF — use fullText (untruncated) for accurate extraction
       let cv = null;
       const cvFile = req.files?.cv?.[0];
       if (cvFile) {
         const parsed = await parsePdf(cvFile.buffer);
-        cv = extractCvProfile(parsed.rawText || '');
+        cv = extractCvProfile(parsed.fullText || parsed.rawText || '');
       }
 
-      // 3. Parse SOW / contract PDFs
+      // 3. Parse SOW / contract PDFs — use fullText for accurate extraction
       const sowFiles = [
         ...(req.files?.sow      || []),
         ...(req.files?.contract || []),
@@ -146,7 +146,7 @@ router.post('/build', (req, res) => {
       const sows = [];
       for (const file of sowFiles) {
         const parsed = await parsePdf(file.buffer);
-        const sow    = parseSow(parsed.rawText || '');
+        const sow    = parseSow(parsed.fullText || parsed.rawText || '');
         sows.push({ ...sow, filename: file.originalname });
       }
 

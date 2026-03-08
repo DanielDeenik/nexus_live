@@ -2906,7 +2906,12 @@ async function obBuildProfile() {
     S.builtProfile  = data.profile;
     S.builtFilters  = data.filters;
 
-    status.textContent = `✓ Profile built from ${data.sources.cv ? 'CV' : ''}${data.sources.sow > 0 ? ` + ${data.sources.sow} contract${data.sources.sow > 1 ? 's' : ''}` : ''}`;
+    const _srcs = [];
+    if (data.sources.linkedin) _srcs.push('LinkedIn');
+    if (data.sources.cv)       _srcs.push('CV');
+    const _sowCount = data.sources.sows || 0;
+    if (_sowCount > 0) _srcs.push(_sowCount + ' contract' + (_sowCount > 1 ? 's' : ''));
+    if (status) status.textContent = '\u2713 Profile extracted from ' + (_srcs.join(' + ') || 'uploaded files');
 
     populateProfileConfirmation(data.profile, data.filters);
     obGoTo(2);
