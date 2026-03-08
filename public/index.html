@@ -465,11 +465,15 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 .pin-key:active{transform:scale(.96)}
 .pin-key.del{font-size:14px;color:var(--sub)}
 .pin-key.zero{grid-column:2}
-.login-cta{width:100%;padding:13px;border-radius:var(--r);border:none;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;transition:opacity .12s;letter-spacing:.2px}
-.login-cta.primary{background:var(--acc);color:#0a1a12}
+.login-cta{width:100%;padding:13px;border-radius:var(--r);border:none;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;transition:all .12s;letter-spacing:.2px;display:block;margin-bottom:0}
+.login-cta.primary{background:var(--acc);color:#0a1a12;margin-bottom:0}
 .login-cta.primary:hover{opacity:.88}
 .login-cta.secondary{background:transparent;color:var(--sub);border:1px solid var(--border);margin-top:8px;font-weight:500}
 .login-cta.secondary:hover{color:var(--txt);border-color:var(--dim)}
+/* View slide-in transitions */
+#lp-view-enter,#lp-view-pin,#lp-view-new{animation:fadeIn .18s var(--ease)}
+/* Auto-enter shimmer for no-PIN case */
+.login-profile-card.ready{border-color:rgba(79,255,176,.35)}
 .login-error{font-size:11.5px;color:var(--red);margin-bottom:10px;min-height:16px}
 .login-setup-text{font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:20px}
 .pin-setup-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px}
@@ -624,40 +628,42 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
     <div class="login-logo"><span class="login-logo-mark">⬡</span>Nexus Live</div>
     <div class="login-tagline">Freelancer Financial OS</div>
 
-    <!-- Profile card (shown if profile exists) -->
-    <div class="login-profile-card" id="lp-profile-card" style="display:none">
-      <div class="login-avatar" id="lp-avatar">?</div>
-      <div class="login-name" id="lp-name">Loading…</div>
-      <div class="login-headline" id="lp-headline"></div>
-      <div class="login-meta-row" id="lp-meta-row" style="display:none">
-        <div class="login-meta-item">
-          <div class="login-meta-label">Rate</div>
-          <div class="login-meta-val acc" id="lp-rate">—</div>
-        </div>
-        <div class="login-meta-item">
-          <div class="login-meta-label">Availability</div>
-          <div class="login-meta-val" id="lp-avail">—</div>
+    <!-- ── VIEW A: Returning user, no PIN ─────────────────── -->
+    <div id="lp-view-enter" style="display:none">
+      <div class="login-profile-card" id="lp-profile-card">
+        <div class="login-avatar" id="lp-avatar">?</div>
+        <div class="login-name" id="lp-name">Your Profile</div>
+        <div class="login-headline" id="lp-headline"></div>
+        <div class="login-meta-row" id="lp-meta-row" style="display:none">
+          <div class="login-meta-item">
+            <div class="login-meta-label">Rate</div>
+            <div class="login-meta-val acc" id="lp-rate">—</div>
+          </div>
+          <div class="login-meta-item">
+            <div class="login-meta-label">Availability</div>
+            <div class="login-meta-val" id="lp-avail">—</div>
+          </div>
         </div>
       </div>
+      <button class="login-cta primary" onclick="loginEnter()">Enter Nexus →</button>
+      <button class="login-cta secondary" onclick="loginShowBuildView()">Switch profile</button>
     </div>
 
-    <!-- New-user text (shown if no profile) -->
-    <div id="lp-new-text" style="display:none">
-      <p class="login-setup-text">Welcome to Nexus Live.<br>Build your freelancer profile to unlock cash flow forecasting, market signals, and smart outreach.</p>
-    </div>
-
-    <!-- Error message -->
-    <div class="login-error" id="lp-error"></div>
-
-    <!-- PIN dots (shown if PIN is set) -->
-    <div id="lp-pin-section" style="display:none">
+    <!-- ── VIEW B: Returning user, PIN required ───────────── -->
+    <div id="lp-view-pin" style="display:none">
+      <div class="login-profile-card" id="lp-pin-card">
+        <div class="login-avatar" id="lp-pin-avatar">?</div>
+        <div class="login-name" id="lp-pin-name">Your Profile</div>
+        <div class="login-headline" id="lp-pin-headline"></div>
+      </div>
       <div class="login-pin-label">Enter your PIN to continue</div>
-      <div class="login-pin-dots" id="lp-pin-dots">
+      <div class="login-pin-dots">
         <span class="login-pin-dot" id="lpd-0"></span>
         <span class="login-pin-dot" id="lpd-1"></span>
         <span class="login-pin-dot" id="lpd-2"></span>
         <span class="login-pin-dot" id="lpd-3"></span>
       </div>
+      <div class="login-error" id="lp-error"></div>
       <div class="login-pin-pad">
         <button class="pin-key" onclick="loginPinKey('1')">1</button>
         <button class="pin-key" onclick="loginPinKey('2')">2</button>
@@ -671,12 +677,14 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
         <button class="pin-key zero" onclick="loginPinKey('0')">0</button>
         <button class="pin-key del" onclick="loginPinBackspace()">⌫</button>
       </div>
+      <button class="login-cta secondary" style="margin-top:4px" onclick="loginShowBuildView()">← Not you?</button>
     </div>
 
-    <!-- CTA buttons -->
-    <div id="lp-cta-section">
-      <button class="login-cta primary" id="lp-enter-btn" onclick="loginEnter()" style="display:none">Enter Nexus →</button>
-      <button class="login-cta primary" id="lp-build-btn" onclick="loginBuildProfile()" style="display:none">Get started — Build my profile →</button>
+    <!-- ── VIEW C: New user / no profile ─────────────────── -->
+    <div id="lp-view-new" style="display:none">
+      <p class="login-setup-text">Welcome to Nexus Live.<br>Build your freelancer profile to unlock cash flow forecasting, market signals, and smart outreach.</p>
+      <button class="login-cta primary" onclick="loginBuildProfile()">Get started — Build my profile →</button>
+      <button class="login-cta secondary" id="lp-back-btn" onclick="loginShowEnterView()" style="display:none">← Back</button>
     </div>
 
   </div>
@@ -2415,7 +2423,7 @@ function connectLinkedIn() {
 /* ─────────────────────────────────────────────────────────
    ONBOARDING — CORE NAVIGATION
 ───────────────────────────────────────────────────────── */
-function showOnboarding() {
+function showOnboarding(forceStep) {
   $('ob-overlay').classList.remove('hidden');
   // Pre-populate Step 3 fields from existing config (returning users / edit flow)
   if (S.cfg) {
@@ -2430,10 +2438,20 @@ function showOnboarding() {
     if (c.taxReservePct)     { const el = $('ob-taxres');           if (el) el.value = c.taxReservePct; }
     if (c.contractStartDate) { const el = $('ob-contract-start');   if (el) el.value = c.contractStartDate; }
     if (c.contractMonths)    { const el = $('ob-contract-months');  if (el) el.value = c.contractMonths; }
-    // Trigger preview update if contract fields exist
     if (c.contractStartDate || c.contractMonths) obUpdateContractEnd();
   }
-  obGoTo(0);
+
+  // Resume from last saved step unless caller forces a specific step
+  if (forceStep !== undefined) {
+    obGoTo(forceStep);
+  } else {
+    let resumeStep = 0;
+    try {
+      const saved = localStorage.getItem('nexus_ob_step');
+      if (saved !== null) resumeStep = Math.max(0, Math.min(4, parseInt(saved, 10) || 0));
+    } catch {}
+    obGoTo(resumeStep);
+  }
 }
 
 function obGoTo(step) {
@@ -2441,12 +2459,19 @@ function obGoTo(step) {
   $('ob-step-' + step).classList.add('active');
   S.obStep = step;
 
+  // Persist progress so the user can resume after closing the tab
+  try { localStorage.setItem('nexus_ob_step', String(step)); } catch {}
+
   // Update dots (5 steps: 0-4)
   for (let i = 0; i < 5; i++) {
     const dot = $('dot-' + i);
     if (!dot) continue;
     dot.className = 'ob-step-dot' + (i < step ? ' done' : i === step ? ' active' : '');
   }
+}
+
+function obClearProgress() {
+  try { localStorage.removeItem('nexus_ob_step'); } catch {}
 }
 
 function obSkipLinkedIn() {
@@ -2850,6 +2875,7 @@ function obUpdatePreview() {
 }
 
 async function obComplete() {
+  obClearProgress(); // Remove saved step so next open starts fresh
   const name    = $('ob-name')?.value.trim()          || (S.confirmedProfile?.name || '');
   const rate    = parseFloat($('ob-rate')?.value)     || 0;
   const dayRate = parseFloat($('ob-dayrate')?.value)  || 0;
@@ -2936,63 +2962,105 @@ const LOGIN = { pinBuffer: '', hasPin: false, hasProfile: false };
 // Settings page PIN setup state
 const PIN_SETUP = { buffer: '', step: 'enter', firstPin: '' };
 
+// ─ helpers to switch between the three login views ─────────────────────────
+function loginShowView(viewId) {
+  ['lp-view-enter','lp-view-pin','lp-view-new'].forEach(id => {
+    const el = $(id);
+    if (el) el.style.display = id === viewId ? 'block' : 'none';
+  });
+}
+function loginShowEnterView() {
+  loginShowView('lp-view-enter');
+}
+function loginShowBuildView() {
+  // Show the "build profile / new user" view; also reveal Back if profile exists
+  const backBtn = $('lp-back-btn');
+  if (backBtn) backBtn.style.display = LOGIN.hasProfile ? 'block' : 'none';
+  loginShowView('lp-view-new');
+}
+
 async function initLoginScreen() {
+  // ── If already unlocked this browser session, skip the screen entirely ──
+  if (sessionStorage.getItem('nexus_unlocked') === '1') {
+    loginDismiss();
+    return;
+  }
+
   try {
     const r = await fetch('/api/auth/status');
     const d = await r.json();
     LOGIN.hasPin     = d.hasPin;
     LOGIN.hasProfile = d.hasProfile;
 
+    // Pre-populate both profile cards (enter view + pin view share same data)
     if (d.hasProfile) {
-      // Show profile card
-      $('lp-profile-card').style.display = 'block';
-      $('lp-new-text').style.display = 'none';
-
       const name     = d.name || 'Your Profile';
       const headline = d.headline || '';
-      $('lp-name').textContent    = name;
-      $('lp-headline').textContent = headline;
-      // Avatar initials
-      const initials = name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-      $('lp-avatar').textContent = initials;
+      const initials = name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0,2).toUpperCase() || '?';
 
-      // Meta row — load config for rate/avail
+      // View A (enter) card
+      if ($('lp-name'))        $('lp-name').textContent     = name;
+      if ($('lp-headline'))    $('lp-headline').textContent  = headline;
+      if ($('lp-avatar'))      $('lp-avatar').textContent    = initials;
+
+      // View B (pin) card
+      if ($('lp-pin-name'))    $('lp-pin-name').textContent    = name;
+      if ($('lp-pin-headline'))$('lp-pin-headline').textContent = headline;
+      if ($('lp-pin-avatar'))  $('lp-pin-avatar').textContent   = initials;
+
+      // Async: load rate + availability for meta row in view A
       fetch('/api/config').then(r2 => r2.json()).then(cfg => {
-        const rate = cfg.dayRate || (cfg.hourlyRate ? cfg.hourlyRate * 8 : null);
+        const rate    = cfg.dayRate || (cfg.hourlyRate ? cfg.hourlyRate * 8 : null);
         const rateStr = rate ? '€' + Math.round(rate) + '/day' : '—';
-        let availStr = 'Not set';
+        let availStr  = 'Not set';
         if (cfg.contractStartDate && cfg.contractMonths) {
           const end = new Date(cfg.contractStartDate);
           end.setMonth(end.getMonth() + parseFloat(cfg.contractMonths));
           const daysLeft = Math.round((end - new Date()) / 86400000);
           availStr = daysLeft > 0 ? `${daysLeft}d left` : 'On bench';
         }
-        $('lp-rate').textContent  = rateStr;
-        $('lp-avail').textContent = availStr;
-        $('lp-meta-row').style.display = 'flex';
+        if ($('lp-rate'))         $('lp-rate').textContent  = rateStr;
+        if ($('lp-avail'))        $('lp-avail').textContent = availStr;
+        if ($('lp-meta-row'))     $('lp-meta-row').style.display = 'flex';
+        // Green border signals the card is ready
+        const card = $('lp-profile-card');
+        if (card) card.classList.add('ready');
       }).catch(() => {});
+    }
 
-      if (d.hasPin) {
-        // Show PIN pad
-        $('lp-pin-section').style.display = 'block';
-        $('lp-enter-btn').style.display = 'none';
-        $('lp-build-btn').style.display = 'none';
-      } else {
-        // No PIN — just show Enter button
-        $('lp-pin-section').style.display = 'none';
-        $('lp-enter-btn').style.display = 'block';
-        $('lp-build-btn').style.display = 'none';
-      }
+    // Check for a partially-complete onboarding session
+    let savedObStep = null;
+    try {
+      const s = localStorage.getItem('nexus_ob_step');
+      if (s !== null) { savedObStep = parseInt(s, 10) || 0; }
+    } catch {}
+    LOGIN.savedObStep = savedObStep;
+
+    if (!d.hasProfile && savedObStep !== null && savedObStep > 0) {
+      // ── Partial onboarding: offer resume ──
+      loginShowView('lp-view-new');
+      // Swap text + button to show resume prompt
+      const setupText = document.querySelector('#lp-view-new .login-setup-text');
+      const primaryBtn = document.querySelector('#lp-view-new .login-cta.primary');
+      if (setupText) setupText.innerHTML = `You started setting up Nexus Live but didn't finish.<br><span style="color:var(--acc)">Pick up from where you left off — Step ${savedObStep + 1} of 5.</span>`;
+      if (primaryBtn) { primaryBtn.textContent = 'Resume setup →'; primaryBtn.onclick = loginResumeOnboarding; }
+      // Secondary: start over
+      const secBtn = document.querySelector('#lp-view-new .login-cta.secondary');
+      if (secBtn) { secBtn.style.display = 'block'; secBtn.textContent = 'Start over'; secBtn.onclick = loginBuildProfile; }
+    } else if (!d.hasProfile) {
+      // ── New user: show build-profile view immediately ──
+      loginShowView('lp-view-new');
+    } else if (!d.hasPin) {
+      // ── Returning user, no PIN: show profile + Enter button ──
+      loginShowView('lp-view-enter');
+      // Auto-dismiss after 1.6s so experienced users don't have to click at all
+      LOGIN.autoDismissTimer = setTimeout(loginEnter, 1600);
     } else {
-      // New user
-      $('lp-profile-card').style.display = 'none';
-      $('lp-new-text').style.display = 'block';
-      $('lp-pin-section').style.display = 'none';
-      $('lp-enter-btn').style.display = 'none';
-      $('lp-build-btn').style.display = 'block';
+      // ── Returning user, PIN set: show PIN pad ──
+      loginShowView('lp-view-pin');
     }
   } catch (e) {
-    // If server is not up, just let them in
+    // Server error → just let them in
     loginDismiss();
   }
 }
@@ -3038,10 +3106,11 @@ async function loginSubmitPin() {
     });
     const d = await r.json();
     if (d.ok) {
+      if ($('lp-error')) $('lp-error').textContent = '';
       loginDismiss();
     } else {
       loginPinError();
-      $('lp-error').textContent = 'Incorrect PIN — try again';
+      if ($('lp-error')) $('lp-error').textContent = 'Incorrect PIN — try again';
     }
   } catch {
     loginDismiss(); // Network error → just let them in
@@ -3051,15 +3120,26 @@ async function loginSubmitPin() {
 }
 
 function loginEnter() {
+  if (LOGIN.autoDismissTimer) clearTimeout(LOGIN.autoDismissTimer);
   loginDismiss();
 }
 
 function loginBuildProfile() {
+  if (LOGIN.autoDismissTimer) clearTimeout(LOGIN.autoDismissTimer);
+  obClearProgress(); // Fresh start
   loginDismiss();
-  setTimeout(showOnboarding, 150);
+  setTimeout(() => showOnboarding(0), 150);
+}
+
+function loginResumeOnboarding() {
+  if (LOGIN.autoDismissTimer) clearTimeout(LOGIN.autoDismissTimer);
+  loginDismiss();
+  setTimeout(() => showOnboarding(), 150); // showOnboarding reads saved step
 }
 
 function loginDismiss() {
+  // Remember that this session is already unlocked
+  try { sessionStorage.setItem('nexus_unlocked', '1'); } catch {}
   const el = $('login-screen');
   if (el) {
     el.style.opacity = '0';
