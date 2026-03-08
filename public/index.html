@@ -217,6 +217,7 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 /* ─────────────────────────────────────────────────────────
    ONBOARDING OVERLAY
 ───────────────────────────────────────────────────────── */
+/* ── Onboarding overlay ───────────────────── */
 #ob-overlay{
   position:fixed;inset:0;z-index:500;
   background:rgba(5,7,14,.96);
@@ -226,36 +227,118 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 }
 #ob-overlay.hidden{display:none}
 @keyframes obReveal{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:none}}
+
+/* Modal: flex column = top bar + scrollable body + sticky nav */
 .ob-modal{
   background:var(--bg1);border:1px solid var(--border);border-radius:12px;
-  width:100%;max-width:860px;margin:16px;
-  display:grid;grid-template-columns:1fr 340px;overflow:hidden;
-  max-height:calc(100vh - 32px);
+  width:100%;max-width:900px;margin:16px;
+  display:flex;flex-direction:column;
+  height:min(90vh,700px);overflow:hidden;
 }
-@media(max-width:720px){.ob-modal{grid-template-columns:1fr;max-height:none}}
-.ob-left{padding:36px 32px;overflow-y:auto}
+
+/* ── Top bar: brand + horizontal stepper + close ── */
+.ob-top-bar{
+  display:flex;align-items:center;gap:16px;
+  padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.ob-topbar-brand{
+  font-size:13px;font-weight:800;color:var(--txt);
+  display:flex;align-items:center;gap:6px;flex-shrink:0;letter-spacing:-.3px;
+}
+.ob-topbar-mark{color:var(--acc);font-size:15px}
+.ob-stepper{display:flex;align-items:center;flex:1;gap:0;overflow:hidden}
+.ob-stepper-item{display:flex;align-items:center;gap:5px;flex:1;min-width:0}
+.ob-stepper-item:last-child{flex:0 0 auto}
+.ob-stepper-dot{
+  width:20px;height:20px;border-radius:50%;border:1.5px solid var(--dim);
+  background:transparent;display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;color:var(--dim);transition:all .2s;flex-shrink:0;
+}
+.ob-stepper-label{font-size:9.5px;color:var(--dim);white-space:nowrap;transition:color .2s;overflow:hidden;text-overflow:ellipsis}
+.ob-stepper-line{flex:1;height:1px;background:var(--dim);margin:0 4px;transition:background .3s;min-width:8px}
+.ob-stepper-item.active .ob-stepper-dot{border-color:var(--acc);color:var(--acc)}
+.ob-stepper-item.active .ob-stepper-label{color:var(--txt);font-weight:600}
+.ob-stepper-item.done .ob-stepper-dot{background:var(--acc);border-color:var(--acc);color:#0a1a12}
+.ob-stepper-item.done .ob-stepper-label{color:var(--sub)}
+.ob-stepper-line.done{background:var(--acc)}
+.ob-close-x{
+  background:transparent;border:none;color:var(--sub);font-size:16px;
+  cursor:pointer;padding:4px 6px;border-radius:4px;line-height:1;
+  margin-left:4px;flex-shrink:0;transition:all .12s;font-family:var(--font);
+}
+.ob-close-x:hover{color:var(--txt);background:var(--bg3)}
+
+/* ── Body: two-column scrollable ────────── */
+.ob-body{display:grid;grid-template-columns:1fr 290px;flex:1;overflow:hidden;min-height:0}
+@media(max-width:720px){.ob-body{grid-template-columns:1fr}}
+.ob-left{padding:28px 30px 20px;overflow-y:auto}
 .ob-right{
   background:var(--bg2);border-left:1px solid var(--border);
-  padding:24px 20px;display:flex;flex-direction:column;
-  overflow-y:auto;
+  padding:20px;overflow-y:auto;display:flex;flex-direction:column;
 }
 @media(max-width:720px){.ob-right{border-left:none;border-top:1px solid var(--border)}}
 
-.ob-brand{display:flex;align-items:center;gap:8px;margin-bottom:28px}
-.ob-brand-mark{font-size:18px;color:var(--acc)}
-.ob-brand-name{font-size:14px;font-weight:700;color:var(--txt)}
+/* ── Sticky bottom nav bar ───────────────── */
+.ob-nav-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0;
+  background:var(--bg1);gap:12px;
+}
+.ob-nav-back{
+  background:transparent;border:1px solid var(--border);color:var(--sub);
+  font-size:12.5px;font-weight:600;padding:8px 16px;border-radius:var(--r);
+  cursor:pointer;font-family:var(--font);transition:all .12s;min-width:90px;
+}
+.ob-nav-back:hover{color:var(--txt);border-color:var(--dim)}
+.ob-nav-info{font-size:11px;color:var(--dim);text-align:center;flex:1}
+.ob-nav-fwd{
+  background:var(--acc);color:#0a1a12;font-size:13px;font-weight:700;
+  padding:9px 20px;border-radius:var(--r);cursor:pointer;font-family:var(--font);
+  border:none;transition:opacity .12s;letter-spacing:.2px;min-width:150px;text-align:center;
+}
+.ob-nav-fwd:hover{opacity:.88}
+.ob-nav-fwd:disabled{opacity:.4;cursor:not-allowed}
 
-.ob-steps{display:flex;gap:6px;margin-bottom:32px}
-.ob-step-dot{width:6px;height:6px;border-radius:50%;background:var(--dim);transition:all .2s}
-.ob-step-dot.done{background:var(--acc)}
-.ob-step-dot.active{background:var(--acc);width:20px;border-radius:3px}
-
-.ob-step{display:none}
+/* ── Step content ────────────────────────── */
+.ob-step{display:none;animation:fadeIn .18s var(--ease)}
 .ob-step.active{display:block}
-.ob-step-title{font-size:18px;font-weight:700;letter-spacing:-.3px;color:var(--txt);margin-bottom:6px}
-.ob-step-sub{font-size:12.5px;color:var(--sub);line-height:1.6;margin-bottom:24px}
+.ob-step-title{font-size:19px;font-weight:800;letter-spacing:-.4px;color:var(--txt);margin-bottom:6px}
+.ob-step-sub{font-size:12.5px;color:var(--sub);line-height:1.6;margin-bottom:22px}
 
-.ob-field{margin-bottom:16px}
+/* ── Path cards (Step 0) ─────────────────── */
+.ob-path-cards{display:flex;flex-direction:column;gap:9px}
+.ob-path-card{
+  background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--r);
+  padding:15px 16px;display:flex;align-items:flex-start;gap:13px;
+  cursor:pointer;text-align:left;transition:all .15s;font-family:var(--font);width:100%;
+}
+.ob-path-card:hover{border-color:var(--acc);background:rgba(79,255,176,.04);transform:translateX(2px)}
+.ob-path-card.linkedin:hover{border-color:var(--blue);background:rgba(79,172,254,.04)}
+.ob-path-icon{font-size:20px;flex-shrink:0;margin-top:1px}
+.ob-path-icon-svg{width:20px;height:20px;flex-shrink:0;margin-top:2px;fill:var(--blue)}
+.ob-path-title{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:2px}
+.ob-path-sub{font-size:11.5px;color:var(--sub);line-height:1.4}
+.ob-path-badge{
+  margin-left:auto;flex-shrink:0;font-size:9px;font-weight:700;
+  color:var(--acc);text-transform:uppercase;letter-spacing:.5px;
+  background:rgba(79,255,176,.1);padding:3px 7px;border-radius:3px;align-self:flex-start;
+}
+
+/* ── Upload zone — with file state ──────── */
+.ob-dropzone{
+  border:1.5px dashed var(--border);border-radius:var(--r);
+  padding:18px 16px;text-align:center;cursor:pointer;
+  transition:border-color .15s,background .15s;margin-bottom:10px;
+  position:relative;
+}
+.ob-dropzone:hover,.ob-dropzone.dragover{border-color:var(--acc);background:rgba(79,255,176,.04)}
+.ob-dropzone.ob-dz-done{border-color:rgba(79,255,176,.4);border-style:solid;background:rgba(79,255,176,.03)}
+.ob-dz-reupload{font-size:10px;color:var(--sub);cursor:pointer;text-decoration:underline;display:inline}
+.ob-dz-reupload:hover{color:var(--acc)}
+.ob-upload-status{font-size:11px;color:var(--sub);text-align:center;min-height:16px;margin-top:6px}
+
+/* ── Field styles ────────────────────────── */
+.ob-field{margin-bottom:15px}
 .ob-field label{display:block;font-size:11px;color:var(--sub);font-weight:500;margin-bottom:5px;letter-spacing:.2px}
 .ob-field input,.ob-field select{
   width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);
@@ -266,6 +349,7 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 .ob-field input::placeholder{color:var(--sub)}
 .ob-field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
+/* Legacy ob-btn/ob-btn-ghost kept for any inline uses */
 .ob-btn{
   width:100%;background:var(--acc);color:#0a1a12;font-weight:700;font-size:13px;
   padding:11px;border-radius:var(--r);border:none;cursor:pointer;
@@ -279,21 +363,7 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 }
 .ob-btn-ghost:hover{color:var(--txt);border-color:var(--dim)}
 
-.ob-linkedin-btn{
-  width:100%;background:var(--bg3);color:var(--txt);font-weight:600;font-size:13px;
-  padding:11px;border-radius:var(--r);border:1px solid var(--border);cursor:pointer;
-  font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:10px;
-  transition:all .12s;margin-bottom:8px;
-}
-.ob-linkedin-btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(79,172,254,.06)}
-.ob-linkedin-btn svg{width:16px;height:16px;fill:currentColor}
-
-/* ── Upload drop zone ─────────────────────── */
-.ob-step-actions{
-  position:sticky;bottom:0;background:var(--bg1);
-  padding:14px 0 24px;margin-top:8px;
-  border-top:1px solid var(--border);
-}
+/* ── Upload drop zone (icon/label — kept) ── */
 .ob-dropzone{
   border:1.5px dashed var(--border);border-radius:var(--r);
   padding:20px;text-align:center;cursor:pointer;
@@ -1171,251 +1241,270 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 ═══════════════════════════════════════════════════════ -->
 <div id="ob-overlay">
   <div class="ob-modal">
-    <!-- LEFT: steps -->
-    <div class="ob-left">
-      <div class="ob-brand">
-        <span class="ob-brand-mark">⬡</span>
-        <span class="ob-brand-name">Nexus Live</span>
-      </div>
-      <div class="ob-steps" id="ob-dots">
-        <div class="ob-step-dot active" id="dot-0"></div>
-        <div class="ob-step-dot" id="dot-1"></div>
-        <div class="ob-step-dot" id="dot-2"></div>
-        <div class="ob-step-dot" id="dot-3"></div>
-        <div class="ob-step-dot" id="dot-4"></div>
-      </div>
 
-      <!-- Step 0: LinkedIn -->
-      <div class="ob-step active" id="ob-step-0">
-        <div class="ob-step-title">Welcome to Nexus ⬡</div>
-        <div class="ob-step-sub">Your freelancer financial OS. Start with LinkedIn for a quick profile pull, or upload your CV and contracts to build a full market intelligence profile.</div>
-
-        <button class="ob-linkedin-btn" onclick="connectLinkedIn()">
-          <svg viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-          Continue with LinkedIn
-        </button>
-        <button class="ob-btn" onclick="obGoTo(1)" style="margin-top:6px">Upload CV + Contracts →</button>
-        <button class="ob-btn-ghost" onclick="obGoTo(3)">Skip — I'll enter manually</button>
-      </div>
-
-      <!-- Step 1: Document Upload -->
-      <div class="ob-step" id="ob-step-1">
-        <div class="ob-step-title">Upload your documents</div>
-        <div class="ob-step-sub">Nexus reads your CV and contracts to understand who you are, what you're paid for, and which companies need you next. Everything stays private.</div>
-
-        <!-- CV upload -->
-        <div class="ob-dropzone" id="dz-cv" ondragover="dzDragOver(event,'dz-cv')" ondragleave="dzDragLeave('dz-cv')" ondrop="dzDrop(event,'cv')">
-          <input type="file" accept=".pdf" id="file-cv" onchange="dzFile(event,'cv')">
-          <div class="ob-dz-icon">📄</div>
-          <div class="ob-dz-label">CV / Résumé</div>
-          <div class="ob-dz-sub">Drag & drop or click — PDF only</div>
-          <div class="ob-dz-files" id="dz-cv-files"></div>
+    <!-- ── TOP BAR: brand + horizontal stepper + close ── -->
+    <div class="ob-top-bar">
+      <div class="ob-topbar-brand"><span class="ob-topbar-mark">⬡</span> Nexus</div>
+      <div class="ob-stepper" id="ob-stepper">
+        <div class="ob-stepper-item active" id="obs-0">
+          <div class="ob-stepper-dot" id="obsd-0">1</div>
+          <div class="ob-stepper-label">Start</div>
         </div>
-
-        <!-- SOW / Contract upload -->
-        <div class="ob-dropzone" id="dz-sow" ondragover="dzDragOver(event,'dz-sow')" ondragleave="dzDragLeave('dz-sow')" ondrop="dzDrop(event,'sow')">
-          <input type="file" accept=".pdf" multiple id="file-sow" onchange="dzFile(event,'sow')">
-          <div class="ob-dz-icon">📋</div>
-          <div class="ob-dz-label">SOW / Contracts</div>
-          <div class="ob-dz-sub">Up to 5 contracts — drag & drop or click</div>
-          <div class="ob-dz-files" id="dz-sow-files"></div>
+        <div class="ob-stepper-line" id="obsl-0"></div>
+        <div class="ob-stepper-item" id="obs-1">
+          <div class="ob-stepper-dot" id="obsd-1">2</div>
+          <div class="ob-stepper-label">Documents</div>
         </div>
-
-        <div class="ob-step-actions">
-          <div id="ob-build-status" style="font-size:11px;color:var(--sub);text-align:center;min-height:18px;margin-bottom:8px"></div>
-          <button class="ob-btn" id="ob-build-btn" onclick="obBuildProfile()">Build my profile →</button>
-          <button class="ob-btn-ghost" onclick="obGoTo(3)">Skip — enter manually</button>
+        <div class="ob-stepper-line" id="obsl-1"></div>
+        <div class="ob-stepper-item" id="obs-2">
+          <div class="ob-stepper-dot" id="obsd-2">3</div>
+          <div class="ob-stepper-label">Profile</div>
+        </div>
+        <div class="ob-stepper-line" id="obsl-2"></div>
+        <div class="ob-stepper-item" id="obs-3">
+          <div class="ob-stepper-dot" id="obsd-3">4</div>
+          <div class="ob-stepper-label">Numbers</div>
+        </div>
+        <div class="ob-stepper-line" id="obsl-3"></div>
+        <div class="ob-stepper-item" id="obs-4">
+          <div class="ob-stepper-dot" id="obsd-4">5</div>
+          <div class="ob-stepper-label">Forecast</div>
         </div>
       </div>
-
-      <!-- Step 2: Profile Confirmation (Human-in-the-loop) -->
-      <div class="ob-step" id="ob-step-2">
-        <div class="ob-step-title">Is this you? ✓</div>
-        <div class="ob-step-sub">Nexus built your profile from your documents. Click any field to edit. Add or remove skills and industries to sharpen your market intelligence.</div>
-
-        <div class="ob-profile-card" id="ob-profile-card">
-          <!-- Header: avatar + editable name/title -->
-          <div class="ob-profile-header">
-            <div class="ob-profile-avatar" id="ob-avatar">👤</div>
-            <div class="ob-profile-header-info">
-              <input class="ob-profile-name-edit" id="ob-pname" type="text" placeholder="Your full name" value="—">
-              <input class="ob-profile-title-edit" id="ob-ptitle" type="text" placeholder="e.g. Senior SimCorp Consultant" value="">
-            </div>
-          </div>
-
-          <!-- Meta: seniority | years exp | location -->
-          <div class="ob-profile-meta-row" id="ob-profile-meta">
-            <!-- populated by JS -->
-          </div>
-
-          <!-- Confidence bar -->
-          <div class="ob-confidence">
-            <span>Profile completeness</span>
-            <div class="ob-conf-bar"><div class="ob-conf-fill" id="ob-conf-fill" style="width:0%"></div></div>
-            <span id="ob-conf-pct">0%</span>
-            <span id="ob-conf-sources" style="color:var(--sub);font-size:10px"></span>
-          </div>
-
-          <!-- Skills -->
-          <div class="ob-profile-section">
-            <div class="ob-profile-section-label">Skills &amp; Expertise</div>
-            <div class="ob-chip-wrap" id="ob-skills-chips">
-              <!-- chips populated by JS -->
-            </div>
-          </div>
-
-          <!-- Industries -->
-          <div class="ob-profile-section">
-            <div class="ob-profile-section-label">Industries &amp; Verticals</div>
-            <div class="ob-chip-wrap" id="ob-industries-chips">
-              <!-- chips populated by JS -->
-            </div>
-          </div>
-
-          <!-- Services from SOW -->
-          <div class="ob-profile-section" id="ob-services-section" style="display:none">
-            <div class="ob-profile-section-label">What clients hire you for <span style="color:var(--orange);margin-left:4px">from contracts</span></div>
-            <ul class="ob-sow-list" id="ob-sow-services"></ul>
-          </div>
-
-          <!-- Certifications -->
-          <div class="ob-profile-section" id="ob-certs-section" style="display:none">
-            <div class="ob-profile-section-label">Certifications</div>
-            <div class="ob-chip-wrap" id="ob-certs-chips"></div>
-          </div>
-
-          <!-- Rate / duration hints from SOW -->
-          <div id="ob-rate-hints" style="display:none;margin-top:4px">
-            <div class="ob-profile-section-label">Extracted from contracts</div>
-            <div id="ob-rate-hints-content" style="font-size:11px;color:var(--sub);line-height:1.7"></div>
-          </div>
-        </div>
-
-        <!-- Search filters summary -->
-        <div style="font-size:10px;color:var(--sub);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Auto-generated intelligence search terms</div>
-        <div class="ob-filters-kw" id="ob-filter-keywords" style="margin-bottom:16px"></div>
-
-        <div class="ob-step-actions">
-          <button class="ob-btn" onclick="obConfirmProfile()">Yes, that's me — start searching →</button>
-          <button class="ob-btn-ghost" onclick="obGoTo(3)">Skip intelligence — enter numbers only</button>
-        </div>
-      </div>
-
-      <!-- Step 3: Profile + Rate -->
-      <div class="ob-step" id="ob-step-3">
-        <div class="ob-step-title">Your numbers</div>
-        <div class="ob-step-sub">Nexus uses these to build your cashflow forecast. You can change them at any time in Settings.</div>
-
-        <div class="ob-field">
-          <label>Your Name</label>
-          <input type="text" id="ob-name" placeholder="Jan de Vries" autocomplete="given-name">
-        </div>
-        <div class="ob-field-row">
-          <div class="ob-field">
-            <label>Day Rate (€)</label>
-            <input type="number" id="ob-dayrate" placeholder="720" min="0" step="10" oninput="obUpdatePreview()">
-          </div>
-          <div class="ob-field">
-            <label>Hourly Rate (€)</label>
-            <input type="number" id="ob-rate" placeholder="90" min="0" step="5" oninput="obUpdatePreview()">
-          </div>
-        </div>
-        <div class="ob-field-row">
-          <div class="ob-field">
-            <label>Billable Hrs / Week</label>
-            <input type="number" id="ob-hours" placeholder="32" value="32" min="1" max="60" oninput="obUpdatePreview()">
-          </div>
-          <div class="ob-field">
-            <label>Monthly Burn (€)</label>
-            <input type="number" id="ob-burn" placeholder="3500" min="0" step="100" oninput="obUpdatePreview()">
-          </div>
-        </div>
-        <div class="ob-field-row">
-          <div class="ob-field">
-            <label>Savings Buffer (€)</label>
-            <input type="number" id="ob-savings" placeholder="10000" min="0" step="500" oninput="obUpdatePreview()">
-          </div>
-          <div class="ob-field">
-            <label>VAT Rate (%)</label>
-            <input type="number" id="ob-vat" placeholder="21" min="0" max="30" step="1" oninput="obUpdatePreview()">
-          </div>
-        </div>
-
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);font-weight:600;margin-bottom:10px;margin-top:4px">Current Contract</div>
-        <div class="ob-field-row">
-          <div class="ob-field">
-            <label>Contract Start</label>
-            <input type="date" id="ob-contract-start" oninput="obUpdateContractEnd()">
-          </div>
-          <div class="ob-field">
-            <label>Duration (months)</label>
-            <input type="number" id="ob-contract-months" placeholder="6" min="1" max="60" step="1" oninput="obUpdateContractEnd()">
-          </div>
-        </div>
-        <div id="ob-contract-end-preview" class="contract-end-preview" style="display:none">
-          Contract ends: <strong id="ob-contract-end-date"></strong> &nbsp;·&nbsp; <span id="ob-contract-days-left"></span>
-        </div>
-
-        <div class="ob-step-actions">
-          <button class="ob-btn" onclick="obStep3Next()">See your forecast →</button>
-        </div>
-      </div>
-
-      <!-- Step 4: Seasonality -->
-      <div class="ob-step" id="ob-step-4">
-        <div class="ob-step-title">When do you work?</div>
-        <div class="ob-step-sub">Tell Nexus your busy and slow months so the forecast reflects reality, not just averages.</div>
-
-        <div class="ob-field">
-          <label>Industry</label>
-          <select id="ob-industry">
-            <option value="">Select your industry…</option>
-            <option value="Asset Management">Asset Management / Fund Ops</option>
-            <option value="Banking">Banking / Capital Markets</option>
-            <option value="FinTech">FinTech</option>
-            <option value="Compliance &amp; Regulatory">Compliance &amp; Regulatory</option>
-            <option value="Software Engineering">Tech / Software Engineering</option>
-            <option value="AI / Machine Learning">AI / Machine Learning</option>
-            <option value="Management Consulting">Management Consulting</option>
-            <option value="Digital Marketing">Marketing / Creative</option>
-            <option value="UX / Product Design">Design / UX</option>
-            <option value="Legal">Legal</option>
-            <option value="Healthcare">Healthcare / MedTech</option>
-            <option value="Construction &amp; Architecture">Construction / Engineering</option>
-          </select>
-        </div>
-        <div class="ob-field">
-          <label>Tax Reserve (%)</label>
-          <input type="number" id="ob-taxres" placeholder="35" min="0" max="60" step="1" oninput="obUpdatePreview()">
-        </div>
-
-        <div class="ob-step-actions">
-          <button class="ob-btn" onclick="obComplete()">Launch my dashboard →</button>
-          <button class="ob-btn-ghost" onclick="obComplete()">Skip seasonality</button>
-        </div>
-      </div>
+      <button class="ob-close-x" id="ob-close-btn" onclick="obClose()" title="Save progress and continue later">✕</button>
     </div>
 
-    <!-- RIGHT: live forecast preview -->
-    <div class="ob-right">
-      <div class="ob-preview-label">Your Forecast Preview</div>
-      <div class="ob-runway-preview">
-        <div class="ob-runway-num" id="ob-runway-num" style="color:var(--sub)">—</div>
-        <div class="ob-runway-unit">months runway</div>
-      </div>
-      <div class="ob-monthly-preview" id="ob-monthly-rows">
-        <div style="font-size:11px;color:var(--sub);text-align:center;padding:20px 0">Enter your rate to see<br>a month-by-month preview</div>
-      </div>
-      <div class="ob-surplus-preview" id="ob-surplus-preview" style="display:none">
-        <div class="ob-surplus-row"><span>Gross income</span><span id="ob-gross-val">—</span></div>
-        <div class="ob-surplus-row"><span>− VAT provision</span><span id="ob-vat-val">—</span></div>
-        <div class="ob-surplus-row"><span>− Tax reserve</span><span id="ob-taxr-val">—</span></div>
-        <div class="ob-surplus-row"><span>− Monthly burn</span><span id="ob-burn-val">—</span></div>
-        <div class="ob-surplus-row total"><span>Monthly surplus</span><span id="ob-surplus-val">—</span></div>
-      </div>
+    <!-- ── BODY: scrollable left (steps) + right (preview) ── -->
+    <div class="ob-body">
+      <div class="ob-left">
+
+        <!-- ── STEP 0: Choose how to build your profile ── -->
+        <div class="ob-step active" id="ob-step-0">
+          <div class="ob-step-title">Let's build your profile</div>
+          <div class="ob-step-sub">Choose how to get started — you can enrich your profile at any time.</div>
+          <div class="ob-path-cards">
+            <button class="ob-path-card linkedin" onclick="connectLinkedIn()">
+              <svg class="ob-path-icon-svg" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+              <div>
+                <div class="ob-path-title">Import from LinkedIn</div>
+                <div class="ob-path-sub">Pulls your work history, skills, and profile photo automatically</div>
+              </div>
+              <span class="ob-path-badge">Fastest</span>
+            </button>
+            <button class="ob-path-card" onclick="obGoTo(1)">
+              <span class="ob-path-icon">📄</span>
+              <div>
+                <div class="ob-path-title">Upload CV + Contracts</div>
+                <div class="ob-path-sub">Nexus reads your résumé and SOW files to extract your profile automatically</div>
+              </div>
+            </button>
+            <button class="ob-path-card" onclick="obSkipToManual()">
+              <span class="ob-path-icon">✏️</span>
+              <div>
+                <div class="ob-path-title">Enter details manually</div>
+                <div class="ob-path-sub">Go straight to your rates, runway, and contract dates</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- ── STEP 1: Document Upload ── -->
+        <div class="ob-step" id="ob-step-1">
+          <div class="ob-step-title">Upload your documents</div>
+          <div class="ob-step-sub">Nexus reads your CV and contracts to understand your skills and rate history. Everything stays private and local — nothing leaves your machine.</div>
+
+          <!-- CV upload -->
+          <div class="ob-dropzone" id="dz-cv"
+            ondragover="dzDragOver(event,'dz-cv')"
+            ondragleave="dzDragLeave('dz-cv')"
+            ondrop="dzDrop(event,'cv')"
+            onclick="dzClickZone('cv')">
+            <input type="file" accept=".pdf" id="file-cv" onchange="dzFile(event,'cv')" style="display:none">
+            <div class="ob-dz-icon" id="dz-cv-icon">📄</div>
+            <div class="ob-dz-label">CV / Résumé</div>
+            <div class="ob-dz-sub" id="dz-cv-sub">Drag &amp; drop or click · PDF only</div>
+            <div class="ob-dz-files" id="dz-cv-files"></div>
+          </div>
+
+          <!-- SOW / Contract upload -->
+          <div class="ob-dropzone" id="dz-sow"
+            ondragover="dzDragOver(event,'dz-sow')"
+            ondragleave="dzDragLeave('dz-sow')"
+            ondrop="dzDrop(event,'sow')"
+            onclick="dzClickZone('sow')">
+            <input type="file" accept=".pdf" multiple id="file-sow" onchange="dzFile(event,'sow')" style="display:none">
+            <div class="ob-dz-icon" id="dz-sow-icon">📋</div>
+            <div class="ob-dz-label">SOW / Contracts</div>
+            <div class="ob-dz-sub" id="dz-sow-sub">Up to 5 contracts · Drag &amp; drop or click</div>
+            <div class="ob-dz-files" id="dz-sow-files"></div>
+          </div>
+
+          <div class="ob-upload-status" id="ob-build-status"></div>
+        </div>
+
+        <!-- ── STEP 2: Profile Confirmation ── -->
+        <div class="ob-step" id="ob-step-2">
+          <div class="ob-step-title">Review your profile</div>
+          <div class="ob-step-sub">Nexus extracted this from your documents. Click any field to edit — add or remove skills to sharpen your market intelligence.</div>
+
+          <div class="ob-profile-card" id="ob-profile-card">
+            <div class="ob-profile-header">
+              <div class="ob-profile-avatar" id="ob-avatar">👤</div>
+              <div class="ob-profile-header-info">
+                <input class="ob-profile-name-edit" id="ob-pname" type="text" placeholder="Your full name" value="—">
+                <input class="ob-profile-title-edit" id="ob-ptitle" type="text" placeholder="e.g. Senior SimCorp Consultant" value="">
+              </div>
+            </div>
+            <div class="ob-profile-meta-row" id="ob-profile-meta"></div>
+            <div class="ob-confidence">
+              <span>Profile completeness</span>
+              <div class="ob-conf-bar"><div class="ob-conf-fill" id="ob-conf-fill" style="width:0%"></div></div>
+              <span id="ob-conf-pct">0%</span>
+              <span id="ob-conf-sources" style="color:var(--sub);font-size:10px"></span>
+            </div>
+            <div class="ob-profile-section">
+              <div class="ob-profile-section-label">Skills &amp; Expertise</div>
+              <div class="ob-chip-wrap" id="ob-skills-chips"></div>
+            </div>
+            <div class="ob-profile-section">
+              <div class="ob-profile-section-label">Industries &amp; Verticals</div>
+              <div class="ob-chip-wrap" id="ob-industries-chips"></div>
+            </div>
+            <div class="ob-profile-section" id="ob-services-section" style="display:none">
+              <div class="ob-profile-section-label">What clients hire you for <span style="color:var(--orange);margin-left:4px">from contracts</span></div>
+              <ul class="ob-sow-list" id="ob-sow-services"></ul>
+            </div>
+            <div class="ob-profile-section" id="ob-certs-section" style="display:none">
+              <div class="ob-profile-section-label">Certifications</div>
+              <div class="ob-chip-wrap" id="ob-certs-chips"></div>
+            </div>
+            <div id="ob-rate-hints" style="display:none;margin-top:4px">
+              <div class="ob-profile-section-label">Extracted from contracts</div>
+              <div id="ob-rate-hints-content" style="font-size:11px;color:var(--sub);line-height:1.7"></div>
+            </div>
+          </div>
+
+          <div style="font-size:10px;color:var(--sub);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Auto-generated intelligence search terms</div>
+          <div class="ob-filters-kw" id="ob-filter-keywords" style="margin-bottom:8px"></div>
+        </div>
+
+        <!-- ── STEP 3: Your numbers ── -->
+        <div class="ob-step" id="ob-step-3">
+          <div class="ob-step-title">Your numbers</div>
+          <div class="ob-step-sub">Nexus uses these to build your cash flow forecast. You can update them any time in Settings.</div>
+
+          <div class="ob-field">
+            <label>Your Name</label>
+            <input type="text" id="ob-name" placeholder="Jan de Vries" autocomplete="given-name">
+          </div>
+          <div class="ob-field-row">
+            <div class="ob-field">
+              <label>Day Rate (€)</label>
+              <input type="number" id="ob-dayrate" placeholder="720" min="0" step="10" oninput="obUpdatePreview()">
+            </div>
+            <div class="ob-field">
+              <label>Hourly Rate (€)</label>
+              <input type="number" id="ob-rate" placeholder="90" min="0" step="5" oninput="obUpdatePreview()">
+            </div>
+          </div>
+          <div class="ob-field-row">
+            <div class="ob-field">
+              <label>Billable Hrs / Week</label>
+              <input type="number" id="ob-hours" placeholder="32" value="32" min="1" max="60" oninput="obUpdatePreview()">
+            </div>
+            <div class="ob-field">
+              <label>Monthly Burn (€)</label>
+              <input type="number" id="ob-burn" placeholder="3500" min="0" step="100" oninput="obUpdatePreview()">
+            </div>
+          </div>
+          <div class="ob-field-row">
+            <div class="ob-field">
+              <label>Savings Buffer (€)</label>
+              <input type="number" id="ob-savings" placeholder="10000" min="0" step="500" oninput="obUpdatePreview()">
+            </div>
+            <div class="ob-field">
+              <label>VAT Rate (%)</label>
+              <input type="number" id="ob-vat" placeholder="21" min="0" max="30" step="1" oninput="obUpdatePreview()">
+            </div>
+          </div>
+
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);font-weight:600;margin-bottom:10px;margin-top:4px">Current Contract</div>
+          <div class="ob-field-row">
+            <div class="ob-field">
+              <label>Contract Start</label>
+              <input type="date" id="ob-contract-start" oninput="obUpdateContractEnd()">
+            </div>
+            <div class="ob-field">
+              <label>Duration (months)</label>
+              <input type="number" id="ob-contract-months" placeholder="6" min="1" max="60" step="1" oninput="obUpdateContractEnd()">
+            </div>
+          </div>
+          <div id="ob-contract-end-preview" class="contract-end-preview" style="display:none">
+            Contract ends: <strong id="ob-contract-end-date"></strong> &nbsp;·&nbsp; <span id="ob-contract-days-left"></span>
+          </div>
+        </div>
+
+        <!-- ── STEP 4: Forecast settings ── -->
+        <div class="ob-step" id="ob-step-4">
+          <div class="ob-step-title">Forecast settings</div>
+          <div class="ob-step-sub">Help Nexus model your income more accurately. You can update these any time in Settings.</div>
+
+          <div class="ob-field">
+            <label>Industry</label>
+            <select id="ob-industry">
+              <option value="">Select your industry…</option>
+              <option value="Asset Management">Asset Management / Fund Ops</option>
+              <option value="Banking">Banking / Capital Markets</option>
+              <option value="FinTech">FinTech</option>
+              <option value="Compliance &amp; Regulatory">Compliance &amp; Regulatory</option>
+              <option value="Software Engineering">Tech / Software Engineering</option>
+              <option value="AI / Machine Learning">AI / Machine Learning</option>
+              <option value="Management Consulting">Management Consulting</option>
+              <option value="Digital Marketing">Marketing / Creative</option>
+              <option value="UX / Product Design">Design / UX</option>
+              <option value="Legal">Legal</option>
+              <option value="Healthcare">Healthcare / MedTech</option>
+              <option value="Construction &amp; Architecture">Construction / Engineering</option>
+            </select>
+          </div>
+          <div class="ob-field">
+            <label>Tax Reserve (%)</label>
+            <input type="number" id="ob-taxres" placeholder="35" min="0" max="60" step="1" oninput="obUpdatePreview()">
+          </div>
+        </div>
+
+      </div><!-- .ob-left -->
+
+      <!-- ── RIGHT: live forecast preview ── -->
+      <div class="ob-right">
+        <div class="ob-preview-label">Your Forecast Preview</div>
+        <div class="ob-runway-preview">
+          <div class="ob-runway-num" id="ob-runway-num" style="color:var(--sub)">—</div>
+          <div class="ob-runway-unit">months runway</div>
+        </div>
+        <div class="ob-monthly-preview" id="ob-monthly-rows">
+          <div style="font-size:11px;color:var(--sub);text-align:center;padding:20px 0">Enter your rate to see<br>a month-by-month preview</div>
+        </div>
+        <div class="ob-surplus-preview" id="ob-surplus-preview" style="display:none">
+          <div class="ob-surplus-row"><span>Gross income</span><span id="ob-gross-val">—</span></div>
+          <div class="ob-surplus-row"><span>− VAT provision</span><span id="ob-vat-val">—</span></div>
+          <div class="ob-surplus-row"><span>− Tax reserve</span><span id="ob-taxr-val">—</span></div>
+          <div class="ob-surplus-row"><span>− Monthly burn</span><span id="ob-burn-val">—</span></div>
+          <div class="ob-surplus-row total"><span>Monthly surplus</span><span id="ob-surplus-val">—</span></div>
+        </div>
+      </div><!-- .ob-right -->
+
+    </div><!-- .ob-body -->
+
+    <!-- ── STICKY BOTTOM NAV BAR ── -->
+    <div class="ob-nav-bar">
+      <button class="ob-nav-back" id="ob-nav-back" onclick="obBack()">← Back</button>
+      <div class="ob-nav-info" id="ob-nav-info">Step 1 of 5</div>
+      <button class="ob-nav-fwd" id="ob-nav-fwd" onclick="obForward()">Continue →</button>
     </div>
-  </div>
-</div>
+
+  </div><!-- .ob-modal -->
+</div><!-- #ob-overlay -->
 
 <!-- Toast -->
 <div id="toast"></div>
@@ -2555,6 +2644,10 @@ function connectLinkedIn() {
 /* ─────────────────────────────────────────────────────────
    ONBOARDING — CORE NAVIGATION
 ───────────────────────────────────────────────────────── */
+
+// Navigation history stack — enables correct Back routing
+const OB_HISTORY = [];
+
 function showOnboarding(forceStep) {
   $('ob-overlay').classList.remove('hidden');
   // Pre-populate Step 3 fields from existing config (returning users / edit flow)
@@ -2573,42 +2666,140 @@ function showOnboarding(forceStep) {
     if (c.contractStartDate || c.contractMonths) obUpdateContractEnd();
   }
 
+  // Clear history when opening fresh
+  OB_HISTORY.length = 0;
+
   // Resume from last saved step unless caller forces a specific step
   if (forceStep !== undefined) {
-    obGoTo(forceStep);
+    obGoTo(forceStep, false);
   } else {
     let resumeStep = 0;
     try {
       const saved = localStorage.getItem('nexus_ob_step');
       if (saved !== null) resumeStep = Math.max(0, Math.min(4, parseInt(saved, 10) || 0));
     } catch {}
-    obGoTo(resumeStep);
+    obGoTo(resumeStep, false);
   }
 }
 
-function obGoTo(step) {
+function obGoTo(step, pushHistory) {
+  // Default: push to history when navigating forward
+  if (pushHistory !== false && S.obStep !== undefined && S.obStep !== step) {
+    OB_HISTORY.push(S.obStep);
+  }
+
   document.querySelectorAll('.ob-step').forEach(el => el.classList.remove('active'));
-  $('ob-step-' + step).classList.add('active');
+  const stepEl = $('ob-step-' + step);
+  if (stepEl) stepEl.classList.add('active');
   S.obStep = step;
+
+  // Scroll left panel to top on step change
+  const left = document.querySelector('.ob-left');
+  if (left) left.scrollTop = 0;
 
   // Persist progress so the user can resume after closing the tab
   try { localStorage.setItem('nexus_ob_step', String(step)); } catch {}
 
-  // Update dots (5 steps: 0-4)
-  for (let i = 0; i < 5; i++) {
-    const dot = $('dot-' + i);
-    if (!dot) continue;
-    dot.className = 'ob-step-dot' + (i < step ? ' done' : i === step ? ' active' : '');
+  // Update horizontal stepper
+  updateObStepper(step);
+
+  // Update bottom nav bar
+  updateObNav(step);
+}
+
+function updateObStepper(step) {
+  for (let i = 0; i <= 4; i++) {
+    const item = $('obs-' + i);
+    if (!item) continue;
+    if (i < step)       item.className = 'ob-stepper-item done';
+    else if (i === step) item.className = 'ob-stepper-item active';
+    else                 item.className = 'ob-stepper-item';
+    const dot = $('obsd-' + i);
+    if (dot) dot.textContent = i < step ? '✓' : String(i + 1);
   }
+  // Update connector lines between steps
+  for (let i = 0; i < 4; i++) {
+    const line = $('obsl-' + i);
+    if (line) line.className = 'ob-stepper-line' + (i < step ? ' done' : '');
+  }
+}
+
+function updateObNav(step) {
+  const backBtn = $('ob-nav-back');
+  const fwdBtn  = $('ob-nav-fwd');
+  const info    = $('ob-nav-info');
+
+  // Back button — hidden on step 0 or when history is empty
+  if (backBtn) {
+    if (step === 0 || OB_HISTORY.length === 0) {
+      backBtn.style.visibility = 'hidden';
+    } else {
+      backBtn.style.visibility = '';
+      backBtn.textContent = step === 2 ? '← Re-upload' : '← Back';
+    }
+  }
+
+  // Step counter
+  if (info) info.textContent = 'Step ' + (step + 1) + ' of 5';
+
+  // Forward button — step 0 uses path cards, so hide fwd
+  if (fwdBtn) {
+    if (step === 0) {
+      fwdBtn.style.visibility = 'hidden';
+    } else {
+      fwdBtn.style.visibility = '';
+      fwdBtn.disabled = false;
+      const hasFiles = OB_FILES && (OB_FILES.cv || (OB_FILES.sow && OB_FILES.sow.length > 0));
+      const labels = {
+        1: hasFiles ? 'Analyse documents →' : 'Skip — enter manually →',
+        2: 'Confirm profile →',
+        3: 'See my forecast →',
+        4: 'Launch dashboard →',
+      };
+      fwdBtn.textContent = labels[step] || 'Continue →';
+    }
+  }
+}
+
+// ── Navigate back using history stack ──────────────────────────────────────
+function obBack() {
+  if (OB_HISTORY.length === 0) return;
+  const prev = OB_HISTORY.pop();
+  obGoTo(prev, false); // false = don't push current to history (we're going back)
+}
+
+// ── Navigate forward ────────────────────────────────────────────────────────
+function obForward() {
+  const step = S.obStep;
+  if (step === 1) {
+    const hasFiles = OB_FILES && (OB_FILES.cv || OB_FILES.sow.length > 0);
+    if (hasFiles) { obBuildProfile(); }
+    else          { obSkipToManual(); }
+    return;
+  }
+  if (step === 2) { obConfirmProfile(); return; }
+  if (step === 3) { obStep3Next(); return; }
+  if (step === 4) { obComplete(); return; }
+}
+
+// ── Close overlay (save progress) ──────────────────────────────────────────
+function obClose() {
+  $('ob-overlay').classList.add('hidden');
+  toast('Progress saved — resume from the login screen', 'ok', 4000);
+}
+
+// ── Skip straight to manual entry ──────────────────────────────────────────
+function obSkipToManual() {
+  obGoTo(3);
 }
 
 function obClearProgress() {
   try { localStorage.removeItem('nexus_ob_step'); } catch {}
+  OB_HISTORY.length = 0;
 }
 
-function obSkipLinkedIn() {
-  obGoTo(3);
-}
+// Legacy: kept for any inline references
+function obSkipLinkedIn() { obGoTo(3); }
 
 /* ─────────────────────────────────────────────────────────
    DOCUMENT UPLOAD (Step 1)
@@ -2617,6 +2808,11 @@ function obSkipLinkedIn() {
 // Track selected files
 const OB_FILES = { cv: null, sow: [] };
 
+function dzClickZone(type) {
+  // Programmatically trigger file picker for the hidden input
+  const input = type === 'cv' ? $('file-cv') : $('file-sow');
+  if (input) input.click();
+}
 function dzDragOver(e, id) {
   e.preventDefault();
   $(id).classList.add('dragover');
@@ -2628,7 +2824,7 @@ function dzDrop(e, type) {
   e.preventDefault();
   const id = 'dz-' + (type === 'cv' ? 'cv' : 'sow');
   $(id).classList.remove('dragover');
-  const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.pdf'));
+  const files = [...e.dataTransfer.files].filter(f => f.name.toLowerCase().endsWith('.pdf'));
   handleFiles(type, files);
 }
 function dzFile(e, type) {
@@ -2638,46 +2834,63 @@ function dzFile(e, type) {
 function handleFiles(type, files) {
   if (type === 'cv') {
     OB_FILES.cv = files[0] || null;
-    renderFileList('dz-cv-files', OB_FILES.cv ? [OB_FILES.cv] : []);
+    renderFileList('dz-cv-files', OB_FILES.cv ? [OB_FILES.cv] : [], 'cv');
   } else {
     OB_FILES.sow = [...OB_FILES.sow, ...files].slice(0, 5);
-    renderFileList('dz-sow-files', OB_FILES.sow);
+    renderFileList('dz-sow-files', OB_FILES.sow, 'sow');
   }
+  // Refresh the forward button label when files change
+  if (S.obStep === 1) updateObNav(1);
 }
 
-function renderFileList(containerId, files) {
+function renderFileList(containerId, files, type) {
+  const zone = $('dz-' + type);
+  const sub  = $('dz-' + type + '-sub');
+
   $(containerId).innerHTML = files.map((f, i) =>
     `<div class="ob-dz-file">
-      📄 ${f.name.slice(0, 24)}${f.name.length > 24 ? '…' : ''}
-      <span class="rm" onclick="removeFile('${containerId}',${i})">✕</span>
+      📄 ${f.name.slice(0, 26)}${f.name.length > 26 ? '…' : ''}
+      <span style="color:var(--sub);margin-left:4px;font-size:9.5px">${Math.round(f.size/1024)}KB</span>
+      <span class="rm" onclick="removeFile('${containerId}',${i});event.stopPropagation()">✕</span>
     </div>`
   ).join('');
+
+  if (files.length > 0) {
+    if (zone) zone.classList.add('ob-dz-done');
+    if (sub) sub.innerHTML = `✓ ${files.length} file${files.length > 1 ? 's' : ''} ready · <span class="ob-dz-reupload" onclick="dzClickZone('${type}');event.stopPropagation()">Replace</span>`;
+  } else {
+    if (zone) zone.classList.remove('ob-dz-done');
+    if (sub) sub.textContent = type === 'cv'
+      ? 'Drag & drop or click · PDF only'
+      : 'Up to 5 contracts · Drag & drop or click';
+  }
 }
 
 function removeFile(containerId, idx) {
-  if (containerId.includes('cv')) {
+  const type = containerId.includes('cv') ? 'cv' : 'sow';
+  if (type === 'cv') {
     OB_FILES.cv = null;
-    $('file-cv').value = '';
-    $('dz-cv-files').innerHTML = '';
+    const inp = $('file-cv');
+    if (inp) inp.value = '';
+    renderFileList('dz-cv-files', [], 'cv');
   } else {
     OB_FILES.sow.splice(idx, 1);
-    renderFileList('dz-sow-files', OB_FILES.sow);
+    renderFileList('dz-sow-files', OB_FILES.sow, 'sow');
   }
+  if (S.obStep === 1) updateObNav(1);
 }
 
 async function obBuildProfile() {
   if (!OB_FILES.cv && OB_FILES.sow.length === 0) {
-    // Skip to numbers if no files — just go manual
-    obGoTo(3);
+    obSkipToManual();
     return;
   }
 
-  const btn    = $('ob-build-btn');
+  const btn    = $('ob-nav-fwd');   // nav bar forward button
   const status = $('ob-build-status');
 
-  btn.disabled = true;
-  btn.textContent = 'Analysing…';
-  status.textContent = '🔍 Reading your documents…';
+  if (btn) { btn.disabled = true; btn.textContent = 'Analysing…'; }
+  if (status) status.textContent = '🔍 Reading your documents…';
 
   try {
     const fd = new FormData();
@@ -2703,8 +2916,7 @@ async function obBuildProfile() {
     toast('Profile build failed — entering manually', 'err');
     setTimeout(() => obGoTo(3), 1200);
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Build my profile →';
+    if (btn) { btn.disabled = false; updateObNav(1); }
   }
 }
 
