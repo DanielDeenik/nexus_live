@@ -324,6 +324,37 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
   background:rgba(79,255,176,.1);padding:3px 7px;border-radius:3px;align-self:flex-start;
 }
 
+/* ── LinkedIn split (Step 0) ─────────────── */
+.ob-li-split{background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.ob-li-split-label{font-size:11px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:5px}
+.ob-li-split-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ob-li-card{background:var(--bg);border:1.5px solid var(--border);border-radius:6px;padding:10px 12px;text-align:left;cursor:pointer;transition:all .15s;font-family:var(--font);width:100%}
+.ob-li-card:hover{border-color:var(--acc);background:rgba(79,255,176,.04)}
+.ob-li-card.ob-li-card-rich{border-color:rgba(79,172,254,.3);background:rgba(79,172,254,.04)}
+.ob-li-card.ob-li-card-rich:hover{border-color:var(--blue)}
+.ob-li-card-title{font-size:12px;font-weight:700;color:var(--txt);margin-bottom:3px}
+.ob-li-card-sub{font-size:10.5px;color:var(--sub);line-height:1.35}
+.ob-path-divider{display:flex;align-items:center;gap:8px;margin:12px 0;font-size:10.5px;color:var(--sub)}
+.ob-path-divider::before,.ob-path-divider::after{content:'';flex:1;border-top:1px solid var(--border)}
+.ob-path-cards-row{flex-direction:row !important}
+.ob-path-cards-row .ob-path-card{flex:1}
+/* LinkedIn export guide */
+.ob-li-guide-steps{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.ob-li-guide-step{display:flex;align-items:flex-start;gap:10px;font-size:12.5px;color:var(--txt)}
+.ob-li-guide-num{width:22px;height:22px;border-radius:50%;background:var(--acc);color:#0a1a12;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.ob-li-back-link{background:none;border:none;color:var(--sub);font-size:11.5px;cursor:pointer;margin-top:10px;padding:0;font-family:var(--font)}
+.ob-li-back-link:hover{color:var(--acc)}
+/* Work history in profile confirm */
+.ob-work-history{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.ob-work-item{background:var(--bg2);border-radius:4px;padding:7px 10px}
+.ob-work-title{font-size:12px;font-weight:600;color:var(--txt);margin-bottom:1px}
+.ob-work-meta{font-size:10.5px;color:var(--sub)}
+/* Utilization slider */
+.ob-util-wrap{margin-bottom:15px}
+.ob-util-label-row{display:flex;justify-content:space-between;margin-bottom:5px}
+.ob-util-label{font-size:11px;color:var(--sub);font-weight:500;letter-spacing:.2px}
+.ob-util-val{font-size:11px;font-weight:700;color:var(--acc)}
+
 /* ── Upload zone — with file state ──────── */
 .ob-dropzone{
   border:1.5px dashed var(--border);border-radius:var(--r);
@@ -1281,31 +1312,68 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
         <!-- ── STEP 0: Choose how to build your profile ── -->
         <div class="ob-step active" id="ob-step-0">
           <div class="ob-step-title">Let's build your profile</div>
-          <div class="ob-step-sub">Choose how to get started — you can enrich your profile at any time.</div>
-          <div class="ob-path-cards">
-            <button class="ob-path-card linkedin" onclick="connectLinkedIn()">
-              <svg class="ob-path-icon-svg" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-              <div>
-                <div class="ob-path-title">Import from LinkedIn</div>
-                <div class="ob-path-sub">Pulls your work history, skills, and profile photo automatically</div>
-              </div>
-              <span class="ob-path-badge">Fastest</span>
-            </button>
+          <div class="ob-step-sub">Choose how to import — the more data Nexus has, the more accurate your forecast and market signals become.</div>
+
+          <div class="ob-li-split">
+            <div class="ob-li-split-label">
+              <svg style="width:13px;height:13px;fill:#0a66c2;flex-shrink:0;vertical-align:middle" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+              LinkedIn
+            </div>
+            <div class="ob-li-split-cards">
+              <button class="ob-li-card" onclick="connectLinkedIn()">
+                <div class="ob-li-card-title">Sign in with LinkedIn</div>
+                <div class="ob-li-card-sub">Verifies your identity · adds name &amp; photo only</div>
+              </button>
+              <button class="ob-li-card ob-li-card-rich" onclick="obShowLinkedInPdfGuide()">
+                <div class="ob-li-card-title">Upload LinkedIn data export <span class="ob-path-badge" style="margin-left:6px;vertical-align:middle;font-size:9px">Most data</span></div>
+                <div class="ob-li-card-sub">Brings in your full work history, skills &amp; education — takes ~2 min to get from LinkedIn</div>
+              </button>
+            </div>
+          </div>
+
+          <div class="ob-path-divider"><span>or upload documents directly</span></div>
+
+          <div class="ob-path-cards ob-path-cards-row">
             <button class="ob-path-card" onclick="obGoTo(1)">
               <span class="ob-path-icon">📄</span>
               <div>
                 <div class="ob-path-title">Upload CV + Contracts</div>
-                <div class="ob-path-sub">Nexus reads your résumé and SOW files to extract your profile automatically</div>
+                <div class="ob-path-sub">Nexus reads your résumé and SOW files to extract your profile &amp; rate history</div>
               </div>
             </button>
             <button class="ob-path-card" onclick="obSkipToManual()">
-              <span class="ob-path-icon">✏️</span>
+              <span class="ob-path-icon">⚡</span>
               <div>
-                <div class="ob-path-title">Enter details manually</div>
-                <div class="ob-path-sub">Go straight to your rates, runway, and contract dates</div>
+                <div class="ob-path-title">Quick start</div>
+                <div class="ob-path-sub">Enter your day rate and see your forecast in under 60 seconds</div>
               </div>
             </button>
           </div>
+        </div>
+
+        <!-- ── STEP 0b: LinkedIn PDF/CSV export guide ── -->
+        <div class="ob-step" id="ob-step-li-guide">
+          <div class="ob-step-title">Export your LinkedIn data</div>
+          <div class="ob-step-sub">LinkedIn's public API no longer shares work history or skills — but you can download your own data in minutes and upload it here.</div>
+          <div class="ob-li-guide-steps">
+            <div class="ob-li-guide-step"><div class="ob-li-guide-num">1</div><div>Go to <strong>linkedin.com → Me (top-right) → Settings &amp; Privacy</strong></div></div>
+            <div class="ob-li-guide-step"><div class="ob-li-guide-num">2</div><div>Click <strong>Data Privacy → Get a copy of your data</strong></div></div>
+            <div class="ob-li-guide-step"><div class="ob-li-guide-num">3</div><div>Choose <strong>"Want something in particular?"</strong> → tick <strong>Profile</strong> → click <strong>Request archive</strong></div></div>
+            <div class="ob-li-guide-step"><div class="ob-li-guide-num">4</div><div>LinkedIn emails you a ZIP within minutes. Open it and upload <strong>Profile.csv</strong> below — <em>or</em> just upload your <strong>CV PDF</strong> for the same result.</div></div>
+          </div>
+          <div class="ob-dropzone" id="dz-li"
+            ondragover="dzDragOver(event,'dz-li')"
+            ondragleave="dzDragLeave('dz-li')"
+            ondrop="dzDrop(event,'li')"
+            onclick="dzClickZone('li')">
+            <input type="file" accept=".csv,.pdf" id="file-li" onchange="dzFile(event,'li')" style="display:none">
+            <div class="ob-dz-icon" id="dz-li-icon">📦</div>
+            <div class="ob-dz-label">Profile.csv <span style="color:var(--sub)">or CV PDF</span></div>
+            <div class="ob-dz-sub" id="dz-li-sub">Drag &amp; drop or click · CSV or PDF</div>
+            <div class="ob-dz-files" id="dz-li-files"></div>
+          </div>
+          <div class="ob-upload-status" id="ob-li-status"></div>
+          <button class="ob-li-back-link" onclick="obGoTo(0, false)">← Back to options</button>
         </div>
 
         <!-- ── STEP 1: Document Upload ── -->
@@ -1382,6 +1450,10 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
               <div class="ob-profile-section-label">Extracted from contracts</div>
               <div id="ob-rate-hints-content" style="font-size:11px;color:var(--sub);line-height:1.7"></div>
             </div>
+            <div class="ob-profile-section" id="ob-work-history-section" style="display:none">
+              <div class="ob-profile-section-label">Work history <span style="color:var(--sub);margin-left:4px">extracted from CV</span></div>
+              <ul class="ob-work-history" id="ob-work-history-list"></ul>
+            </div>
           </div>
 
           <div style="font-size:10px;color:var(--sub);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Auto-generated intelligence search terms</div>
@@ -1425,6 +1497,19 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
             <div class="ob-field">
               <label>VAT Rate (%)</label>
               <input type="number" id="ob-vat" placeholder="21" min="0" max="30" step="1" oninput="obUpdatePreview()">
+            </div>
+          </div>
+
+          <div class="ob-util-wrap">
+            <div class="ob-util-label-row">
+              <span class="ob-util-label">Target utilisation <span style="font-size:10px;font-weight:400">(billable days ÷ working days)</span></span>
+              <span class="ob-util-val" id="ob-util-pct-label">75%</span>
+            </div>
+            <input type="range" id="ob-utilization" min="20" max="100" step="5" value="75"
+              style="width:100%;accent-color:var(--acc);cursor:pointer"
+              oninput="$('ob-util-pct-label').textContent=this.value+'%';obUpdatePreview()">
+            <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--sub);margin-top:3px">
+              <span>20% — lots of bench time</span><span>100% — fully booked</span>
             </div>
           </div>
 
@@ -2688,6 +2773,9 @@ function obGoTo(step, pushHistory) {
     OB_HISTORY.push(S.obStep);
   }
 
+  // Clear LinkedIn guide mode whenever we navigate to a numbered step
+  S.liGuideActive = false;
+
   document.querySelectorAll('.ob-step').forEach(el => el.classList.remove('active'));
   const stepEl = $('ob-step-' + step);
   if (stepEl) stepEl.classList.add('active');
@@ -2725,6 +2813,9 @@ function updateObStepper(step) {
 }
 
 function updateObNav(step) {
+  // Don't clobber nav state while LinkedIn guide is active
+  if (S.liGuideActive) return;
+
   const backBtn = $('ob-nav-back');
   const fwdBtn  = $('ob-nav-fwd');
   const info    = $('ob-nav-info');
@@ -2763,6 +2854,12 @@ function updateObNav(step) {
 
 // ── Navigate back using history stack ──────────────────────────────────────
 function obBack() {
+  // If in LinkedIn guide mode, going back returns to step 0
+  if (S.liGuideActive) {
+    S.liGuideActive = false;
+    obGoTo(0, false);
+    return;
+  }
   if (OB_HISTORY.length === 0) return;
   const prev = OB_HISTORY.pop();
   obGoTo(prev, false); // false = don't push current to history (we're going back)
@@ -2770,11 +2867,27 @@ function obBack() {
 
 // ── Navigate forward ────────────────────────────────────────────────────────
 function obForward() {
+  // ── LinkedIn guide mode — handle upload & proceed ──────────────────────
+  if (S.liGuideActive) {
+    S.liGuideActive = false;
+    // If user uploaded a CSV, S.linkedinData is populated; no file needed
+    // If user uploaded a PDF it was placed in OB_FILES.cv
+    const hasLinkedIn = !!(S.linkedinData && (S.linkedinData._fromExport || S.linkedinData.name));
+    const hasFile     = !!(OB_FILES.cv || OB_FILES.sow.length > 0);
+    if (hasLinkedIn || hasFile) {
+      obBuildProfile();
+    } else {
+      obGoTo(1); // fall back to normal upload step
+    }
+    return;
+  }
+
   const step = S.obStep;
   if (step === 1) {
-    const hasFiles = OB_FILES && (OB_FILES.cv || OB_FILES.sow.length > 0);
-    if (hasFiles) { obBuildProfile(); }
-    else          { obSkipToManual(); }
+    const hasFiles    = OB_FILES && (OB_FILES.cv || OB_FILES.sow.length > 0);
+    const hasLinkedIn = !!(S.linkedinData && S.linkedinData._fromExport);
+    if (hasFiles || hasLinkedIn) { obBuildProfile(); }
+    else                         { obSkipToManual(); }
     return;
   }
   if (step === 2) { obConfirmProfile(); return; }
@@ -2805,14 +2918,36 @@ function obSkipLinkedIn() { obGoTo(3); }
    DOCUMENT UPLOAD (Step 1)
 ───────────────────────────────────────────────────────── */
 
-// Track selected files
-const OB_FILES = { cv: null, sow: [] };
+/* ── LinkedIn PDF / CSV export guide ───────────────────────────────────────── */
 
+function obShowLinkedInPdfGuide() {
+  // Show the guide step (renders as a separate step-like panel)
+  S.liGuideActive = true;
+  document.querySelectorAll('.ob-step').forEach(el => el.classList.remove('active'));
+  const guide = $('ob-step-li-guide');
+  if (guide) guide.classList.add('active');
+  // Hide forward button initially (shown again once file is uploaded)
+  const navFwd  = $('ob-nav-fwd');
+  const navBack = $('ob-nav-back');
+  if (navFwd)  navFwd.style.visibility  = 'hidden';
+  if (navBack) {
+    navBack.style.visibility = '';
+    navBack.textContent = '← Back';
+  }
+  const info = $('ob-nav-info');
+  if (info) info.textContent = 'LinkedIn import';
+}
+
+// Handle LinkedIn data export file (CSV or PDF)
 function dzClickZone(type) {
   // Programmatically trigger file picker for the hidden input
-  const input = type === 'cv' ? $('file-cv') : $('file-sow');
+  const map = { cv: 'file-cv', sow: 'file-sow', li: 'file-li' };
+  const input = $(map[type] || 'file-cv');
   if (input) input.click();
 }
+
+// Track selected files
+const OB_FILES = { cv: null, sow: [], li: null };
 function dzDragOver(e, id) {
   e.preventDefault();
   $(id).classList.add('dragover');
@@ -2822,9 +2957,13 @@ function dzDragLeave(id) {
 }
 function dzDrop(e, type) {
   e.preventDefault();
-  const id = 'dz-' + (type === 'cv' ? 'cv' : 'sow');
-  $(id).classList.remove('dragover');
-  const files = [...e.dataTransfer.files].filter(f => f.name.toLowerCase().endsWith('.pdf'));
+  const id = 'dz-' + type;
+  const el = $(id);
+  if (el) el.classList.remove('dragover');
+  const allFiles = [...e.dataTransfer.files];
+  const files = type === 'li'
+    ? allFiles.filter(f => /\.(csv|pdf)$/i.test(f.name))
+    : allFiles.filter(f => f.name.toLowerCase().endsWith('.pdf'));
   handleFiles(type, files);
 }
 function dzFile(e, type) {
@@ -2835,12 +2974,113 @@ function handleFiles(type, files) {
   if (type === 'cv') {
     OB_FILES.cv = files[0] || null;
     renderFileList('dz-cv-files', OB_FILES.cv ? [OB_FILES.cv] : [], 'cv');
+  } else if (type === 'li') {
+    OB_FILES.li = files[0] || null;
+    renderFileList('dz-li-files', OB_FILES.li ? [OB_FILES.li] : [], 'li');
+    if (OB_FILES.li) obProcessLinkedInFile(OB_FILES.li);
   } else {
     OB_FILES.sow = [...OB_FILES.sow, ...files].slice(0, 5);
     renderFileList('dz-sow-files', OB_FILES.sow, 'sow');
   }
   // Refresh the forward button label when files change
   if (S.obStep === 1) updateObNav(1);
+}
+
+// ── Process LinkedIn data export file ───────────────────────────────────────
+// Handles Profile.csv from LinkedIn data export OR a CV PDF
+async function obProcessLinkedInFile(file) {
+  const status = $('ob-li-status');
+  if (status) status.textContent = '🔍 Reading your LinkedIn data…';
+
+  try {
+    if (file.name.toLowerCase().endsWith('.csv')) {
+      // LinkedIn Profile.csv — parse in-browser
+      const text = await file.text();
+      const liData = parseLinkedInProfileCsv(text);
+      S.linkedinData = { ...S.linkedinData, ...liData, _fromExport: true };
+      if (status) status.textContent = `✓ Loaded ${liData._positionCount || 0} positions, ${liData._skillCount || 0} skills from LinkedIn export`;
+      // Put the CV file in OB_FILES.cv so it goes through the normal build pipeline
+      // with the extracted LinkedIn data stored in S.linkedinData
+    } else {
+      // PDF — treat as CV, go to normal upload flow
+      OB_FILES.cv = file;
+      if (status) status.textContent = '✓ File ready — click Continue to analyse';
+    }
+    // Show forward button so user can proceed
+    const fwd = $('ob-nav-fwd');
+    if (fwd) { fwd.style.visibility = ''; fwd.textContent = 'Continue →'; }
+    const back = $('ob-nav-back');
+    if (back) { back.style.visibility = ''; back.textContent = '← Back'; }
+    const info = $('ob-nav-info');
+    if (info) info.textContent = 'LinkedIn import';
+  } catch (err) {
+    if (status) status.textContent = '⚠ Could not read file: ' + err.message;
+  }
+}
+
+// ── Parse LinkedIn Profile.csv ──────────────────────────────────────────────
+// LinkedIn data export contains semicolon or comma-separated CSV with sections
+function parseLinkedInProfileCsv(text) {
+  const lines = text.split(/
+?
+/).map(l => l.trim()).filter(Boolean);
+  const result = { name: null, headline: null, location: null, skills: [], positions: [], _positionCount: 0, _skillCount: 0 };
+
+  // LinkedIn Profile.csv has a "First Name,Last Name,Headline,Summary,Industry,..." header
+  // followed by a single data row for the profile itself
+  let section = 'header';
+  let headers = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Detect section changes (LinkedIn CSV uses blank lines + capitalized headers)
+    if (/^(Profile|Positions|Education|Skills|Certifications)/i.test(line) && !line.includes(',')) {
+      section = line.trim().toLowerCase();
+      headers = [];
+      continue;
+    }
+
+    // Parse CSV row (simple split — LinkedIn CSVs are well-formed)
+    const cols = line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').trim());
+
+    if (section === 'header' || section === 'profile') {
+      if (!headers.length) { headers = cols; continue; }
+      const row = {};
+      headers.forEach((h, idx) => { row[h.toLowerCase().replace(/\s+/g, '_')] = cols[idx] || ''; });
+      if (row.first_name || row.firstname) result.name = [(row.first_name || row.firstname), (row.last_name || row.lastname)].filter(Boolean).join(' ');
+      if (row.headline)       result.headline = row.headline;
+      if (row.geo_location || row.location) result.location = row.geo_location || row.location;
+    }
+
+    if (section === 'positions') {
+      if (!headers.length) { headers = cols; continue; }
+      const row = {};
+      headers.forEach((h, idx) => { row[h.toLowerCase().replace(/\s+/g, '_')] = cols[idx] || ''; });
+      if (row.company_name || row.title) {
+        result.positions.push({
+          company:  row.company_name || '',
+          title:    row.title || '',
+          started:  row.started_on || row.start_date || '',
+          finished: row.finished_on || row.end_date || '',
+        });
+        result._positionCount++;
+      }
+    }
+
+    if (section === 'skills') {
+      if (!headers.length) { headers = cols; continue; }
+      const row = {};
+      headers.forEach((h, idx) => { row[h.toLowerCase()] = cols[idx] || ''; });
+      const skillName = row.name || cols[0];
+      if (skillName && skillName.length > 1 && skillName.length < 60) {
+        result.skills.push(skillName);
+        result._skillCount++;
+      }
+    }
+  }
+
+  return result;
 }
 
 function renderFileList(containerId, files, type) {
@@ -2881,7 +3121,9 @@ function removeFile(containerId, idx) {
 }
 
 async function obBuildProfile() {
-  if (!OB_FILES.cv && OB_FILES.sow.length === 0) {
+  // Allow build if we have files OR LinkedIn export data (CSV-only path)
+  const hasLinkedInExport = !!(S.linkedinData && S.linkedinData._fromExport);
+  if (!OB_FILES.cv && OB_FILES.sow.length === 0 && !hasLinkedInExport) {
     obSkipToManual();
     return;
   }
@@ -3045,13 +3287,39 @@ function populateProfileConfirmation(profile, filters) {
   if (profile.rateHints?.length) {
     const rh = profile.rateHints[0];
     hints.push(`💶 Rate hint from contract: <strong>${rh.raw || rh.value}</strong>`);
+    // Pre-fill day rate in Step 3 if empty
+    const drEl = $('ob-dayrate');
+    if (drEl && !drEl.value && rh.value > 50) {
+      // If value looks like a day rate (>200) use directly; if hourly (<200) multiply by 8
+      drEl.value = rh.value >= 200 ? Math.round(rh.value) : Math.round(rh.value * 8);
+    }
   }
   if (profile.avgContractDuration) {
-    hints.push(`📆 Avg. contract length: <strong>${profile.avgContractDuration.toFixed(1)} months</strong>`);
+    const dur = profile.avgContractDuration.toFixed(1);
+    hints.push(`📆 Avg. contract length: <strong>${dur} months</strong>`);
+    // Pre-fill contract duration in Step 3 if empty
+    const cmEl = $('ob-contract-months');
+    if (cmEl && !cmEl.value) cmEl.value = Math.round(parseFloat(dur));
   }
   if (hints.length) {
     $('ob-rate-hints').style.display = '';
     $('ob-rate-hints-content').innerHTML = hints.join(' &nbsp;·&nbsp; ');
+  }
+
+  // Work history from CV
+  const history = profile.workHistory || [];
+  if (history.length > 0) {
+    $('ob-work-history-section').style.display = '';
+    $('ob-work-history-list').innerHTML = history.slice(0, 6).map(job => {
+      const co    = job.company ? `<span style="color:var(--txt)"> · ${job.company}</span>` : '';
+      const start = job.startYear || '';
+      const end   = job.isCurrent ? 'Present' : (job.endYear || '');
+      const dur   = job.durationMonths ? ` · ${job.durationMonths}mo` : '';
+      return `<li class="ob-work-item">
+        <div class="ob-work-title">${job.title || 'Role'}${co}</div>
+        <div class="ob-work-meta">${start}${end ? ' – ' + end : ''}${dur}</div>
+      </li>`;
+    }).join('');
   }
 
   // Search filter keywords
@@ -3165,7 +3433,7 @@ function obUpdatePreview() {
   const burn    = parseFloat($('ob-burn')?.value)    || 0;
   const vatPct  = (parseFloat($('ob-vat')?.value)    || 21) / 100;
   const taxPct  = (parseFloat($('ob-taxres')?.value) || 35) / 100;
-  const util    = 0.75;
+  const util    = (parseFloat($("ob-utilization")?.value) || 75) / 100;
   const savings = parseFloat($('ob-savings')?.value) || 0;
 
   const effectiveRate = rate || (dayRate / 8);
@@ -3240,6 +3508,7 @@ async function obComplete() {
 
   const contractStart  = $('ob-contract-start')?.value  || null;
   const contractMonths = parseFloat($('ob-contract-months')?.value) || null;
+  const utilisation    = parseFloat($('ob-utilization')?.value)     || 75;
 
   const payload = {
     name, headline: S.linkedinData?.headline || S.confirmedProfile?.headline || '',
@@ -3252,6 +3521,7 @@ async function obComplete() {
       savings,
       vatPct,
       taxReservePct: taxRes,
+      utilisation,
     },
     industry,
     contractStartDate: contractStart,
