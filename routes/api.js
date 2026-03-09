@@ -245,6 +245,9 @@ router.get('/expenses', requireWorkspace, async (req, res) => {
       source:      prop(p, 'Source')         || 'Manual',
       year:        prop(p, 'Year'),
       notes:       prop(p, 'Notes')          || '',
+      happy_rating: prop(p, 'Happy Rating')  ?? null,
+      wealth_level: prop(p, 'Wealth Level')  ?? null,
+      purpose:      prop(p, 'Purpose')       ?? null,
     }));
     cache.set(key, data);
     res.json(data);

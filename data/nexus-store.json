@@ -1,11 +1,61 @@
 {
   "config": {
-    "name": "Dan",
-    "hourlyRate": 95,
+    "name": "Dan Deenik",
+    "hourlyRate": 115,
     "dayRate": 760,
-    "availHoursPerWeek": 32,
-    "burn": 3200,
+    "availHoursPerWeek": 40,
+    "burn": 5000,
     "vatPct": 21,
-    "taxReservePct": 35
+    "taxReservePct": 35,
+    "targetIndustries": [
+      "Banking"
+    ],
+    "headline": "Facilitated technical discussions with stakeholders,",
+    "location": "United States",
+    "contractStartDate": "2026-01-12"
+  },
+  "profile": {
+    "name": "Dan Deenik",
+    "headline": "Facilitated technical discussions with stakeholders,",
+    "email": "deenikdaniel@icloud.com",
+    "location": "United States",
+    "picture": "https://media.licdn.com/dms/image/v2/D4E03AQGEYOw-P3I1Qw/profile-displayphoto-scale_200_200/B4EZqyuQDDJgAc-/0/1763935061753?e=1774483200&v=beta&t=uuFO-AyATqDTMuGHRNoPgWEmo1CanEcElW3BeBpZfZM",
+    "skills": [
+      "FIS Professional Services consulting programme"
+    ],
+    "industries": [
+      "Asset Management",
+      "Accounting & Audit",
+      "Professional Services",
+      "Software Engineering",
+      "Cloud / Infrastructure",
+      "Data & Analytics",
+      "SaaS / Software",
+      "DevOps / Platform",
+      "Compliance & Regulatory",
+      "Construction & Architecture",
+      "Project Management",
+      "Education",
+      "Energy & Sustainability"
+    ],
+    "seniority": "Senior",
+    "yearsExperience": 16,
+    "companySizes": [
+      "Mid-Market",
+      "Enterprise"
+    ],
+    "services": [],
+    "deliverables": [],
+    "sowKeywords": [],
+    "clientTypes": [],
+    "urgencySignals": [],
+    "avgContractDuration": null,
+    "rateHints": [],
+    "confidence": 75,
+    "sources": [
+      "LinkedIn",
+      "CV"
+    ],
+    "createdAt": "2026-03-08T07:37:18.278Z"
   }
 }

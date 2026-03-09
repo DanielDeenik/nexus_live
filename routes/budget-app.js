@@ -79,6 +79,9 @@ function normaliseTransaction(t) {
     account:      t.account_label || t.Account || null,
     currency:     'EUR',
     source:       'budget-app',
+    happy_rating: t.happy_rating ?? null,
+    wealth_level: t.wealth_level ?? null,
+    purpose:      t.purpose ?? null,
   };
 }
 
