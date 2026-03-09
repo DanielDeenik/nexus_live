@@ -160,6 +160,9 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 .scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-radius:var(--r);overflow:hidden;margin-top:12px}
 .scenario-col{background:var(--bg2);padding:14px 16px}
 .scenario-col.active{background:var(--bg3)}
+.prob-badge{display:inline-block;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;margin-left:6px;background:rgba(79,172,254,.15);color:var(--acc)}
+.prob-slider-row{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:10.5px;color:var(--sub)}
+.prob-slider-row input[type=range]{flex:1;accent-color:var(--acc)}
 .scenario-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);margin-bottom:6px}
 .scenario-val{font-size:19px;font-weight:700;letter-spacing:-.4px}
 .scenario-sub{font-size:10.5px;color:var(--sub);margin-top:4px}
@@ -960,7 +963,8 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
       <div class="bench-icon">⏸</div>
       <div>
         <div class="bench-title">No active contract</div>
-        <div class="bench-sub">You're currently on the bench. Numbers below are projections based on your rates &amp; burn — not live contract income. Add a contract in Pipeline to track actual work.</div>
+        <div class="bench-sub" id="bench-sub-text">You're currently on the bench. Numbers below are projections based on your rates &amp; burn — not live contract income. Add a contract in Pipeline to track actual work.</div>
+        <div id="bench-cost-line" style="display:none;margin-top:4px;font-size:11px;color:var(--orange);font-weight:600"></div>
       </div>
       <button class="bench-cta" onclick="navTo('pipeline')">Add contract →</button>
     </div>
@@ -1043,6 +1047,7 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
           <button class="toggle-btn on" id="fc-tog-income">Income</button>
           <button class="toggle-btn on" id="fc-tog-burn">Burn</button>
           <button class="toggle-btn on" id="fc-tog-net">Net</button>
+          <button class="toggle-btn on" id="fc-tog-cash">Cash</button>
           <button class="toggle-btn" id="fc-tog-season">Season</button>
         </div>
       </div>
@@ -1088,6 +1093,17 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
           <span class="list-count" id="contract-count">0</span>
         </div>
         <div id="contract-list"><div class="empty"><div class="empty-icon">📄</div>No contracts found</div></div>
+        <!-- Probability-weighted income summary -->
+        <div id="pw-income-bar" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(79,172,254,.06);border:1px solid rgba(79,172,254,.18);border-radius:7px">
+          <div style="font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Probability-weighted income</div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span id="pw-income-val" style="font-size:16px;font-weight:700;color:var(--acc)">—</span>
+            <span id="pw-income-sub" style="font-size:10px;color:var(--sub)">avg weighted /month</span>
+          </div>
+          <div id="pw-income-breakdown" style="font-size:10.5px;color:var(--sub);margin-top:3px"></div>
+        </div>
+        <!-- Probability input per contract (shown inline) -->
+        <div id="prob-input-section" style="display:none;margin-top:8px"></div>
       </div>
 
       <!-- What-if scenario -->
@@ -1112,14 +1128,18 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
           </div>
         </div>
         <button class="btn-secondary" style="margin-top:12px;width:100%;font-size:12px" onclick="runWhatIf()">Compare →</button>
+        <div id="sc-active-banner" style="display:none;margin-top:10px;padding:7px 12px;background:rgba(79,172,254,.1);border:1px solid rgba(79,172,254,.25);border-radius:6px;font-size:11px;color:var(--acc)">
+          <span id="sc-active-label">Viewing scenario</span>
+          <button onclick="resetScenario()" style="float:right;background:none;border:none;color:var(--sub);font-size:11px;cursor:pointer;padding:0">✕ Reset to my numbers</button>
+        </div>
         <div class="scenario-grid" id="sc-result" style="display:none">
-          <div class="scenario-col">
-            <div class="scenario-label">Option A</div>
+          <div class="scenario-col" id="sc-col-a" onclick="applyScenarioToForecast('A')" style="cursor:pointer" title="Click to preview in 12-month chart">
+            <div class="scenario-label">Option A <span style="font-size:9px;color:var(--sub)">(click to preview)</span></div>
             <div class="scenario-val" id="sc-a-val">—</div>
             <div class="scenario-sub" id="sc-a-sub">monthly net</div>
           </div>
-          <div class="scenario-col active">
-            <div class="scenario-label">Option B</div>
+          <div class="scenario-col active" id="sc-col-b" onclick="applyScenarioToForecast('B')" style="cursor:pointer" title="Click to preview in 12-month chart">
+            <div class="scenario-label">Option B <span style="font-size:9px;color:var(--sub)">(click to preview)</span></div>
             <div class="scenario-val" id="sc-b-val">—</div>
             <div class="scenario-sub" id="sc-b-sub">monthly net</div>
           </div>
@@ -1507,10 +1527,11 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
             </div>
             <input type="range" id="ob-utilization" min="20" max="100" step="5" value="75"
               style="width:100%;accent-color:var(--acc);cursor:pointer"
-              oninput="$('ob-util-pct-label').textContent=this.value+'%';obUpdatePreview()">
+              oninput="$('ob-util-pct-label').textContent=this.value+'%';obUpdateUtilNudge();obUpdatePreview()">
             <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--sub);margin-top:3px">
               <span>20% — lots of bench time</span><span>100% — fully booked</span>
             </div>
+            <div id="ob-util-nudge" style="font-size:10.5px;color:var(--acc);margin-top:5px;min-height:14px;font-weight:500;transition:all .2s"></div>
           </div>
 
           <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--sub);font-weight:600;margin-bottom:10px;margin-top:4px">Current Contract</div>
@@ -1550,6 +1571,19 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
               <option value="Legal">Legal</option>
               <option value="Healthcare">Healthcare / MedTech</option>
               <option value="Construction &amp; Architecture">Construction / Engineering</option>
+            </select>
+          </div>
+          <div class="ob-field">
+            <label>Tax Setup</label>
+            <select id="ob-tax-type" onchange="applyTaxType('ob-taxres',this.value);obUpdatePreview()" style="background:var(--bg2);color:var(--txt);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;width:100%;margin-bottom:6px">
+              <option value="">— select to auto-fill →</option>
+              <option value="sole_trader_basic">Sole trader (basic rate, ~£30k–£50k)</option>
+              <option value="sole_trader_higher">Sole trader (higher rate, £50k+)</option>
+              <option value="ltd_small">Ltd company (≤£50k profit, 19%)</option>
+              <option value="ltd_large">Ltd company (&gt;£50k profit, 25%)</option>
+              <option value="umbrella">Umbrella (PAYE, ~40%)</option>
+              <option value="zzp_nl">ZZP / Dutch sole trader (~36%)</option>
+              <option value="custom">Custom — enter below</option>
             </select>
           </div>
           <div class="ob-field">
@@ -1611,7 +1645,7 @@ const S = {
   netCashflow:  [],     // computed net cashflow array
   charts:       {},     // Chart instances
   toggDash:     { income:true, burn:true, season:false },
-  toggFc:       { income:true, burn:true, net:true, season:false },
+  toggFc:       { income:true, burn:true, net:true, season:false, cash:true },
   obStep:       0,
   linkedinData:     null,
   builtProfile:     null,  // AI-synthesized profile (pre-confirmation)
@@ -1773,6 +1807,49 @@ async function checkNotionStatus() {
    Derives 12-month projections from: rate × hours × seasonality
    × utilisation → gross → −VAT provision → −tax reserve → surplus vs burn
 ───────────────────────────────────────────────────────── */
+
+// Lightweight helper used by scenario toggle — rebuilds S.netCashflow from S.cfg
+// without updating the sidebar / availability strip. Calls applyProfileToForecast
+// if available, otherwise falls back to a direct rebuild.
+function buildNetCashflow() {
+  const cfg = S.cfg;
+  if (!cfg) return;
+  const rate         = cfg.hourlyRate    || 0;
+  const dayRate      = cfg.dayRate       || 0;
+  const hoursPerWeek = cfg.availHoursPerWeek || 32;
+  const burn         = cfg.burn          || 0;
+  const vatPct       = (cfg.vatPct       ?? 21) / 100;
+  const taxResPct    = (cfg.taxReservePct ?? 35) / 100;
+  const utilisation  = (cfg.utilisation  ?? 75) / 100;
+  if (!rate && !dayRate) return;
+  const effectiveRate    = rate || (dayRate / 8);
+  const peakMonthlyGross = effectiveRate * hoursPerWeek * 4.33 * utilisation;
+  let weights = null;
+  if (S.incomeSeasonality?.data?.length === 12) {
+    const maxW = Math.max(...S.incomeSeasonality.data, 1);
+    weights = S.incomeSeasonality.data.map(v => v / maxW);
+  }
+  const startMonth = NOW.getMonth();
+  const months = [];
+  for (let i = 0; i < 12; i++) {
+    const mi      = (startMonth + i) % 12;
+    const weight  = weights ? weights[mi] : 1.0;
+    const gross   = peakMonthlyGross * weight;
+    const vatProv = gross * vatPct;
+    const taxRes  = (gross - vatProv) * taxResPct;
+    const monthNum = String(mi + 1);
+    const spend   = S.spendBaselines[monthNum] || burn;
+    const surplus = gross - vatProv - taxRes - spend;
+    months.push({
+      label: MONTHS[mi], monthIndex: mi,
+      gross: Math.round(gross), vatProvision: Math.round(vatProv),
+      netTurnover: Math.round(gross), taxReserve: Math.round(taxRes),
+      spend: Math.round(spend), surplus: Math.round(surplus), weight,
+    });
+  }
+  S.netCashflow = months;
+}
+
 function applyProfileToForecast() {
   const cfg = S.cfg;
   if (!cfg) return;
@@ -1890,6 +1967,23 @@ function renderDashboard() {
   const benchBanner = $('d-bench-banner');
   if (benchBanner) {
     benchBanner.style.display = (hasRate && onBench) ? '' : 'none';
+  }
+
+  // Bench cost line — daily revenue foregone while sitting on the bench
+  const benchCostLine = $('bench-cost-line');
+  if (benchCostLine && hasRate && onBench) {
+    const bDayRate   = S.cfg.dayRate || (S.cfg.hourlyRate ? S.cfg.hourlyRate * 8 : 0);
+    const bUtil      = (S.cfg.utilisation ?? 75) / 100;
+    const bDailyCost = Math.round(bDayRate * bUtil);   // opportunity cost per bench day
+    if (bDailyCost > 0) {
+      const bMonthlyCost = Math.round(bDailyCost * 21); // ~21 working days/month
+      benchCostLine.textContent = `⚠ Every bench day costs you ~${fmtEur(bDailyCost)} (${fmtEur(bMonthlyCost)}/month at ${S.cfg.utilisation ?? 75}% utilisation).`;
+      benchCostLine.style.display = '';
+    } else {
+      benchCostLine.style.display = 'none';
+    }
+  } else if (benchCostLine) {
+    benchCostLine.style.display = 'none';
   }
 
   // Runway
@@ -2058,11 +2152,20 @@ function renderForecastChart() {
   const net     = months.map(m => m.surplus);
   const season  = months.map(m => Math.round(m.weight * 100));
 
+  // Payment-delayed cash: shift income forward by payment term months
+  const ptDays   = S.cfg?.paymentTermsDays ?? 30;
+  const ptMonths = Math.round(ptDays / 30);
+  const cashReceived = ptMonths > 0
+    ? Array(ptMonths).fill(0).concat(income.slice(0, 12 - ptMonths))
+    : income;
+
   const datasets = [];
-  if (S.toggFc.income) datasets.push({ label:'Gross Income', data:income, backgroundColor:'rgba(79,255,176,.45)', borderColor:'rgba(79,255,176,.8)', borderWidth:1, borderRadius:3 });
-  if (S.toggFc.burn)   datasets.push({ label:'Burn',         data:burn,   backgroundColor:'rgba(255,107,107,.35)', borderColor:'rgba(255,107,107,.6)', borderWidth:1, borderRadius:3 });
-  if (S.toggFc.net)    datasets.push({ label:'Net',          data:net,    type:'line', borderColor:'rgba(79,172,254,.8)', borderWidth:2, pointRadius:3, fill:false, tension:.35 });
-  if (S.toggFc.season) datasets.push({ label:'Season %',     data:season, type:'line', borderColor:'rgba(249,202,36,.55)', borderWidth:1.5, pointRadius:2, fill:false, tension:.4, yAxisID:'y2' });
+  if (S.toggFc.income) datasets.push({ label:'Gross Income (invoiced)', data:income,       backgroundColor:'rgba(79,255,176,.45)', borderColor:'rgba(79,255,176,.8)', borderWidth:1, borderRadius:3 });
+  if (S.toggFc.cash && ptMonths > 0)
+    datasets.push({ label:'Cash received (Net ' + ptDays + ')', data:cashReceived, backgroundColor:'rgba(79,172,254,.2)', borderColor:'rgba(79,172,254,.55)', borderWidth:1, borderRadius:3 });
+  if (S.toggFc.burn)   datasets.push({ label:'Burn',         data:burn,         backgroundColor:'rgba(255,107,107,.35)', borderColor:'rgba(255,107,107,.6)', borderWidth:1, borderRadius:3 });
+  if (S.toggFc.net)    datasets.push({ label:'Net surplus',  data:net,          type:'line', borderColor:'rgba(79,172,254,.8)', borderWidth:2, pointRadius:3, fill:false, tension:.35 });
+  if (S.toggFc.season) datasets.push({ label:'Season %',     data:season,       type:'line', borderColor:'rgba(249,202,36,.55)', borderWidth:1.5, pointRadius:2, fill:false, tension:.4, yAxisID:'y2' });
 
   if (S.charts.forecast) S.charts.forecast.destroy();
   const ctx = $('forecast-chart').getContext('2d');
@@ -2081,7 +2184,7 @@ function renderForecastChart() {
   });
 }
 
-['income','burn','net','season'].forEach(key => {
+['income','burn','net','season','cash'].forEach(key => {
   const el = $('fc-tog-' + key);
   if (!el) return;
   el.addEventListener('click', function() {
@@ -2094,19 +2197,26 @@ function renderForecastChart() {
 function generateForecastInsight() {
   const months = S.netCashflow;
   if (!months.length) return;
+
+  // Payment terms context note
+  const ptDays = S.cfg?.paymentTermsDays ?? 30;
+  const ptNote = ptDays > 0
+    ? '<span style="font-size:10.5px;color:var(--sub);display:block;margin-bottom:6px">💳 Net ' + ptDays + ' payment terms: income bars = work delivered; <em>Cash</em> toggle shows when money actually lands.</span>'
+    : '';
+
   const deficitMonths = months.filter(m => m.surplus < 0);
   const annualGross   = months.reduce((a,m) => a + m.gross, 0);
   const annualSurplus = months.reduce((a,m) => a + m.surplus, 0);
   const peakM = months.reduce((a,b) => a.gross > b.gross ? a : b);
   const slowM = months.reduce((a,b) => a.gross < b.gross ? a : b);
 
-  let txt = '';
+  let txt = ptNote;
   if (deficitMonths.length === 0) {
-    txt = `<strong>✅ Cashflow positive all year.</strong> Projected annual gross of <strong>${fmtEur(annualGross)}</strong> with a net surplus of <strong>${fmtEur(annualSurplus)}</strong>. Peak month is <strong>${peakM.label}</strong> (${fmtEur(peakM.gross)}). Even your slowest month <strong>${slowM.label}</strong> (${fmtEur(slowM.gross)}) stays above burn. Consider investing surplus in growth or increasing your buffer.`;
+    txt += `<strong>✅ Cashflow positive all year.</strong> Projected annual gross of <strong>${fmtEur(annualGross)}</strong> with a net surplus of <strong>${fmtEur(annualSurplus)}</strong>. Peak month is <strong>${peakM.label}</strong> (${fmtEur(peakM.gross)}). Even your slowest month <strong>${slowM.label}</strong> (${fmtEur(slowM.gross)}) stays above burn. Consider investing surplus in growth or increasing your buffer.`;
   } else if (deficitMonths.length <= 2) {
-    txt = `<strong>⚡ ${deficitMonths.length} month${deficitMonths.length>1?'s':''} at risk:</strong> <strong>${deficitMonths.map(m=>m.label).join(', ')}</strong>. Pre-empt these by starting outreach 6–8 weeks before. Your annual surplus is <strong>${fmtEur(annualSurplus)}</strong> — solid overall but watch the gaps.`;
+    txt += `<strong>⚡ ${deficitMonths.length} month${deficitMonths.length>1?'s':''} at risk:</strong> <strong>${deficitMonths.map(m=>m.label).join(', ')}</strong>. Pre-empt these by starting outreach 6–8 weeks before. Your annual surplus is <strong>${fmtEur(annualSurplus)}</strong> — solid overall but watch the gaps.`;
   } else {
-    txt = `<strong>⚠️ ${deficitMonths.length} deficit months projected.</strong> Your current burn of <strong>${fmtEur(S.cfg?.burn||0)}/mo</strong> may not be covered by your rate. Options: raise your rate, reduce burn, or increase billable hours.`;
+    txt += `<strong>⚠️ ${deficitMonths.length} deficit months projected.</strong> Your current burn of <strong>${fmtEur(S.cfg?.burn||0)}/mo</strong> may not be covered by your rate. Options: raise your rate, reduce burn, or increase billable hours.`;
   }
 
   $('fc-insight').innerHTML = txt;
@@ -2122,6 +2232,51 @@ function renderPipeline() {
   renderSignals();
 }
 
+// In-memory probability overrides keyed by contract id/name
+const contractProbs = {};
+
+function getContractProb(c) {
+  const key = c.id || c.name || c.client || JSON.stringify(c);
+  if (contractProbs[key] !== undefined) return contractProbs[key];
+  // Default probabilities by status
+  const status = (c.status || '').toLowerCase();
+  if (status === 'active')    return 100;
+  if (status === 'upcoming')  return 80;
+  if (status === 'prospect')  return 40;
+  if (status === 'ended' || status === 'lost') return 0;
+  return 60; // unknown
+}
+
+function setContractProb(key, val) {
+  contractProbs[key] = val;
+  updateProbabilityWeightedIncome();
+}
+
+function updateProbabilityWeightedIncome() {
+  const bar = $('pw-income-bar');
+  const contracts = S.contracts;
+  if (!contracts.length || !bar) return;
+
+  const hoursPerWeek = S.cfg?.availHoursPerWeek || 32;
+
+  const items = contracts.map(c => {
+    const prob = getContractProb(c) / 100;
+    const rate = c.hourlyRate || (c.dayRate ? c.dayRate / 8 : S.cfg?.hourlyRate || 0);
+    const rawMonthly = rate * hoursPerWeek * 4.33;
+    return { name: c.name || c.client || 'Contract', prob, rawMonthly, weighted: rawMonthly * prob };
+  }).filter(c => c.rawMonthly > 0);
+
+  if (!items.length) { bar.style.display = 'none'; return; }
+
+  const totalWeighted = items.reduce((a, c) => a + c.weighted, 0);
+  bar.style.display = '';
+  $('pw-income-val').textContent = fmtEur(Math.round(totalWeighted));
+  $('pw-income-sub').textContent = items.length + ' contract' + (items.length > 1 ? 's' : '') + ' · prob-weighted';
+  $('pw-income-breakdown').textContent = items.map(c =>
+    (c.name.slice(0,14)) + ': ' + Math.round(c.prob * 100) + '% → ' + fmtEur(Math.round(c.weighted))
+  ).join(' | ');
+}
+
 function renderContractList() {
   const list = $('contract-list');
   const contracts = S.contracts;
@@ -2129,22 +2284,38 @@ function renderContractList() {
 
   if (!contracts.length) {
     list.innerHTML = '<div class="empty"><div class="empty-icon">📄</div>No contracts in Notion yet</div>';
+    if ($('pw-income-bar')) $('pw-income-bar').style.display = 'none';
     return;
   }
 
   list.innerHTML = contracts.map(c => {
+    const key = c.id || c.name || c.client || JSON.stringify(c);
     const status = c.status?.toLowerCase() || 'unknown';
     const badgeClass = status === 'active' ? 'badge-active' : status === 'upcoming' ? 'badge-upcoming' : 'badge-ended';
     const rate = c.dayRate ? fmtEur(c.dayRate) + '/day' : c.hourlyRate ? fmtEur(c.hourlyRate) + '/hr' : '';
     const end = c.endDate ? `Ends ${new Date(c.endDate).toLocaleDateString('en-GB', {day:'numeric',month:'short'})}` : '';
-    return `<div class="list-item">
-      <div>
-        <div class="item-name">${c.name || c.client || 'Unnamed contract'}</div>
-        <div class="item-sub">${[rate, end].filter(Boolean).join(' · ')}</div>
+    const prob = getContractProb(c);
+    const probColor = prob >= 80 ? 'var(--acc)' : prob >= 50 ? 'var(--yellow)' : 'var(--red)';
+    return `<div class="list-item" style="flex-direction:column;align-items:flex-start;gap:4px">
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+        <div>
+          <span class="item-name">${c.name || c.client || 'Unnamed contract'}</span>
+          <span class="prob-badge" style="background:${probColor}22;color:${probColor}">${prob}%</span>
+        </div>
+        <span class="item-badge ${badgeClass}">${c.status || '—'}</span>
       </div>
-      <span class="item-badge ${badgeClass}">${c.status || '—'}</span>
+      <div class="item-sub" style="width:100%">${[rate, end].filter(Boolean).join(' · ')}</div>
+      <div class="prob-slider-row">
+        <span style="white-space:nowrap;min-width:60px">Close prob:</span>
+        <input type="range" min="0" max="100" step="5" value="${prob}"
+          oninput="setContractProb(${JSON.stringify(key)},+this.value);this.nextElementSibling.textContent=this.value+'%'">
+        <span style="min-width:30px;text-align:right;color:${probColor};font-weight:600">${prob}%</span>
+      </div>
     </div>`;
   }).join('');
+
+  // Trigger weighted income calculation
+  updateProbabilityWeightedIncome();
 }
 
 function renderSignals() {
@@ -2587,38 +2758,113 @@ async function refreshSignals() {
   }
 }
 
+let _scenarios = { A: null, B: null };
+
 function runWhatIf() {
   const rA = parseFloat($('sc-rate-a').value) || 0;
   const rB = parseFloat($('sc-rate-b').value) || 0;
   const hA = parseFloat($('sc-hrs-a').value) || 32;
   const hB = parseFloat($('sc-hrs-b').value) || 32;
-  const burn = S.cfg?.burn || 0;
+  const burn   = S.cfg?.burn || 0;
   const vatPct = (S.cfg?.vatPct ?? 21) / 100;
   const taxPct = (S.cfg?.taxReservePct ?? 35) / 100;
-  const util = (S.cfg?.utilisation ?? 75) / 100;
+  const util   = (S.cfg?.utilisation ?? 75) / 100;
 
   const calcNet = (rate, hrs) => {
     const gross = rate * hrs * 4.33 * util;
-    return gross - (gross * vatPct) - ((gross - gross*vatPct) * taxPct) - burn;
+    return gross - (gross * vatPct) - ((gross - gross * vatPct) * taxPct) - burn;
   };
+
+  _scenarios.A = { rate: rA, hrs: hA, label: 'Option A: ' + fmtEur(rA) + '/hr · ' + hA + 'h/wk' };
+  _scenarios.B = { rate: rB, hrs: hB, label: 'Option B: ' + fmtEur(rB) + '/hr · ' + hB + 'h/wk' };
 
   const netA = calcNet(rA, hA);
   const netB = calcNet(rB, hB);
 
   $('sc-a-val').textContent = fmtEur(netA);
   $('sc-a-val').style.color = netA >= 0 ? 'var(--acc)' : 'var(--red)';
-  $('sc-a-sub').textContent = 'after VAT + tax reserve + burn';
+  $('sc-a-sub').textContent = 'click to preview in chart';
 
   $('sc-b-val').textContent = fmtEur(netB);
   $('sc-b-val').style.color = netB >= 0 ? 'var(--acc)' : 'var(--red)';
-  $('sc-b-sub').textContent = 'after VAT + tax reserve + burn';
+  $('sc-b-sub').textContent = 'click to preview in chart';
 
   $('sc-result').style.display = 'grid';
+}
+
+function applyScenarioToForecast(which) {
+  const sc = _scenarios[which];
+  if (!sc || !sc.rate) { toast('Run a comparison first', 'err'); return; }
+  S.scenarioOverride = { ...sc, which };
+
+  // Temporarily override cfg to rebuild netCashflow under this scenario
+  const origRate = S.cfg.hourlyRate;
+  const origDay  = S.cfg.dayRate;
+  const origHrs  = S.cfg.availHoursPerWeek;
+  S.cfg.hourlyRate         = sc.rate;
+  S.cfg.dayRate            = sc.rate * 8;
+  S.cfg.availHoursPerWeek  = sc.hrs;
+  buildNetCashflow();
+  S.cfg.hourlyRate         = origRate;
+  S.cfg.dayRate            = origDay;
+  S.cfg.availHoursPerWeek  = origHrs;
+
+  const banner = $('sc-active-banner');
+  if (banner) {
+    banner.style.display = 'block';
+    $('sc-active-label').textContent = '👁 Forecast showing: ' + sc.label;
+  }
+  ['A','B'].forEach(k => {
+    const col = $('sc-col-' + k);
+    if (col) col.style.outline = k === which ? '2px solid var(--acc)' : '';
+  });
+  navTo('forecast');
+  toast('Chart updated with ' + sc.label, 'ok', 2500);
+}
+
+function resetScenario() {
+  S.scenarioOverride = null;
+  buildNetCashflow();
+  // Also re-run full forecast to update sidebar
+  applyProfileToForecast();
+  const banner = $('sc-active-banner');
+  if (banner) banner.style.display = 'none';
+  ['A','B'].forEach(k => {
+    const col = $('sc-col-' + k);
+    if (col) col.style.outline = '';
+  });
+  renderForecastPage();
+  toast('Reset to your actual numbers', 'ok', 2000);
 }
 
 /* ─────────────────────────────────────────────────────────
    SETTINGS
 ───────────────────────────────────────────────────────── */
+
+// ── Tax-type preset rates (2025/26 effective reserve recommendations) ─────────
+const TAX_PRESETS = {
+  sole_trader_basic:   { tax: 25, note: 'UK basic rate + NI (£30k–50k income)' },
+  sole_trader_higher:  { tax: 42, note: 'UK higher rate + NI (£50k+ income)' },
+  ltd_small:           { tax: 19, note: 'UK Corp Tax 19% (profits ≤£50k)' },
+  ltd_large:           { tax: 25, note: 'UK Corp Tax 25% (profits >£50k / associated cos.)' },
+  umbrella:            { tax: 40, note: 'PAYE marginal rate + employer NI' },
+  zzp_nl:              { tax: 36, note: 'NL inkomstenbelasting box 1 ~36% effective' },
+  custom:              { tax: null, note: '' },
+};
+
+function applyTaxType(targetInputId, presetKey) {
+  const preset = TAX_PRESETS[presetKey];
+  if (!preset) return;
+  const input = $(targetInputId);
+  if (!input) return;
+  if (preset.tax !== null) {
+    input.value = preset.tax;
+    input.title = preset.note;
+    input.style.borderColor = 'var(--acc)';
+    setTimeout(() => { input.style.borderColor = ''; }, 1200);
+  }
+}
+
 function populateSettingsFields() {
   const c = S.cfg;
   if (!c) return;
@@ -2636,6 +2882,7 @@ function populateSettingsFields() {
   if (c.utilisation)       $('s-util').value             = c.utilisation;
   if (c.contractStartDate) $('s-contract-start').value   = c.contractStartDate;
   if (c.contractMonths)    $('s-contract-months').value  = c.contractMonths;
+  if (c.paymentTermsDays !== undefined) { const pt = $('s-payment-terms'); if (pt) pt.value = String(c.paymentTermsDays ?? 30); }
   if (c.linkedin?.id) {
     $('li-connect-status').textContent = '✓ Connected as ' + (c.linkedin.name || c.linkedin.id);
     $('li-badge').textContent = 'Connected';
@@ -3426,6 +3673,26 @@ function obStep3Next() {
 function obStep1Next() { obStep3Next(); }
 
 // Live preview during onboarding
+
+function obUpdateUtilNudge() {
+  const el = $('ob-util-nudge');
+  if (!el) return;
+  const rate    = parseFloat($('ob-rate')?.value) || 0;
+  const dayRate = parseFloat($('ob-dayrate')?.value) || 0;
+  const hrs     = parseFloat($('ob-hours')?.value) || 32;
+  const util    = parseFloat($('ob-utilization')?.value) || 75;
+  const effectiveRate = rate || (dayRate / 8);
+  if (!effectiveRate) { el.textContent = ''; return; }
+  const current = Math.round(effectiveRate * hrs * 4.33 * (util / 100));
+  if (util >= 100) {
+    el.textContent = '✅ Fully booked — ' + fmtEur(current) + '/month gross';
+  } else {
+    const next5 = Math.round(effectiveRate * hrs * 4.33 * 5 / 100);
+    const next  = Math.round(effectiveRate * hrs * 4.33 * ((util + 5) / 100));
+    el.textContent = '+5% more utilisation = +' + fmtEur(next5) + '/month  (' + fmtEur(current) + ' → ' + fmtEur(next) + ')';
+  }
+}
+
 function obUpdatePreview() {
   const rate    = parseFloat($('ob-rate')?.value)    || 0;
   const dayRate = parseFloat($('ob-dayrate')?.value) || 0;
