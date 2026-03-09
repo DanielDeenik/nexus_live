@@ -3263,7 +3263,7 @@ function obForward() {
   const step = S.obStep;
   if (step === 1) {
     const hasFiles    = OB_FILES && (OB_FILES.cv || OB_FILES.sow.length > 0);
-    const hasLinkedIn = !!(S.linkedinData && S.linkedinData._fromExport);
+    const hasLinkedIn = !!(S.linkedinData && (S.linkedinData._fromExport || S.linkedinData.name));
     if (hasFiles || hasLinkedIn) { obBuildProfile(); }
     else                         { obSkipToManual(); }
     return;
@@ -3497,8 +3497,8 @@ function removeFile(containerId, idx) {
 }
 
 async function obBuildProfile() {
-  // Allow build if we have files OR LinkedIn export data (CSV-only path)
-  const hasLinkedInExport = !!(S.linkedinData && S.linkedinData._fromExport);
+  // Allow build if we have files OR any LinkedIn data (OAuth or CSV export)
+  const hasLinkedInExport = !!(S.linkedinData && (S.linkedinData._fromExport || S.linkedinData.name));
   if (!OB_FILES.cv && OB_FILES.sow.length === 0 && !hasLinkedInExport) {
     obSkipToManual();
     return;
