@@ -640,6 +640,37 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 .lp-benefit-sub{font-size:11px;color:var(--sub);margin-top:2px}
 .lp-time-hint{font-size:10.5px;color:var(--dim);text-align:center;margin-top:10px}
 
+/* ─── OAuth sign-in buttons ─────────────────────────── */
+.login-oauth-btn{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:11px 16px;border-radius:var(--r);
+  font-size:13px;font-weight:600;text-decoration:none;
+  cursor:pointer;transition:all .12s;margin-bottom:8px;
+  border:1px solid var(--border);
+}
+.login-oauth-btn:hover{border-color:var(--dim);background:var(--bg3)}
+.linkedin-btn{color:#0a66c2;border-color:rgba(10,102,194,.3)}
+.linkedin-btn:hover{background:rgba(10,102,194,.06);border-color:#0a66c2}
+.google-btn{color:var(--txt)}
+.lp-divider{
+  display:flex;align-items:center;gap:10px;margin:14px 0;
+  font-size:11px;color:var(--dim);
+}
+.lp-divider::before,.lp-divider::after{
+  content:'';flex:1;height:1px;background:var(--border);
+}
+.login-email-input{
+  width:100%;padding:10px 13px;border-radius:var(--r);
+  background:var(--bg3);border:1px solid var(--border);
+  color:var(--txt);font-size:13px;font-family:var(--font);
+  box-sizing:border-box;outline:none;
+}
+.login-email-input:focus{border-color:var(--acc)}
+#lp-email-form .login-cta{margin-top:8px}
+.lp-email-hint{font-size:11px;color:var(--dim);text-align:center;margin-top:8px}
+.lp-email-hint a{color:var(--sub);text-decoration:underline;cursor:pointer}
+.lp-auth-status{font-size:12px;text-align:center;margin-top:10px;min-height:18px;color:var(--acc)}
+
 /* ─────────────────────────────────────────────────────────
    AVAILABILITY STATE — sidebar widget
 ───────────────────────────────────────────────────────── */
@@ -839,35 +870,43 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
       <button class="login-cta secondary" style="margin-top:4px" onclick="loginShowBuildView()">← Not you?</button>
     </div>
 
-    <!-- ── VIEW C: New user / no profile ─────────────────── -->
+    <!-- ── VIEW C: New user / sign-in options ─────────────── -->
     <div id="lp-view-new" style="display:none">
       <div class="lp-hero" id="lp-hero-text">Your freelancer financial OS</div>
-      <div class="lp-hero-sub" id="lp-hero-sub">4 minutes to your first cash-flow forecast.</div>
-      <div class="lp-benefits" id="lp-benefits-block">
-        <div class="lp-benefit">
-          <span class="lp-benefit-icon">💰</span>
-          <div>
-            <div class="lp-benefit-title">Cash flow forecast</div>
-            <div class="lp-benefit-sub">Runway, income gaps, and bench risk — at a glance</div>
-          </div>
-        </div>
-        <div class="lp-benefit">
-          <span class="lp-benefit-icon">🎯</span>
-          <div>
-            <div class="lp-benefit-title">Smart outreach targets</div>
-            <div class="lp-benefit-sub">Companies matched to your skills before jobs are posted</div>
-          </div>
-        </div>
-        <div class="lp-benefit">
-          <span class="lp-benefit-icon">📊</span>
-          <div>
-            <div class="lp-benefit-title">12-month pipeline</div>
-            <div class="lp-benefit-sub">Track contracts, notice periods, and gaps on one timeline</div>
-          </div>
-        </div>
+      <div class="lp-hero-sub" id="lp-hero-sub">Sign in to build your profile and get your first forecast.</div>
+
+      <!-- OAuth buttons -->
+      <a href="/auth/linkedin" class="login-oauth-btn linkedin-btn" id="lp-linkedin-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+        Continue with LinkedIn
+      </a>
+
+      <a href="/auth/google" class="login-oauth-btn google-btn" id="lp-google-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </a>
+
+      <div class="lp-divider"><span>or</span></div>
+
+      <!-- Email / magic link -->
+      <div id="lp-email-form">
+        <input type="email" id="lp-email-input" class="login-email-input" placeholder="your@email.com" autocomplete="email">
+        <button class="login-cta primary" id="lp-email-btn" onclick="lpSendMagicLink()">Send magic link →</button>
+        <div class="lp-email-hint">or <a href="#" onclick="lpShowPasswordForm();return false">use password</a></div>
       </div>
-      <button class="login-cta primary" id="lp-new-primary-btn" onclick="loginBuildProfile()">Build my profile →</button>
-      <div class="lp-time-hint" id="lp-time-hint">Takes about 4 minutes · No account needed</div>
+
+      <!-- Password form (shown on demand) -->
+      <div id="lp-password-form" style="display:none">
+        <input type="email" id="lp-pw-email" class="login-email-input" placeholder="Email" autocomplete="email">
+        <input type="password" id="lp-pw-pass" class="login-email-input" placeholder="Password" style="margin-top:8px" autocomplete="current-password">
+        <button class="login-cta primary" onclick="lpPasswordLogin()">Sign in →</button>
+        <button class="login-cta secondary" style="margin-top:6px" onclick="lpRegister()">Create account</button>
+        <div class="lp-email-hint" style="margin-top:8px"><a href="#" onclick="lpShowEmailForm();return false">← Use magic link instead</a></div>
+      </div>
+
+      <div class="lp-auth-status" id="lp-auth-status"></div>
+
+      <div class="lp-time-hint" id="lp-time-hint">No credit card · Cancel anytime</div>
       <button class="login-cta secondary" id="lp-back-btn" onclick="loginShowEnterView()" style="display:none;margin-top:8px">← Back</button>
     </div>
 
@@ -1850,32 +1889,25 @@ async function loadContracts() {
 
 async function loadSeasonalData() {
   try {
-    // ── 1. Check if user already applied a preset (from obApplySeasonPreset) ──
-    // If so, apply it immediately from the in-memory table — no HTTP call needed.
-    const savedPreset = S.cfg?._seasonalityPreset;
-    if (savedPreset && OB_SEASON_PRESETS && OB_SEASON_PRESETS[savedPreset]) {
-      const data    = OB_SEASON_PRESETS[savedPreset];
-      const indexed = data.map((v,i)=>({m:OB_SEASON_MONTHS[i],v})).sort((a,b)=>b.v-a.v);
-      S.incomeSeasonality = {
-        industry: savedPreset,
-        data,
-        months:   OB_SEASON_MONTHS,
-        peak:     indexed.slice(0,3).map(x=>x.m),
-        slow:     indexed.slice(-3).map(x=>x.m),
-        source:   'preset',
-      };
-    } else {
-      // ── 2. Fallback: fetch from API by detected industry ──────────────────
-      const ind = S.cfg?.targetIndustries?.[0] || '';
-      const r1  = await fetch('/api/onboard/seasonality?industry=' + encodeURIComponent(ind));
-      if (r1.ok) {
-        const d = await r1.json();
-        // API returns { data[], peak[], slow[], industry, months[] }
-        if (d?.data?.length === 12) {
-          S.incomeSeasonality = { data: d.data, peak: d.peak, slow: d.slow, industry: d.industry, months: d.months, source: 'api' };
-        } else {
-          S.incomeSeasonality = d?.seasonality || d || null;
-        }
+    // Always fetch from live API — server handles cache, Google Trends, and fallback presets
+    const ind      = S.cfg?.targetIndustries?.[0] || '';
+    const location = S.cfg?.location ? (S.cfg.location.includes('UK') ? 'GB' :
+                       S.cfg.location.includes('Belg') ? 'BE' : 'NL') : 'NL';
+    const url = '/api/onboard/seasonality?industry=' + encodeURIComponent(ind) +
+                '&location=' + encodeURIComponent(location);
+    const r1  = await fetch(url, { credentials: 'same-origin' });
+    if (r1.ok) {
+      const d = await r1.json();
+      if (d?.data?.length === 12) {
+        S.incomeSeasonality = {
+          data:     d.data,
+          peak:     d.peak,
+          slow:     d.slow,
+          industry: d.industry,
+          months:   d.months,
+          source:   d.source,   // 'google_trends' | 'preset'
+          fresh:    d.fresh,
+        };
       }
     }
     // Spend baselines
@@ -4283,6 +4315,15 @@ function loginShowBuildView() {
 }
 
 async function initLoginScreen() {
+  // ── 1. Check for active server session (OAuth / magic link / email login) ──
+  const hasServerSession = await checkSessionAuth();
+  if (hasServerSession) {
+    // Already logged in — go straight to enter view with auto-dismiss
+    loginShowView('lp-view-enter');
+    LOGIN.autoDismissTimer = setTimeout(loginEnter, 800);
+    return;
+  }
+
   // ── If already unlocked this browser session, skip the screen entirely ──
   if (sessionStorage.getItem('nexus_unlocked') === '1') {
     loginDismiss();
@@ -4357,8 +4398,9 @@ async function initLoginScreen() {
       const secBtn = $('lp-back-btn');
       if (secBtn) { secBtn.style.display = 'block'; secBtn.textContent = 'Start over'; secBtn.onclick = loginBuildProfile; }
     } else if (!d.hasProfile) {
-      // ── New user: show build-profile view immediately ──
+      // ── New user: show sign-in options ──
       loginShowView('lp-view-new');
+      lpShowEmailForm(); // default to magic link form
     } else if (!d.hasPin) {
       // ── Returning user, no PIN: show profile + Enter button ──
       loginShowView('lp-view-enter');
@@ -4470,6 +4512,141 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !LOGIN.hasPin) loginEnter();
   }
 });
+
+// ─── OAuth / Email / Magic Link auth functions ────────────────────────────────
+
+function lpShowEmailForm() {
+  const ef = $('lp-email-form');
+  const pf = $('lp-password-form');
+  if (ef) ef.style.display = 'block';
+  if (pf) pf.style.display = 'none';
+  lpSetStatus('');
+}
+function lpShowPasswordForm() {
+  const ef = $('lp-email-form');
+  const pf = $('lp-password-form');
+  if (ef) ef.style.display = 'none';
+  if (pf) {
+    pf.style.display = 'block';
+    // Pre-fill email from magic link form
+    const email = ($('lp-email-input') || {}).value || '';
+    const pw = $('lp-pw-email');
+    if (pw && email) pw.value = email;
+  }
+  lpSetStatus('');
+}
+function lpSetStatus(msg, isErr = false) {
+  const el = $('lp-auth-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = isErr ? 'var(--red)' : 'var(--acc)';
+}
+
+async function lpSendMagicLink() {
+  const email = ($('lp-email-input') || {}).value?.trim();
+  if (!email || !email.includes('@')) { lpSetStatus('Enter a valid email address.', true); return; }
+  const btn = $('lp-email-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  lpSetStatus('');
+  try {
+    const r = await fetch('/auth/magic', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin', body: JSON.stringify({ email })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      lpSetStatus('✓ Check your inbox — link sent!');
+      if (btn) { btn.disabled = false; btn.textContent = 'Resend →'; }
+    } else {
+      lpSetStatus(d.error || 'Failed to send. Try again.', true);
+      if (btn) { btn.disabled = false; btn.textContent = 'Send magic link →'; }
+    }
+  } catch {
+    lpSetStatus('Network error. Try again.', true);
+    if (btn) { btn.disabled = false; btn.textContent = 'Send magic link →'; }
+  }
+}
+
+async function lpPasswordLogin() {
+  const email = ($('lp-pw-email') || {}).value?.trim();
+  const pass  = ($('lp-pw-pass') || {}).value;
+  if (!email || !pass) { lpSetStatus('Email and password required.', true); return; }
+  lpSetStatus('Signing in…');
+  try {
+    const r = await fetch('/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin', body: JSON.stringify({ email, password: pass })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      lpSetStatus('✓ Signed in!');
+      setTimeout(() => { loginEnter(); }, 600);
+    } else {
+      lpSetStatus(d.error || 'Login failed.', true);
+    }
+  } catch { lpSetStatus('Network error.', true); }
+}
+
+async function lpRegister() {
+  const email = ($('lp-pw-email') || {}).value?.trim();
+  const pass  = ($('lp-pw-pass') || {}).value;
+  if (!email || !pass) { lpSetStatus('Email and password required.', true); return; }
+  if (pass.length < 8) { lpSetStatus('Password must be 8+ characters.', true); return; }
+  lpSetStatus('Creating account…');
+  try {
+    const r = await fetch('/auth/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin', body: JSON.stringify({ email, password: pass })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      lpSetStatus('✓ Account created!');
+      setTimeout(() => { loginBuildProfile(); }, 600);
+    } else {
+      lpSetStatus(d.error || 'Registration failed.', true);
+    }
+  } catch { lpSetStatus('Network error.', true); }
+}
+
+// Check if already authenticated via session on page load
+async function checkSessionAuth() {
+  try {
+    const r = await fetch('/auth/me', { credentials: 'same-origin' });
+    const d = await r.json();
+    if (d.authenticated && d.user) {
+      // Session active — update LOGIN state and skip new-user view
+      LOGIN.hasProfile = true;
+      if (d.user.name) {
+        if ($('lp-name'))     $('lp-name').textContent = d.user.name;
+        if ($('lp-headline')) $('lp-headline').textContent = d.user.email || '';
+        const initials = d.user.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+        if ($('lp-avatar'))   $('lp-avatar').textContent = initials;
+        if ($('lp-pin-name')) $('lp-pin-name').textContent = d.user.name;
+        if ($('lp-pin-avatar')) $('lp-pin-avatar').textContent = initials;
+      }
+      return true;
+    }
+    return false;
+  } catch { return false; }
+}
+
+// Handle auth error from OAuth redirect
+const _authError = new URLSearchParams(window.location.search).get('auth_error');
+if (_authError) {
+  const msgs = {
+    linkedin_not_configured: 'LinkedIn login is not configured on this server.',
+    linkedin_failed:         'LinkedIn login failed. Try another method.',
+    google_not_configured:   'Google login is not configured on this server.',
+    google_failed:           'Google login failed. Try another method.',
+    invalid_or_expired_token:'That sign-in link has expired. Request a new one.',
+    missing_token:           'Invalid sign-in link.',
+    login_failed:            'Login failed. Please try again.',
+  };
+  window.addEventListener('DOMContentLoaded', () => {
+    lpSetStatus(msgs[_authError] || 'Login error. Please try again.', true);
+    loginShowView('lp-view-new');
+  });
+}
 
 // ─── SETTINGS PAGE PIN MANAGEMENT ────────────────────────────────────────────
 

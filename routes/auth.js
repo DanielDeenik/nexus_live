@@ -1,0 +1,191 @@
+/**
+ * routes/auth.js — All authentication endpoints
+ *
+ * GET  /auth/linkedin           → start LinkedIn OAuth
+ * GET  /auth/linkedin/callback  → LinkedIn OAuth callback
+ * GET  /auth/google             → start Google OAuth
+ * GET  /auth/google/callback    → Google OAuth callback
+ * POST /auth/register           → email + password registration
+ * POST /auth/login              → email + password login
+ * POST /auth/magic              → request magic link (by email)
+ * GET  /auth/magic              → verify magic link token
+ * POST /auth/logout             → destroy session
+ * GET  /auth/me                 → current user info
+ */
+
+const express    = require('express');
+const passport   = require('passport');
+const bcrypt     = require('bcryptjs');
+const { generateToken, sendMagicLink } = require('../lib/magicLink');
+const { currentUserId } = require('../lib/auth');
+
+let db; // injected via module.exports.init()
+
+const router = express.Router();
+
+// ─── Helper — after-auth redirect ────────────────────────────────────────────
+
+function afterAuth(req, res) {
+  // If this was a popup (LinkedIn flow compatibility), use postMessage
+  if (req.query.popup === '1') {
+    const user = req.user;
+    return res.send(`
+      <script>
+        window.opener && window.opener.postMessage({
+          type: 'NEXUS_AUTH',
+          user: ${JSON.stringify({ id: user.id, name: user.name, email: user.email, avatar_url: user.avatar_url })}
+        }, '*');
+        window.close();
+      </script>
+    `);
+  }
+  res.redirect('/');
+}
+
+// ─── LinkedIn ─────────────────────────────────────────────────────────────────
+
+router.get('/linkedin', (req, res, next) => {
+  if (!passport._strategies?.linkedin) {
+    return res.status(503).json({ ok: false, error: 'LinkedIn OAuth not configured on this server.' });
+  }
+  passport.authenticate('linkedin', { state: true })(req, res, next);
+});
+
+router.get('/linkedin/callback',
+  (req, res, next) => {
+    if (!passport._strategies?.linkedin) return res.redirect('/?auth_error=linkedin_not_configured');
+    next();
+  },
+  passport.authenticate('linkedin', { failureRedirect: '/?auth_error=linkedin_failed' }),
+  afterAuth
+);
+
+// ─── Google ───────────────────────────────────────────────────────────────────
+
+router.get('/google', (req, res, next) => {
+  if (!passport._strategies?.google) {
+    return res.status(503).json({ ok: false, error: 'Google OAuth not configured on this server.' });
+  }
+  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+});
+
+router.get('/google/callback',
+  (req, res, next) => {
+    if (!passport._strategies?.google) return res.redirect('/?auth_error=google_not_configured');
+    next();
+  },
+  passport.authenticate('google', { failureRedirect: '/?auth_error=google_failed' }),
+  afterAuth
+);
+
+// ─── Email registration ───────────────────────────────────────────────────────
+
+router.post('/register', async (req, res) => {
+  const { email, password, name } = req.body || {};
+  if (!email || !password) return res.status(400).json({ ok: false, error: 'Email and password required.' });
+  if (password.length < 8)  return res.status(400).json({ ok: false, error: 'Password must be at least 8 characters.' });
+
+  const existing = db.users.findByEmail(email);
+  if (existing) return res.status(409).json({ ok: false, error: 'An account with that email already exists.' });
+
+  const hash = await bcrypt.hash(password, 12);
+  const user = db.users.create({ email, name: name || email.split('@')[0], password_hash: hash });
+
+  req.login(user, err => {
+    if (err) return res.status(500).json({ ok: false, error: 'Login after registration failed.' });
+    res.json({ ok: true, user: _safeUser(user) });
+  });
+});
+
+// ─── Email login ──────────────────────────────────────────────────────────────
+
+router.post('/login', (req, res, next) => {
+  passport.authenticate('local', (err, user, info) => {
+    if (err)   return res.status(500).json({ ok: false, error: err.message });
+    if (!user) return res.status(401).json({ ok: false, error: info?.message || 'Authentication failed.' });
+    req.login(user, loginErr => {
+      if (loginErr) return res.status(500).json({ ok: false, error: loginErr.message });
+      res.json({ ok: true, user: _safeUser(user) });
+    });
+  })(req, res, next);
+});
+
+// ─── Magic link request ───────────────────────────────────────────────────────
+
+router.post('/magic', async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ ok: false, error: 'Email required.' });
+
+  // Find or create user
+  let user = db.users.findByEmail(email);
+  if (!user) {
+    user = db.users.create({ email, name: email.split('@')[0] });
+  }
+
+  const token   = generateToken();
+  const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+
+  db.users.setMagicToken(user.id, token, 3600); // 1 hour TTL
+
+  try {
+    await sendMagicLink(email, token, baseUrl);
+    res.json({ ok: true, message: 'Magic link sent. Check your inbox.' });
+  } catch (e) {
+    console.error('[auth/magic] email send failed:', e.message);
+    res.status(500).json({ ok: false, error: 'Failed to send email. Please try again.' });
+  }
+});
+
+// ─── Magic link verify ────────────────────────────────────────────────────────
+
+router.get('/magic', (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.redirect('/?auth_error=missing_token');
+
+  const user = db.users.findByMagicToken(token);
+  if (!user)  return res.redirect('/?auth_error=invalid_or_expired_token');
+
+  db.users.clearMagicToken(user.id);
+
+  req.login(user, err => {
+    if (err) return res.redirect('/?auth_error=login_failed');
+    res.redirect('/');
+  });
+});
+
+// ─── Logout ───────────────────────────────────────────────────────────────────
+
+router.post('/logout', (req, res) => {
+  req.logout(err => {
+    if (err) return res.status(500).json({ ok: false, error: err.message });
+    req.session.destroy(() => res.json({ ok: true }));
+  });
+});
+
+// ─── Me ───────────────────────────────────────────────────────────────────────
+
+router.get('/me', (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.json({ ok: true, authenticated: false, user: null });
+  }
+  res.json({ ok: true, authenticated: true, user: _safeUser(req.user) });
+});
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function _safeUser(u) {
+  if (!u) return null;
+  return {
+    id:         u.id,
+    name:       u.name,
+    email:      u.email,
+    avatar_url: u.avatar_url,
+    plan:       u.plan,
+    created_at: u.created_at,
+  };
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+module.exports = router;
+module.exports.init = function(dbInstance) { db = dbInstance; };

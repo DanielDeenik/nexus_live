@@ -1,5 +1,10 @@
 'use strict';
-const store = require('../lib/store');
+const store            = require('../lib/store');
+const db               = require('../lib/db');
+const { currentUserId }      = require('../lib/auth');
+const { getSeasonality, getAllAvailable } = require('../lib/seasonalityEngine');
+const { getRates, recommendRate }        = require('../lib/rateEngine');
+const { parseCV, parseSOW, mergeDocuments } = require('../lib/cvParser');
 /**
  * routes/onboard.js — Onboarding wizard API
  *
@@ -92,81 +97,8 @@ async function upsertRow(notion, dbId, existing, param, value, category, source,
 
 // ── Seasonality data ──────────────────────────────────────────────────────────
 
-/**
- * Industry-specific monthly hiring / contracting activity index (0–100).
- * Reflects typical demand patterns for freelancers and independent contractors
- * across verticals — globally applicable.
- */
-const SEASONALITY = {
-  // Finance
-  'Asset Management':       [88, 90, 82, 70, 75, 65, 22, 18, 72, 85, 55, 20],
-  'Wealth Management':      [85, 87, 80, 72, 73, 62, 25, 20, 70, 83, 52, 18],
-  'Hedge Funds':            [82, 88, 78, 68, 72, 60, 20, 15, 68, 80, 50, 15],
-  'Banking':                [80, 85, 78, 72, 70, 65, 28, 22, 68, 80, 55, 22],
-  'Capital Markets':        [85, 88, 82, 72, 75, 65, 20, 16, 70, 84, 54, 18],
-  'FinTech':                [78, 82, 80, 78, 76, 70, 45, 40, 72, 80, 62, 30],
-  'Insurance':              [82, 84, 78, 70, 68, 62, 25, 20, 68, 80, 52, 20],
-  'Pension Funds':          [85, 88, 80, 68, 70, 60, 20, 15, 68, 82, 50, 18],
-  'Private Equity / VC':    [75, 80, 78, 72, 74, 68, 30, 25, 72, 78, 58, 22],
-  'Accounting & Audit':     [85, 82, 90, 88, 70, 60, 30, 25, 65, 78, 60, 35],
-  // Consulting & Services
-  'Management Consulting':  [80, 82, 78, 75, 72, 65, 30, 25, 70, 80, 55, 25],
-  'Professional Services':  [78, 80, 78, 75, 72, 65, 32, 28, 70, 78, 55, 28],
-  'Project Management':     [78, 80, 82, 78, 75, 68, 35, 30, 72, 78, 58, 28],
-  'Compliance & Regulatory':[82, 85, 80, 75, 72, 65, 30, 25, 70, 80, 55, 25],
-  // Technology
-  'Software Engineering':   [80, 82, 80, 78, 76, 72, 50, 45, 74, 80, 65, 35],
-  'AI / Machine Learning':  [82, 85, 82, 80, 78, 74, 55, 50, 76, 82, 68, 38],
-  'Data & Analytics':       [80, 82, 80, 78, 76, 70, 50, 45, 74, 80, 65, 35],
-  'Cloud / Infrastructure': [78, 80, 80, 78, 76, 70, 52, 48, 74, 80, 65, 35],
-  'Cybersecurity':          [80, 82, 80, 78, 76, 72, 52, 48, 76, 82, 65, 35],
-  'Product Management':     [78, 80, 80, 78, 75, 70, 48, 42, 72, 80, 62, 32],
-  'UX / Product Design':    [76, 78, 80, 78, 75, 68, 48, 42, 72, 78, 62, 32],
-  'IT Consulting':          [78, 80, 78, 75, 72, 65, 40, 35, 72, 78, 60, 30],
-  'SaaS / Software':        [78, 80, 78, 76, 74, 70, 48, 42, 72, 78, 62, 32],
-  'DevOps / Platform':      [78, 80, 80, 78, 76, 70, 52, 48, 74, 80, 65, 35],
-  // Marketing & Creative
-  'Digital Marketing':      [75, 78, 82, 80, 78, 72, 40, 38, 78, 82, 65, 35],
-  'Branding / Creative':    [72, 76, 80, 80, 78, 70, 38, 35, 76, 80, 62, 32],
-  'Content & SEO':          [72, 75, 80, 80, 78, 72, 40, 38, 78, 80, 62, 32],
-  'Advertising / Media':    [78, 80, 82, 80, 78, 70, 35, 32, 78, 84, 68, 38],
-  'PR & Communications':    [75, 78, 80, 80, 78, 68, 35, 30, 76, 80, 62, 32],
-  'Graphic Design':         [70, 74, 78, 78, 76, 70, 40, 38, 74, 78, 62, 35],
-  // Legal
-  'Legal':                  [82, 85, 80, 75, 72, 65, 30, 25, 70, 80, 58, 28],
-  // Healthcare & Life Sciences
-  'Healthcare':             [78, 80, 80, 78, 75, 68, 40, 38, 72, 78, 60, 32],
-  'Life Sciences':          [78, 80, 80, 78, 75, 68, 42, 40, 72, 78, 62, 32],
-  // Real Estate & Construction
-  'Real Estate':            [72, 76, 82, 82, 78, 70, 35, 32, 74, 78, 58, 25],
-  'Construction & Architecture': [70, 74, 82, 84, 80, 72, 38, 35, 72, 76, 55, 28],
-  // Operations
-  'Supply Chain & Logistics':[78, 80, 80, 78, 75, 68, 38, 35, 72, 78, 60, 30],
-  // HR
-  'HR & People':            [78, 82, 80, 76, 72, 65, 35, 30, 72, 78, 58, 30],
-  // Education & Non-profit
-  'Education':              [65, 68, 72, 75, 72, 55, 78, 80, 82, 75, 60, 35],
-  'Non-profit / NGO':       [70, 72, 75, 75, 72, 65, 35, 32, 70, 75, 58, 30],
-  // Energy
-  'Energy & Sustainability':[75, 78, 80, 80, 78, 70, 40, 38, 74, 78, 60, 30],
-  // Media & Retail
-  'Media & Entertainment':  [72, 74, 76, 78, 76, 68, 42, 40, 74, 80, 65, 42],
-  'E-commerce / Retail':    [72, 74, 76, 78, 75, 68, 45, 48, 76, 82, 80, 55],
-  // Fallback
-  'default':                [78, 80, 80, 76, 74, 66, 35, 32, 70, 78, 58, 30],
-};
-
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-function getSeasonality(industries = []) {
-  // Find first known industry, or use default
-  for (const ind of industries) {
-    if (SEASONALITY[ind]) {
-      return { industry: ind, data: SEASONALITY[ind], months: MONTHS };
-    }
-  }
-  return { industry: 'General', data: SEASONALITY.default, months: MONTHS };
-}
+// All seasonality now comes from lib/seasonalityEngine.js (live + cached, no hardcoding)
+// All rate benchmarks now come from lib/rateEngine.js (scraped + cached, no hardcoding)
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -318,30 +250,55 @@ router.post('/complete', async (req, res) => {
  * GET /api/onboard/seasonality?industries=Asset+Management,Banking
  * Returns monthly seasonality data for given industries.
  */
-router.get('/seasonality', (req, res) => {
+router.get('/seasonality', async (req, res) => {
   const rawIndustries = req.query.industries || '';
-  const industries = rawIndustries
-    .split(',')
-    .map(i => i.trim())
-    .filter(Boolean);
+  const location      = req.query.location   || 'NL';
+  const industries    = rawIndustries.split(',').map(i => i.trim()).filter(Boolean);
+  const industry      = industries[0] || 'default';
 
-  const season = getSeasonality(industries);
+  try {
+    // Live seasonality — falls back to preset if Trends unavailable
+    const season = await getSeasonality(industry, location, db);
+    res.json({
+      ok:        true,
+      industry:  season.industry,
+      location:  season.location,
+      months:    season.months,
+      data:      season.data,
+      peak:      season.peak,
+      slow:      season.slow,
+      source:    season.source,
+      fresh:     season.fresh,
+      available: getAllAvailable(),
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
 
-  // Derive peak and slow months
-  const indexed = season.data.map((val, i) => ({ month: MONTHS[i], val, idx: i }));
-  const sorted  = [...indexed].sort((a, b) => b.val - a.val);
-  const peak    = sorted.slice(0, 3).map(m => m.month);
-  const slow    = sorted.slice(-3).map(m => m.month);
+/**
+ * GET /api/onboard/rates — Live market rate benchmarks for given skills/seniority/industry
+ */
+router.get('/rates', async (req, res) => {
+  const { skills = '', seniority = 'Senior', industry = 'default', location = 'NL' } = req.query;
+  const skillsArr = skills.split(',').map(s => s.trim()).filter(Boolean);
 
-  res.json({
-    ok: true,
-    industry: season.industry,
-    months:   MONTHS,
-    data:     season.data,
-    peak,
-    slow,
-    available: Object.keys(SEASONALITY).filter(k => k !== 'default'),
-  });
+  try {
+    const userId    = currentUserId(req);
+    const profile   = db.profiles.get(userId) || {};
+    const rates     = await getRates({
+      skills:   skillsArr.length ? skillsArr : profile.skills || [],
+      seniority: seniority || profile.seniority || 'Senior',
+      industry:  industry  || (profile.industries || [])[0] || 'default',
+      location,
+      db,
+    });
+    const recommendation = recommendRate(profile, rates);
+
+    res.json({ ok: true, ...rates, recommendation });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 /**

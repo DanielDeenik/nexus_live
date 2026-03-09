@@ -12,10 +12,16 @@
 
 require('dotenv').config();
 
-const express = require('express');
-const cors    = require('cors');
-const path    = require('path');
+const express        = require('express');
+const cors           = require('cors');
+const path           = require('path');
+const session        = require('express-session');
+const FileStore      = require('session-file-store')(session);
+const passport       = require('passport');
 
+const db             = require('./lib/db');
+const authConfig     = require('./lib/auth');
+const authRouter     = require('./routes/auth');
 const { load, checkConnectivity } = require('./lib/workspace');
 const apiRouter                   = require('./routes/api');
 const budgetAppRouter             = require('./routes/budget-app');
@@ -37,14 +43,34 @@ try {
 const app = express();
 
 // ── Middleware ────────────────────────────────────────────────────────────────
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 
-// cookie-parser for LinkedIn OAuth state CSRF check (optional — graceful fallback)
+// cookie-parser for OAuth state CSRF checks
 try {
   const cookieParser = require('cookie-parser');
   app.use(cookieParser());
-} catch { /* not installed — CSRF check skipped */ }
+} catch { /* not installed */ }
+
+// ── Session (file-backed, survives restarts) ─────────────────────────────────
+const sessDir = path.join(__dirname, 'data', 'sessions');
+require('fs').mkdirSync(sessDir, { recursive: true });
+
+app.use(session({
+  store:             new FileStore({ path: sessDir, ttl: 86400 * 30, retries: 0, logFn: () => {} }),
+  secret:            process.env.SESSION_SECRET || 'nexus-dev-secret-change-in-prod',
+  resave:            false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure:   process.env.NODE_ENV === 'production',
+    maxAge:   30 * 24 * 3600 * 1000, // 30 days
+  },
+}));
+
+// ── Passport ──────────────────────────────────────────────────────────────────
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use(basicAuth);  // no-op if SANDBOX_USER/SANDBOX_PASS not set
 app.use(express.static(path.join(__dirname, 'public')));
@@ -69,6 +95,12 @@ if (multer) {
 // ── Health check (exempt from basic auth — used by uptime monitors) ───────────
 app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
+// ── Auth routes (no /api prefix — handles /auth/* directly) ──────────────────
+app.use('/auth', authRouter);
+
+// ── Login page (SPA handles it, but serve index.html for /login) ──────────────
+app.get('/login', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
 // ── API routes ────────────────────────────────────────────────────────────────
 app.use('/api', apiRouter);
 app.use('/api/budget-app', budgetAppRouter);
@@ -83,6 +115,22 @@ app.get('*', (_req, res) => {
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT || '3333', 10);
 
+// ── DB + Auth init then start server ─────────────────────────────────────────
+db.init().then(() => {
+  // Wire passport strategies + inject DB module (not the raw sql.js instance) into auth layer
+  authConfig.init(db);
+  authRouter.init(db);
+
+  // Seed legacy local user so old store.get('profile') still works
+  db.legacy.ensureLegacyUser();
+
+  startServer();
+}).catch(e => {
+  console.error('DB init failed:', e.message);
+  process.exit(1);
+});
+
+function startServer() {
 app.listen(PORT, async () => {
   console.log(`\n⬡  Nexus Live  →  http://localhost:${PORT}\n`);
 
@@ -123,3 +171,4 @@ app.listen(PORT, async () => {
   // Start market intel scheduler (runs daily signal refresh when profile is set)
   intel.startScheduler();
 });
+} // end startServer
