@@ -3,7 +3,8 @@
  * routes/profile.js — AI Profile Builder + Market Intelligence API
  *
  * POST /api/profile/build
- *   Upload CV PDF + optional SOW PDFs, plus any LinkedIn data in body.
+ *   Upload CV + optional SOW documents (PDF, DOCX, DOC, XLSX, RTF, TXT, CSV),
+ *   plus any LinkedIn data in body.
  *   Extracts and synthesizes a unified SearchProfile.
  *   Returns the profile for human-in-the-loop confirmation — does NOT save.
  *
@@ -32,7 +33,7 @@ const router     = express.Router();
 const { Client } = require('@notionhq/client');
 const store      = require('../lib/store');
 
-const { parsePdf }              = require('../lib/pdfParser');
+const { extractText, documentFileFilter, ACCEPTED_EXTENSIONS } = require('../lib/documentParser');
 const { extractCvProfile }      = require('../lib/cvParser');
 const { parseSow }              = require('../lib/sowParser');
 const {
@@ -41,26 +42,23 @@ const {
 } = require('../lib/profileSynthesizer');
 const intel                     = require('../workers/marketIntel');
 
-// Multer for multi-file PDF uploads (memory storage)
+// Multer for multi-file document uploads (memory storage)
+// Accepts: PDF, DOCX, DOC, XLSX, XLS, ODS, ODT, RTF, TXT, CSV
 let multer;
 try { multer = require('multer'); } catch { multer = null; }
 
 let upload;
 if (multer) {
   const storage = multer.memoryStorage();
-  const fileFilter = (_req, file, cb) => {
-    if (file.mimetype === 'application/pdf' || file.originalname?.endsWith('.pdf')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only PDF files accepted'));
-    }
-  };
-  upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 }, fileFilter })
-    .fields([
-      { name: 'cv',       maxCount: 1 },
-      { name: 'sow',      maxCount: 5 },
-      { name: 'contract', maxCount: 5 },
-    ]);
+  upload = multer({
+    storage,
+    limits: { fileSize: 20 * 1024 * 1024 },
+    fileFilter: documentFileFilter,   // from documentParser — all supported formats
+  }).fields([
+    { name: 'cv',       maxCount: 1 },
+    { name: 'sow',      maxCount: 5 },
+    { name: 'contract', maxCount: 5 },
+  ]);
 }
 
 // ── Notion helpers ────────────────────────────────────────────────────────────
@@ -110,9 +108,9 @@ async function upsertRow(notion, dbId, existing, param, value, category, source,
 /**
  * Accepts:
  *   multipart/form-data with fields:
- *     cv         (PDF file, optional)
- *     sow        (PDF file(s), optional — can upload multiple)
- *     contract   (PDF file(s), optional — alias for sow)
+ *     cv         (document file, optional — PDF, DOCX, DOC, RTF, TXT, CSV)
+ *     sow        (document file(s), optional — can upload multiple)
+ *     contract   (document file(s), optional — alias for sow)
  *     linkedin   (JSON string — from LinkedIn OAuth)
  *
  * Returns synthesized profile for human-in-the-loop confirmation.
@@ -131,24 +129,26 @@ router.post('/build', (req, res) => {
         try { linkedin = typeof liRaw === 'string' ? JSON.parse(liRaw) : liRaw; } catch { /* ignore */ }
       }
 
-      // 2. Parse CV PDF
+      // 2. Parse CV (any supported format)
       let cv = null;
       const cvFile = req.files?.cv?.[0];
       if (cvFile) {
-        const parsed = await parsePdf(cvFile.buffer);
-        cv = extractCvProfile(parsed.fullText || parsed.rawText || '');
+        const extracted = await extractText(cvFile.buffer, cvFile.originalname, cvFile.mimetype);
+        if (extracted.error) console.warn('[profile/build] CV parse warning:', extracted.error);
+        cv = extractCvProfile(extracted.text || '');
       }
 
-      // 3. Parse SOW / contract PDFs
+      // 3. Parse SOW / contract documents (any supported format)
       const sowFiles = [
         ...(req.files?.sow      || []),
         ...(req.files?.contract || []),
       ];
       const sows = [];
       for (const file of sowFiles) {
-        const parsed = await parsePdf(file.buffer);
-        const sow    = parseSow(parsed.fullText || parsed.rawText || '');
-        sows.push({ ...sow, filename: file.originalname });
+        const extracted = await extractText(file.buffer, file.originalname, file.mimetype);
+        if (extracted.error) console.warn('[profile/build] SOW parse warning:', extracted.error);
+        const sow = parseSow(extracted.text || '');
+        sows.push({ ...sow, filename: file.originalname, format: extracted.format });
       }
 
       // 4. Guard: need at least some input

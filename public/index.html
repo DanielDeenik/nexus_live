@@ -1468,10 +1468,10 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
             ondragleave="dzDragLeave('dz-cv')"
             ondrop="dzDrop(event,'cv')"
             onclick="dzClickZone('cv')">
-            <input type="file" accept=".pdf" id="file-cv" onchange="dzFile(event,'cv')" style="display:none">
+            <input type="file" accept=".pdf,.docx,.doc,.rtf,.txt,.csv" id="file-cv" onchange="dzFile(event,'cv')" style="display:none">
             <div class="ob-dz-icon" id="dz-cv-icon">📄</div>
             <div class="ob-dz-label">CV / Résumé</div>
-            <div class="ob-dz-sub" id="dz-cv-sub">Drag &amp; drop or click · PDF only</div>
+            <div class="ob-dz-sub" id="dz-cv-sub">Drag &amp; drop or click · PDF, Word, RTF, TXT</div>
             <div class="ob-dz-files" id="dz-cv-files"></div>
           </div>
 
@@ -1481,10 +1481,10 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
             ondragleave="dzDragLeave('dz-sow')"
             ondrop="dzDrop(event,'sow')"
             onclick="dzClickZone('sow')">
-            <input type="file" accept=".pdf" multiple id="file-sow" onchange="dzFile(event,'sow')" style="display:none">
+            <input type="file" accept=".pdf,.docx,.doc,.rtf,.txt,.xlsx,.csv" multiple id="file-sow" onchange="dzFile(event,'sow')" style="display:none">
             <div class="ob-dz-icon" id="dz-sow-icon">📋</div>
             <div class="ob-dz-label">SOW / Contracts</div>
-            <div class="ob-dz-sub" id="dz-sow-sub">Up to 5 contracts · Drag &amp; drop or click</div>
+            <div class="ob-dz-sub" id="dz-sow-sub">Up to 5 contracts · PDF, Word, Excel, RTF</div>
             <div class="ob-dz-files" id="dz-sow-files"></div>
           </div>
 
@@ -3339,9 +3339,10 @@ function dzDrop(e, type) {
   const el = $(id);
   if (el) el.classList.remove('dragover');
   const allFiles = [...e.dataTransfer.files];
+  const DOC_EXTS = /\.(pdf|docx|doc|rtf|txt|csv|xlsx|xls|odt|ods|odp|md)$/i;
   const files = type === 'li'
-    ? allFiles.filter(f => /\.(csv|pdf)$/i.test(f.name))
-    : allFiles.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    ? allFiles.filter(f => /\.(csv|pdf)$/i.test(f.name))          // LinkedIn zone: CSV export or PDF CV
+    : allFiles.filter(f => DOC_EXTS.test(f.name));                 // CV / SOW zones: all supported doc types
   handleFiles(type, files);
 }
 function dzFile(e, type) {
