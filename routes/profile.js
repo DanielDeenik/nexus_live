@@ -119,21 +119,19 @@ async function upsertRow(notion, dbId, existing, param, value, category, source,
  * Nothing is saved at this stage.
  */
 router.post('/build', (req, res) => {
-  if (!upload) {
-    return res.status(503).json({ error: 'PDF upload unavailable — multer not installed' });
-  }
-
-  upload(req, res, async (err) => {
-    if (err) return res.status(400).json({ error: err.message });
+  // If multer unavailable (rare), still allow LinkedIn-only builds via JSON body
+  const handleBuild = async (err) => {
+    if (err) return res.status(400).json({ ok: false, error: err.message });
 
     try {
-      // 1. Parse LinkedIn data from body (sent as JSON string)
+      // 1. Parse LinkedIn / session data from body (sent as JSON string)
       let linkedin = null;
-      if (req.body?.linkedin) {
-        try { linkedin = JSON.parse(req.body.linkedin); } catch { /* ignore */ }
+      const liRaw = req.body?.linkedin;
+      if (liRaw) {
+        try { linkedin = typeof liRaw === 'string' ? JSON.parse(liRaw) : liRaw; } catch { /* ignore */ }
       }
 
-      // 2. Parse CV PDF — use fullText (untruncated) for accurate extraction
+      // 2. Parse CV PDF
       let cv = null;
       const cvFile = req.files?.cv?.[0];
       if (cvFile) {
@@ -141,7 +139,7 @@ router.post('/build', (req, res) => {
         cv = extractCvProfile(parsed.fullText || parsed.rawText || '');
       }
 
-      // 3. Parse SOW / contract PDFs — use fullText for accurate extraction
+      // 3. Parse SOW / contract PDFs
       const sowFiles = [
         ...(req.files?.sow      || []),
         ...(req.files?.contract || []),
@@ -153,27 +151,34 @@ router.post('/build', (req, res) => {
         sows.push({ ...sow, filename: file.originalname });
       }
 
-      // 4. Synthesize
-      const profile  = synthesize(linkedin, cv, sows);
-      const filters  = generateSearchFilters(profile);
+      // 4. Guard: need at least some input
+      if (!linkedin && !cv && sows.length === 0) {
+        return res.status(400).json({ ok: false, error: 'No data provided. Upload a CV, SOW, or connect LinkedIn.' });
+      }
 
-      // 5. Return for confirmation — do NOT save yet
+      // 5. Synthesize
+      const profile = synthesize(linkedin, cv, sows);
+      const filters = generateSearchFilters(profile);
+
       res.json({
-        ok:      true,
+        ok: true,
         profile,
         filters,
-        sources: {
-          linkedin: !!linkedin,
-          cv:       !!cv,
-          sows:     sows.length,
-        },
+        sources: { linkedin: !!linkedin, cv: !!cv, sows: sows.length },
       });
 
     } catch (e) {
-      console.error('[profile/build]', e.message);
-      res.status(500).json({ error: `Profile build failed: ${e.message}` });
+      console.error('[profile/build] error:', e.message, e.stack);
+      res.status(500).json({ ok: false, error: e.message || 'Profile build failed' });
     }
-  });
+  };
+
+  if (upload) {
+    upload(req, res, handleBuild);
+  } else {
+    // No multer — parse JSON body directly (LinkedIn-only path)
+    handleBuild(null);
+  }
 });
 
 // ── POST /api/profile/confirm ─────────────────────────────────────────────────

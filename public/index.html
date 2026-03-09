@@ -3536,7 +3536,9 @@ async function obBuildProfile() {
 
   } catch (e) {
     status.textContent = '⚠ ' + e.message;
-    toast('Profile build failed — entering manually', 'err');
+    const errMsg = e.message || 'Unknown error';
+    toast('Profile build failed: ' + errMsg, 'err');
+    console.error('[obBuildProfile]', e);
     setTimeout(() => obGoTo(3), 1200);
   } finally {
     if (btn) { btn.disabled = false; updateObNav(1); }
@@ -4318,9 +4320,23 @@ async function initLoginScreen() {
   // ── 1. Check for active server session (OAuth / magic link / email login) ──
   const hasServerSession = await checkSessionAuth();
   if (hasServerSession) {
-    // Already logged in — go straight to enter view with auto-dismiss
-    loginShowView('lp-view-enter');
-    LOGIN.autoDismissTimer = setTimeout(loginEnter, 800);
+    // Check if this user actually has a built profile yet
+    let hasBuiltProfile = false;
+    try {
+      const sr = await fetch('/api/onboard/status', { credentials: 'same-origin' });
+      const sd = await sr.json();
+      hasBuiltProfile = !!(sd.completed && sd.name);
+    } catch {}
+
+    if (hasBuiltProfile) {
+      // Returning user — go straight to dashboard
+      loginShowView('lp-view-enter');
+      LOGIN.autoDismissTimer = setTimeout(loginEnter, 800);
+    } else {
+      // New OAuth user — skip login screen and go straight to onboarding step 1
+      // S.linkedinData already seeded by checkSessionAuth above
+      loginBuildProfile();
+    }
     return;
   }
 
@@ -4614,8 +4630,20 @@ async function checkSessionAuth() {
     const r = await fetch('/auth/me', { credentials: 'same-origin' });
     const d = await r.json();
     if (d.authenticated && d.user) {
-      // Session active — update LOGIN state and skip new-user view
+      // Session active — update LOGIN state
       LOGIN.hasProfile = true;
+      LOGIN.sessionUser = d.user;
+      // Seed S.linkedinData so profile builder has name/email without needing file upload
+      if (!S.linkedinData && d.user.name) {
+        S.linkedinData = {
+          name:    d.user.name,
+          email:   d.user.email    || null,
+          picture: d.user.avatar_url || null,
+          headline: null,
+          country:  null,
+          source:  'session',
+        };
+      }
       if (d.user.name) {
         if ($('lp-name'))     $('lp-name').textContent = d.user.name;
         if ($('lp-headline')) $('lp-headline').textContent = d.user.email || '';
