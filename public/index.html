@@ -1228,6 +1228,19 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
         <div class="field"><label>Professional Title</label><input type="text" id="s-headline" placeholder="e.g. Freelance Product Manager"></div>
         <div class="field"><label>Location</label><input type="text" id="s-location" placeholder="e.g. Amsterdam, NL"></div>
         <div class="field"><label>Target Industries (comma-sep)</label><input type="text" id="s-industries" placeholder="e.g. Tech, Finance, Healthcare"></div>
+        <div class="field"><label>Professional Summary</label><textarea id="s-summary" rows="3" placeholder="2-3 sentences: what you do, who you help, and what makes you effective…" style="background:var(--bg2);color:var(--txt);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;width:100%;resize:vertical;font-family:inherit;line-height:1.55"></textarea></div>
+        <div class="field"><label>Availability</label>
+          <select id="s-availability" style="background:var(--bg2);color:var(--txt);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;width:100%">
+            <option value="">Not set</option>
+            <option value="immediately">Available immediately</option>
+            <option value="2_weeks">Available in 2 weeks</option>
+            <option value="1_month">Available in 1 month</option>
+            <option value="3_months">Available in 3 months</option>
+            <option value="not_looking">Not actively looking</option>
+          </select>
+        </div>
+        <div class="field"><label>LinkedIn Profile URL</label><input type="url" id="s-linkedin-url" placeholder="https://linkedin.com/in/yourname"></div>
+        <div class="field"><label>Portfolio / Website URL</label><input type="url" id="s-portfolio-url" placeholder="https://yourname.com"></div>
       </div>
     </div>
 
@@ -1493,8 +1506,8 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 
         <!-- ── STEP 2: Profile Confirmation ── -->
         <div class="ob-step" id="ob-step-2">
-          <div class="ob-step-title">Review your profile</div>
-          <div class="ob-step-sub">Nexus extracted this from your documents. Click any field to edit — add or remove skills to sharpen your market intelligence.</div>
+          <div class="ob-step-title">Your professional profile</div>
+          <div class="ob-step-sub">Extracted from your documents. Edit any field — add a summary and your availability to improve your profile strength and market matching.</div>
 
           <div class="ob-profile-card" id="ob-profile-card">
             <div class="ob-profile-header">
@@ -1504,9 +1517,24 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
                 <input class="ob-profile-title-edit" id="ob-ptitle" type="text" placeholder="e.g. Senior SimCorp Consultant" value="">
               </div>
             </div>
+            <!-- Professional summary -->
+            <textarea id="ob-psummary" rows="2" placeholder="Add a 1–2 sentence summary — who you help and what you deliver…" style="width:100%;margin:10px 0 6px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:11.5px;color:var(--txt);resize:vertical;font-family:inherit;line-height:1.55"></textarea>
+            <!-- Quick info: availability + LinkedIn URL + portfolio -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+              <select id="ob-pavail" style="background:var(--bg3);color:var(--txt);border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:11px;width:100%">
+                <option value="">Availability…</option>
+                <option value="immediately">Available immediately</option>
+                <option value="2_weeks">Available in 2 weeks</option>
+                <option value="1_month">Available in 1 month</option>
+                <option value="3_months">Available in 3 months</option>
+                <option value="not_looking">Not actively looking</option>
+              </select>
+              <input id="ob-plinkedin" type="url" placeholder="LinkedIn URL (optional)" value="" style="background:var(--bg3);color:var(--txt);border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:11px;width:100%">
+              <input id="ob-pportfolio" type="url" placeholder="Portfolio / Website URL" value="" style="background:var(--bg3);color:var(--txt);border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:11px;width:100%;grid-column:1/-1">
+            </div>
             <div class="ob-profile-meta-row" id="ob-profile-meta"></div>
             <div class="ob-confidence">
-              <span>Profile completeness</span>
+              <span>Profile strength</span>
               <div class="ob-conf-bar"><div class="ob-conf-fill" id="ob-conf-fill" style="width:0%"></div></div>
               <span id="ob-conf-pct">0%</span>
               <span id="ob-conf-sources" style="color:var(--sub);font-size:10px"></span>
@@ -3002,6 +3030,10 @@ function populateSettingsFields() {
   if (c.headline)          $('s-headline').value  = c.headline;
   if (c.location)          $('s-location').value  = c.location;
   if (c.targetIndustries)  $('s-industries').value = c.targetIndustries.join(', ');
+  if (c.summary)           { const el = $('s-summary');       if (el) el.value = c.summary; }
+  if (c.availability)      { const el = $('s-availability');  if (el) el.value = c.availability; }
+  if (c.linkedinUrl)       { const el = $('s-linkedin-url');  if (el) el.value = c.linkedinUrl; }
+  if (c.portfolioUrl)      { const el = $('s-portfolio-url'); if (el) el.value = c.portfolioUrl; }
   if (c.dayRate)           $('s-dayrate').value   = c.dayRate;
   if (c.hourlyRate)        $('s-rate').value      = c.hourlyRate;
   if (c.availHoursPerWeek) $('s-hours').value     = c.availHoursPerWeek;
@@ -3038,6 +3070,10 @@ async function saveSettings() {
     headline:         $('s-headline').value,
     location:         $('s-location').value,
     targetIndustries: $('s-industries').value.split(',').map(s=>s.trim()).filter(Boolean),
+    summary:          $('s-summary')?.value?.trim()       || null,
+    availability:     $('s-availability')?.value          || null,
+    linkedinUrl:      $('s-linkedin-url')?.value?.trim()  || null,
+    portfolioUrl:     $('s-portfolio-url')?.value?.trim() || null,
     dayRate:          parseFloat($('s-dayrate').value)  || null,
     hourlyRate:       parseFloat($('s-rate').value)     || null,
     availHoursPerWeek: parseFloat($('s-hours').value)  || null,
@@ -3614,6 +3650,16 @@ function populateProfileConfirmation(profile, filters) {
   $('ob-pname').value  = profile.name || '';
   $('ob-ptitle').value = profile.headline || '';
 
+  // Summary, availability, LinkedIn URL, portfolio URL
+  const summaryEl = $('ob-psummary');
+  if (summaryEl) summaryEl.value = profile.summary || '';
+  const availEl = $('ob-pavail');
+  if (availEl && profile.availability) availEl.value = profile.availability;
+  const liUrlEl = $('ob-plinkedin');
+  if (liUrlEl && profile.linkedinUrl) liUrlEl.value = profile.linkedinUrl;
+  const portEl = $('ob-pportfolio');
+  if (portEl && profile.portfolioUrl) portEl.value = profile.portfolioUrl;
+
   // Meta row: seniority | years exp | location
   const meta = [];
   if (profile.seniority)      meta.push(`👔 <strong>${profile.seniority}</strong>`);
@@ -3629,6 +3675,39 @@ function populateProfileConfirmation(profile, filters) {
   $('ob-conf-pct').textContent  = conf + '%';
   const srcs = profile.sources || [];
   $('ob-conf-sources').textContent = srcs.length ? '· from ' + srcs.join(', ') : '';
+
+  // Live profile strength recalculation when user fills in new fields
+  function recalcStrength() {
+    const skillCount  = getChipValues('ob-skills-chips').length;
+    const indCount    = getChipValues('ob-industries-chips').length;
+    const hasSummary  = !!($('ob-psummary')?.value.trim());
+    const hasAvail    = !!($('ob-pavail')?.value);
+    const hasLinkedin = !!($('ob-plinkedin')?.value.trim());
+    const hasPortfolio= !!($('ob-pportfolio')?.value.trim());
+    const hasDayRate  = !!($('ob-dayrate')?.value);
+    const weights = [
+      [$('ob-pname')?.value.trim(),         20],
+      [$('ob-ptitle')?.value.trim(),         15],
+      [hasSummary,                            15],
+      [skillCount >= 3,                       15],
+      [indCount > 0,                          10],
+      [profile.workHistory?.length > 0,       10],
+      [profile.location || $('s-location')?.value, 5],
+      [hasAvail,                               5],
+      [hasLinkedin || hasPortfolio,            5],
+    ];
+    const score = weights.reduce((sum, [v, w]) => sum + (v ? w : 0), 0);
+    const fill  = $('ob-conf-fill');
+    const pct   = $('ob-conf-pct');
+    if (fill) fill.style.width = Math.min(score, 100) + '%';
+    if (pct)  pct.textContent  = Math.min(score, 100) + '%';
+  }
+  ['ob-psummary', 'ob-pname', 'ob-ptitle', 'ob-plinkedin', 'ob-pportfolio'].forEach(id => {
+    const el = $(id); if (el) el.addEventListener('input', recalcStrength);
+  });
+  ['ob-pavail'].forEach(id => {
+    const el = $(id); if (el) el.addEventListener('change', recalcStrength);
+  });
 
   // Skills chips (removable + add button)
   const skillsWrap = $('ob-skills-chips');
@@ -4002,6 +4081,16 @@ async function obConfirmProfile() {
   // Read industries from chips
   const chipInds = getChipValues('ob-industries-chips');
   if (chipInds.length) profile.industries = chipInds;
+
+  // Read new profile enrichment fields
+  const summaryVal = $('ob-psummary')?.value.trim();
+  if (summaryVal) profile.summary = summaryVal;
+  const availVal = $('ob-pavail')?.value;
+  if (availVal) profile.availability = availVal;
+  const liUrlVal = $('ob-plinkedin')?.value.trim();
+  if (liUrlVal) profile.linkedinUrl = liUrlVal;
+  const portVal = $('ob-pportfolio')?.value.trim();
+  if (portVal) profile.portfolioUrl = portVal;
 
   // Store confirmed profile on state
   S.confirmedProfile = profile;

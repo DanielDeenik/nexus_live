@@ -41,6 +41,7 @@ const mockLinkedIn = {
   email:   'jane@linkedin.example.com',
   country: 'NL',
   picture: 'https://example.com/pic.jpg',
+  about:   'Data engineer specialising in financial data pipelines and cloud migrations.',
 };
 
 const mockLinkedInExport = {
@@ -222,7 +223,7 @@ describe('synthesize() — confidence score', () => {
   test('partial profile scales correctly', () => {
     // only name + email from LinkedIn, no CV
     const p = synthesize({ name: 'X', email: 'x@y.com' }, null, []);
-    // fields: name✓, headline✗, email✓, location✗, skills✗, industries✗, services✗, keywords✗  → 2/8 = 25
+    // Weighted: name(20)✓ + email(5)✓ = 25 — all other fields absent
     expect(p.confidence).toBe(25);
   });
 });
