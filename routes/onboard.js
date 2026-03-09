@@ -42,14 +42,12 @@ if (multer) {
 
 function notionClient() {
   const token = process.env.NOTION_TOKEN;
-  if (!token) throw new Error('NOTION_TOKEN not set');
+  if (!token) return null;  // graceful — local-only mode
   return new Client({ auth: token });
 }
 
 function profileDbId() {
-  const id = process.env.DB_PROFILE;
-  if (!id) throw new Error('DB_PROFILE not set in environment');
-  return id;
+  return process.env.DB_PROFILE || null;  // graceful — null if not configured
 }
 
 /** Fetch all existing Profile DB rows, keyed by Parameter (title) */
@@ -248,64 +246,67 @@ router.post('/complete', async (req, res) => {
     Object.keys(cfgPatch).forEach(k => cfgPatch[k] === null && delete cfgPatch[k]);
     store.merge('config', cfgPatch);
 
-    // ── Optional: sync to Notion ───────────────────────────────────────────
+    // ── Always respond with local success ─────────────────────────────────
+    // Notion sync is best-effort and must NOT block or fail the response.
+    res.json({ ok: true, saved: 0, message: 'Saved locally' });
+
+    // ── Optional: async sync to Notion (fire-and-forget) ──────────────────
     const notion = notionClient();
     const dbId   = profileDbId();
-    if (!notion || !dbId) {
-      return res.json({ ok: true, saved: 0, message: 'Saved locally — Notion not configured' });
-    }
-    const existing = await fetchExistingRows(notion, dbId);
+    if (!notion || !dbId) return; // local-only mode — done
 
-    const rows = [];
+    (async () => {
+      try {
+        const existing = await fetchExistingRows(notion, dbId);
+        const rows = [];
 
-    // ── Identity ──────────────────────────────────────────────────────────────
-    if (identity.name)          rows.push(['Full Name',          identity.name,          'Identity',   'Self Reported']);
-    if (identity.headline)      rows.push(['Professional Title', identity.headline,      'Identity',   'Self Reported']);
-    if (identity.email)         rows.push(['Email',              identity.email,         'Identity',   'Self Reported']);
-    if (identity.location)      rows.push(['Location',           identity.location,      'Identity',   'Self Reported']);
-    if (identity.entityType)    rows.push(['Entity Type',        identity.entityType,    'Identity',   'Self Reported']);
-    if (identity.specialty)     rows.push(['Specialty',          identity.specialty,     'Identity',   'Self Reported']);
-    if (identity.yearsExp)      rows.push(['Years Experience',   String(identity.yearsExp), 'Identity', 'CV Extracted']);
+        // ── Identity ────────────────────────────────────────────────────────
+        if (identity.name)          rows.push(['Full Name',          identity.name,          'Identity',   'Self Reported']);
+        if (identity.headline)      rows.push(['Professional Title', identity.headline,      'Identity',   'Self Reported']);
+        if (identity.email)         rows.push(['Email',              identity.email,         'Identity',   'Self Reported']);
+        if (identity.location)      rows.push(['Location',           identity.location,      'Identity',   'Self Reported']);
+        if (identity.entityType)    rows.push(['Entity Type',        identity.entityType,    'Identity',   'Self Reported']);
+        if (identity.specialty)     rows.push(['Specialty',          identity.specialty,     'Identity',   'Self Reported']);
+        if (identity.yearsExp)      rows.push(['Years Experience',   String(identity.yearsExp), 'Identity', 'CV Extracted']);
 
-    // ── Rates & Finances ──────────────────────────────────────────────────────
-    if (rates.dayRate)          rows.push(['Day Rate EUR',       String(rates.dayRate),   'Rate',       'Self Reported']);
-    if (rates.hourlyRate)       rows.push(['Hourly Rate EUR',    String(rates.hourlyRate),'Rate',       'Self Reported']);
-    if (rates.monthlyBurn)      rows.push(['Monthly Burn EUR',   String(rates.monthlyBurn),'Identity',  'Self Reported']);
-    if (rates.taxReservePct)    rows.push(['Tax Reserve Pct',    String(rates.taxReservePct),'Rate',    'Self Reported']);
-    if (rates.vatPct != null)   rows.push(['VAT Pct',             String(rates.vatPct),   'Rate',       'Self Reported']);
-    if (rates.currency)         rows.push(['Invoice Currency',   rates.currency,         'Identity',   'Self Reported']);
-    if (rates.runway != null)        rows.push(['Runway Months',       String(rates.runway),            'Identity',   'Self Reported']);
-    if (rates.availHoursPerWeek)     rows.push(['Avail Hours Per Week', String(rates.availHoursPerWeek), 'Identity',   'Self Reported']);
+        // ── Rates & Finances ─────────────────────────────────────────────────
+        if (rates.dayRate)          rows.push(['Day Rate EUR',       String(rates.dayRate),   'Rate',       'Self Reported']);
+        if (rates.hourlyRate)       rows.push(['Hourly Rate EUR',    String(rates.hourlyRate),'Rate',       'Self Reported']);
+        if (rates.monthlyBurn)      rows.push(['Monthly Burn EUR',   String(rates.monthlyBurn),'Identity',  'Self Reported']);
+        if (rates.taxReservePct)    rows.push(['Tax Reserve Pct',    String(rates.taxReservePct),'Rate',    'Self Reported']);
+        if (rates.vatPct != null)   rows.push(['VAT Pct',             String(rates.vatPct),   'Rate',       'Self Reported']);
+        if (rates.currency)         rows.push(['Invoice Currency',   rates.currency,         'Identity',   'Self Reported']);
+        if (rates.runway != null)        rows.push(['Runway Months',       String(rates.runway),            'Identity',   'Self Reported']);
+        if (rates.availHoursPerWeek)     rows.push(['Avail Hours Per Week', String(rates.availHoursPerWeek), 'Identity',   'Self Reported']);
 
-    // ── Work Preferences ──────────────────────────────────────────────────────
-    if (preferences.availableFrom) rows.push(['Available From',     preferences.availableFrom, 'Constraint', 'Self Reported']);
-    if (preferences.engagementLen) rows.push(['Preferred Engagement Length', preferences.engagementLen, 'Identity', 'Self Reported']);
-    if (preferences.workMode)      rows.push(['Work Mode',           preferences.workMode,      'Identity',   'Self Reported']);
-    if (preferences.industries?.length) {
-      rows.push(['Target Industries', preferences.industries.join(', '), 'Identity', 'Self Reported']);
-    }
+        // ── Work Preferences ─────────────────────────────────────────────────
+        if (preferences.availableFrom) rows.push(['Available From',     preferences.availableFrom, 'Constraint', 'Self Reported']);
+        if (preferences.engagementLen) rows.push(['Preferred Engagement Length', preferences.engagementLen, 'Identity', 'Self Reported']);
+        if (preferences.workMode)      rows.push(['Work Mode',           preferences.workMode,      'Identity',   'Self Reported']);
+        if (preferences.industries?.length) {
+          rows.push(['Target Industries', preferences.industries.join(', '), 'Identity', 'Self Reported']);
+        }
 
-    // ── Skills ────────────────────────────────────────────────────────────────
-    const cvSkills     = (skills || []).filter(s => s.source === 'cv' || !s.source);
-    const addedSkills  = (skills || []).filter(s => s.source === 'manual');
+        // ── Skills ───────────────────────────────────────────────────────────
+        const cvSkills    = (skills || []).filter(s => s.source === 'cv' || !s.source);
+        const addedSkills = (skills || []).filter(s => s.source === 'manual');
+        for (const skill of cvSkills) {
+          const n = typeof skill === 'string' ? skill : skill.name;
+          if (n) rows.push([n, 'Proficient', 'Skills — Tier 1', 'CV Extracted']);
+        }
+        for (const skill of addedSkills) {
+          const n = typeof skill === 'string' ? skill : skill.name;
+          if (n) rows.push([n, 'Proficient', 'Skills — Tier 1', 'Self Reported']);
+        }
 
-    for (const skill of cvSkills) {
-      const name = typeof skill === 'string' ? skill : skill.name;
-      if (name) rows.push([name, 'Proficient', 'Skills — Tier 1', 'CV Extracted']);
-    }
-    for (const skill of addedSkills) {
-      const name = typeof skill === 'string' ? skill : skill.name;
-      if (name) rows.push([name, 'Proficient', 'Skills — Tier 1', 'Self Reported']);
-    }
-
-    // Write all rows
-    let saved = 0;
-    for (const [param, value, category, source] of rows) {
-      await upsertRow(notion, dbId, existing, param, value, category, source);
-      saved++;
-    }
-
-    res.json({ ok: true, saved, message: `${saved} profile fields saved to Notion` });
+        for (const [param, value, category, source] of rows) {
+          await upsertRow(notion, dbId, existing, param, value, category, source);
+        }
+        console.log(`[onboard/complete] Notion sync: ${rows.length} rows`);
+      } catch (e) {
+        console.warn('[onboard/complete] Notion sync failed (non-fatal):', e.message);
+      }
+    })();
 
   } catch (e) {
     console.error('[onboard/complete]', e.message);
@@ -348,26 +349,32 @@ router.get('/seasonality', (req, res) => {
  * Returns whether onboarding has been completed (name is set in Profile DB).
  */
 router.get('/status', async (req, res) => {
+  // First: check local store (fast, no network)
+  const localCfg = store.get('config') || {};
+  if (localCfg.name) {
+    return res.json({ ok: true, completed: true, name: localCfg.name, source: 'local' });
+  }
+
+  // Fallback: check Notion (optional, only if configured)
   try {
     const notion = notionClient();
     const dbId   = profileDbId();
+    if (!notion || !dbId) {
+      return res.json({ ok: true, completed: false, name: null, source: 'local' });
+    }
 
     const resp = await notion.databases.query({
       database_id: dbId,
-      filter: {
-        property: 'Parameter',
-        title: { equals: 'Full Name' },
-      },
+      filter: { property: 'Parameter', title: { equals: 'Full Name' } },
       page_size: 1,
     });
 
     const page = resp.results[0];
     const name = page?.properties?.['Value']?.rich_text?.[0]?.plain_text || null;
-
-    res.json({ ok: true, completed: !!name, name });
+    res.json({ ok: true, completed: !!name, name, source: 'notion' });
   } catch (e) {
-    // If DB not accessible, treat as not completed (don't block onboarding)
-    res.json({ ok: false, completed: false, name: null, error: e.message });
+    // Notion unreachable — treat as not completed, don't block onboarding
+    res.json({ ok: true, completed: false, name: null, source: 'fallback', error: e.message });
   }
 });
 
