@@ -335,7 +335,8 @@ router.get('/contracts', requireWorkspace, async (req, res) => {
     res.json(data);
   } catch (e) {
     console.error('[contracts]', e.message);
-    res.status(500).json({ error: translateError(e) });
+    // Return empty array so the frontend degrades gracefully (no Notion = no contracts, not a crash)
+    res.json([]);
   }
 });
 
@@ -374,7 +375,7 @@ router.get('/signals', requireWorkspace, async (req, res) => {
     res.json(data);
   } catch (e) {
     console.error('[signals]', e.message);
-    res.status(500).json({ error: translateError(e) });
+    res.json([]);
   }
 });
 
@@ -438,7 +439,7 @@ router.get('/cashflow', requireWorkspace, async (req, res) => {
     res.json(data);
   } catch (e) {
     console.error('[cashflow]', e.message);
-    res.status(500).json({ error: translateError(e) });
+    res.json([]);
   }
 });
 
