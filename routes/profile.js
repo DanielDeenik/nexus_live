@@ -35,7 +35,10 @@ const store      = require('../lib/store');
 const { parsePdf }              = require('../lib/pdfParser');
 const { extractCvProfile }      = require('../lib/cvParser');
 const { parseSow }              = require('../lib/sowParser');
-const { synthesize, generateSearchFilters } = require('../lib/profileSynthesizer');
+const {
+  synthesize, generateSearchFilters,
+  mergeSearchImport, getSeasonalityPreset, getActionableGaps,
+} = require('../lib/profileSynthesizer');
 const intel                     = require('../workers/marketIntel');
 
 // Multer for multi-file PDF uploads (memory storage)
@@ -302,6 +305,122 @@ router.post('/signals/refresh', async (req, res) => {
 
 router.get('/signals/meta', (req, res) => {
   res.json({ ok: true, ...intel.getMeta() });
+});
+
+// ── GET /api/profile/seasonality-preset ──────────────────────────────────────
+/**
+ * Returns the best-fit seasonality preset for the current confirmed profile.
+ * Used by the UI to show a 1-click "Apply [Industry] seasonal pattern" card.
+ *
+ * No params needed — reads from the confirmed profile in the local store.
+ * If no profile confirmed yet, returns the default preset.
+ *
+ * Response:
+ *   { ok, industry, data[12], months[12], peak[3], slow[3], isDefault, gaps[] }
+ */
+router.get('/seasonality-preset', (req, res) => {
+  const profile = store.get('profile') || {};
+  const preset  = getSeasonalityPreset(profile);
+  const gaps    = getActionableGaps(profile);
+  res.json({ ok: true, ...preset, gaps });
+});
+
+// ── POST /api/profile/import-searches ────────────────────────────────────────
+/**
+ * Import saved/scheduled search results from Cowork into the profile.
+ *
+ * Designed to be called by a Cowork scheduled task that runs market searches
+ * on a schedule, then POSTs the results here to enrich the profile's
+ * keyword/industry/skill coverage.
+ *
+ * Body: {
+ *   searches: [
+ *     {
+ *       query:    string,           // e.g. "SimCorp Dimension consultant Netherlands"
+ *       industry: string|null,      // e.g. "Asset Management"
+ *       results:  [                 // array of search result objects
+ *         {
+ *           title:   string,
+ *           company: string|null,
+ *           url:     string,
+ *           snippet: string,
+ *           tags:    string[]        // optional explicit labels from Cowork
+ *         }
+ *       ]
+ *     }
+ *   ],
+ *   source: string,                 // e.g. "cowork-scheduled", "manual"
+ *   scheduledTaskId: string|null,   // Cowork task ID for traceability
+ * }
+ *
+ * Response: { ok, profile, filters, enriched: { skillsAdded, keywordsAdded, industriesAdded } }
+ */
+router.post('/import-searches', (req, res) => {
+  const { searches, source = 'unknown', scheduledTaskId } = req.body || {};
+
+  if (!Array.isArray(searches) || searches.length === 0) {
+    return res.status(400).json({ ok: false, error: 'searches array is required and must be non-empty' });
+  }
+
+  // Get existing profile (or empty shell)
+  const existing = store.get('profile') || {};
+
+  const beforeSkills     = (existing.skills     || []).length;
+  const beforeKeywords   = (existing.sowKeywords || []).length;
+  const beforeIndustries = (existing.industries  || []).length;
+
+  // Merge the imports
+  const enriched = mergeSearchImport(existing, searches);
+
+  // Persist
+  store.set('profile', enriched);
+
+  // Update market intel worker if running
+  try { intel.setProfile(enriched); } catch { /* ignore if intel not started */ }
+
+  // Trigger a signal refresh in the background (non-blocking)
+  try { intel.refresh().catch(() => {}); } catch { /* ignore */ }
+
+  const enrichedStats = {
+    skillsAdded:     (enriched.skills     || []).length - beforeSkills,
+    keywordsAdded:   (enriched.sowKeywords|| []).length - beforeKeywords,
+    industriesAdded: (enriched.industries || []).length - beforeIndustries,
+    searchesImported: searches.length,
+    source,
+    scheduledTaskId: scheduledTaskId || null,
+    importedAt: new Date().toISOString(),
+  };
+
+  console.log(`[profile/import-searches] ${enrichedStats.searchesImported} searches, ` +
+    `+${enrichedStats.keywordsAdded} keywords, +${enrichedStats.skillsAdded} skills`);
+
+  const filters = generateSearchFilters(enriched);
+
+  res.json({
+    ok:       true,
+    profile:  enriched,
+    filters,
+    enriched: enrichedStats,
+    gaps:     getActionableGaps(enriched),
+  });
+});
+
+// ── GET /api/profile/import-searches ─────────────────────────────────────────
+/**
+ * Returns metadata about past search imports (count, last run, etc.)
+ * Used by the UI to show the "Linked Searches" status widget.
+ */
+router.get('/import-searches', (req, res) => {
+  const profile = store.get('profile') || {};
+  res.json({
+    ok:             true,
+    searchImports:  profile.searchImports   || 0,
+    lastImportAt:   profile.lastImportAt    || null,
+    keywordCount:   (profile.sowKeywords    || []).length,
+    industryCount:  (profile.industries     || []).length,
+    confidence:     profile.confidence      || 0,
+    gaps:           getActionableGaps(profile),
+  });
 });
 
 module.exports = router;

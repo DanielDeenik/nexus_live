@@ -241,6 +241,8 @@ router.post('/complete', async (req, res) => {
       // Contract fields
       contractStartDate: body.contractStartDate    || null,
       contractMonths:    body.contractMonths        || null,
+      // Seasonality preset (written by obApplySeasonPreset — persists across sessions)
+      _seasonalityPreset: body._seasonalityPreset  || null,
     };
     // Remove nulls to avoid overwriting real data with null on re-saves
     Object.keys(cfgPatch).forEach(k => cfgPatch[k] === null && delete cfgPatch[k]);

@@ -1500,6 +1500,60 @@ nav{flex:1;padding:8px 0;overflow-y:auto}
 
           <div style="font-size:10px;color:var(--sub);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Auto-generated intelligence search terms</div>
           <div class="ob-filters-kw" id="ob-filter-keywords" style="margin-bottom:8px"></div>
+
+          <!-- ── Seasonality quick-apply card ── -->
+          <div id="ob-season-card" style="display:none;margin-top:14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div>
+                <div style="font-size:11px;font-weight:700;color:var(--txt);letter-spacing:.2px">📅 Seasonality preset detected</div>
+                <div style="font-size:10.5px;color:var(--sub);margin-top:2px">Based on your industry: <strong id="ob-season-ind" style="color:var(--acc)">—</strong></div>
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0">
+                <select id="ob-season-picker" onchange="obSwitchSeasonPreset(this.value)"
+                  style="font-size:10px;background:var(--bg3);color:var(--txt);border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer">
+                </select>
+                <button onclick="obApplySeasonPreset()" style="font-size:10px;font-weight:700;background:var(--acc);color:#0a1a12;border:none;border-radius:6px;padding:5px 12px;cursor:pointer">Apply ✓</button>
+              </div>
+            </div>
+            <!-- Mini sparkline bar chart: 12 bars Jan-Dec -->
+            <div id="ob-season-bars" style="display:flex;gap:2px;align-items:flex-end;height:36px;margin-bottom:8px"></div>
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--dim)">
+              <span id="ob-season-peak-label"></span>
+              <span id="ob-season-slow-label"></span>
+            </div>
+            <div id="ob-season-applied-badge" style="display:none;margin-top:8px;font-size:10px;color:var(--acc);font-weight:600">✓ Applied to forecast</div>
+          </div>
+
+          <!-- ── Cowork search import card ── -->
+          <div style="margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div>
+                <div style="font-size:11px;font-weight:700;color:var(--txt)">🔗 Link Cowork searches</div>
+                <div style="font-size:10.5px;color:var(--sub);margin-top:2px">Enrich your profile with saved or scheduled search results</div>
+              </div>
+              <div id="ob-import-status-badge" style="font-size:10px;color:var(--dim);background:var(--bg3);border-radius:20px;padding:3px 10px">Not linked</div>
+            </div>
+            <div style="font-size:10.5px;color:var(--sub);line-height:1.6;margin-bottom:10px">
+              Drop a <code style="background:var(--bg3);padding:1px 5px;border-radius:4px">.json</code> file exported from a Cowork scheduled task, or paste raw JSON.
+              Nexus extracts keywords, industries and company names to sharpen your market intelligence.
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div id="ob-import-dropzone"
+                onclick="document.getElementById('ob-import-file').click()"
+                ondragover="event.preventDefault();this.style.borderColor='var(--acc)'"
+                ondragleave="this.style.borderColor='var(--border)'"
+                ondrop="obHandleImportDrop(event)"
+                style="flex:1;border:1px dashed var(--border);border-radius:7px;padding:8px 12px;text-align:center;cursor:pointer;font-size:10.5px;color:var(--dim);transition:border-color .15s">
+                <input type="file" id="ob-import-file" accept=".json" style="display:none" onchange="obHandleImportFile(event)">
+                Drop .json or click to browse
+              </div>
+              <button onclick="obImportFromPaste()" style="font-size:10px;background:var(--bg3);color:var(--txt);border:1px solid var(--border);border-radius:7px;padding:7px 13px;cursor:pointer;white-space:nowrap">Paste JSON</button>
+            </div>
+            <div id="ob-import-result" style="display:none;margin-top:8px;font-size:10.5px;color:var(--acc)"></div>
+          </div>
+
+          <!-- ── Profile gaps nudge ── -->
+          <div id="ob-gaps-list" style="display:none;margin-top:12px"></div>
         </div>
 
         <!-- ── STEP 3: Your numbers ── -->
@@ -1796,11 +1850,33 @@ async function loadContracts() {
 
 async function loadSeasonalData() {
   try {
-    // Income seasonality
-    const r1 = await fetch('/api/onboard/seasonality?industry=' + encodeURIComponent(S.cfg?.targetIndustries?.[0] || 'tech'));
-    if (r1.ok) {
-      const d = await r1.json();
-      S.incomeSeasonality = d?.seasonality || d || null;
+    // ── 1. Check if user already applied a preset (from obApplySeasonPreset) ──
+    // If so, apply it immediately from the in-memory table — no HTTP call needed.
+    const savedPreset = S.cfg?._seasonalityPreset;
+    if (savedPreset && OB_SEASON_PRESETS && OB_SEASON_PRESETS[savedPreset]) {
+      const data    = OB_SEASON_PRESETS[savedPreset];
+      const indexed = data.map((v,i)=>({m:OB_SEASON_MONTHS[i],v})).sort((a,b)=>b.v-a.v);
+      S.incomeSeasonality = {
+        industry: savedPreset,
+        data,
+        months:   OB_SEASON_MONTHS,
+        peak:     indexed.slice(0,3).map(x=>x.m),
+        slow:     indexed.slice(-3).map(x=>x.m),
+        source:   'preset',
+      };
+    } else {
+      // ── 2. Fallback: fetch from API by detected industry ──────────────────
+      const ind = S.cfg?.targetIndustries?.[0] || '';
+      const r1  = await fetch('/api/onboard/seasonality?industry=' + encodeURIComponent(ind));
+      if (r1.ok) {
+        const d = await r1.json();
+        // API returns { data[], peak[], slow[], industry, months[] }
+        if (d?.data?.length === 12) {
+          S.incomeSeasonality = { data: d.data, peak: d.peak, slow: d.slow, industry: d.industry, months: d.months, source: 'api' };
+        } else {
+          S.incomeSeasonality = d?.seasonality || d || null;
+        }
+      }
     }
     // Spend baselines
     const r2 = await fetch('/api/spending/seasonal');
@@ -3594,6 +3670,284 @@ function populateProfileConfirmation(profile, filters) {
   $('ob-filter-keywords').innerHTML = (filters?.keywords || []).slice(0, 15).map(kw =>
     `<span class="ob-filter-kw">${kw}</span>`
   ).join('');
+
+  // ── Seasonality card: auto-load preset from detected industry ──────────────
+  obLoadSeasonCard(profile);
+
+  // ── Profile gaps nudge ─────────────────────────────────────────────────────
+  obRenderGaps(profile);
+}
+
+// ── Seasonality card functions ─────────────────────────────────────────────────
+
+// Season presets mirrored from lib/profileSynthesizer.js SEASON_PRESETS
+const OB_SEASON_PRESETS = {
+  'Asset Management':       [88,90,82,70,75,65,22,18,72,85,55,20],
+  'Capital Markets':        [85,88,82,72,75,65,20,16,70,84,54,18],
+  'Banking':                [80,85,78,72,70,65,28,22,68,80,55,22],
+  'FinTech':                [78,82,80,78,76,70,45,40,72,80,62,30],
+  'Compliance & Regulatory':[82,85,80,75,72,65,30,25,70,80,55,25],
+  'Management Consulting':  [80,82,78,75,72,65,30,25,70,80,55,25],
+  'Professional Services':  [78,80,78,75,72,65,32,28,70,78,55,28],
+  'Software Engineering':   [80,82,80,78,76,72,50,45,74,80,65,35],
+  'AI / Machine Learning':  [82,85,82,80,78,74,55,50,76,82,68,38],
+  'Data & Analytics':       [80,82,80,78,76,70,50,45,74,80,65,35],
+  'Cybersecurity':          [80,82,80,78,76,72,52,48,76,82,65,35],
+  'IT Consulting':          [78,80,78,75,72,65,40,35,72,78,60,30],
+  'Digital Marketing':      [75,78,82,80,78,72,40,38,78,82,65,35],
+  'Legal':                  [82,85,80,75,72,65,30,25,70,80,58,28],
+  'Healthcare':             [78,80,80,78,75,68,40,38,72,78,60,32],
+  'default':                [78,80,80,76,74,66,35,32,70,78,58,30],
+};
+const OB_SEASON_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Currently previewed preset (may differ from applied)
+let _obSeasonPreview = null;
+
+/**
+ * Load and show the seasonality card for a given profile.
+ * Auto-detects best industry from profile.industries.
+ * Called from obRenderProfileCard() — 0 clicks from user.
+ */
+function obLoadSeasonCard(profile) {
+  const card = $('ob-season-card');
+  if (!card) return;
+
+  const industries = profile?.industries || [];
+  let matchedInd = 'default';
+  for (const ind of industries) {
+    if (OB_SEASON_PRESETS[ind]) { matchedInd = ind; break; }
+  }
+  _obSeasonPreview = matchedInd;
+
+  // Populate picker with all available presets
+  const picker = $('ob-season-picker');
+  if (picker) {
+    picker.innerHTML = Object.keys(OB_SEASON_PRESETS)
+      .filter(k => k !== 'default')
+      .sort()
+      .map(k => `<option value="${k}"${k === matchedInd ? ' selected' : ''}>${k}</option>`)
+      .join('');
+  }
+
+  obRenderSeasonBars(matchedInd);
+  card.style.display = '';
+}
+
+/**
+ * Render the 12-bar sparkline for the selected preset.
+ */
+function obRenderSeasonBars(industry) {
+  const data = OB_SEASON_PRESETS[industry] || OB_SEASON_PRESETS.default;
+  const maxV  = Math.max(...data, 1);
+
+  $('ob-season-ind').textContent = industry === 'default' ? 'General' : industry;
+
+  const barsEl = $('ob-season-bars');
+  if (barsEl) {
+    barsEl.innerHTML = data.map((v, i) => {
+      const h   = Math.max(3, Math.round((v / maxV) * 36));
+      const hot = v >= 80;
+      const clr = hot ? 'var(--acc)' : v >= 60 ? '#4fc3f7' : 'var(--dim)';
+      return `<div title="${OB_SEASON_MONTHS[i]}: ${v}"
+        style="flex:1;height:${h}px;background:${clr};border-radius:2px 2px 0 0;opacity:.85;transition:height .2s"></div>`;
+    }).join('');
+  }
+
+  // Peak / slow labels
+  const indexed = data.map((v, i) => ({ m: OB_SEASON_MONTHS[i], v })).sort((a,b)=>b.v-a.v);
+  const peak = indexed.slice(0,3).map(x=>x.m).join(', ');
+  const slow = indexed.slice(-3).map(x=>x.m).join(', ');
+  const peakEl = $('ob-season-peak-label');
+  const slowEl = $('ob-season-slow-label');
+  if (peakEl) peakEl.textContent = `🔥 Peak: ${peak}`;
+  if (slowEl) slowEl.textContent = `❄️ Slow: ${slow}`;
+}
+
+/**
+ * Switch the preview to a different industry (called by picker onChange).
+ */
+function obSwitchSeasonPreset(industry) {
+  _obSeasonPreview = industry;
+  obRenderSeasonBars(industry);
+  const badge = $('ob-season-applied-badge');
+  if (badge) badge.style.display = 'none';
+}
+
+/**
+ * Apply the currently previewed preset to S.incomeSeasonality.
+ * Single click — this is the 1-click apply pattern.
+ */
+function obApplySeasonPreset() {
+  const industry = _obSeasonPreview || 'default';
+  const data     = OB_SEASON_PRESETS[industry] || OB_SEASON_PRESETS.default;
+  const indexed  = data.map((v,i)=>({m:OB_SEASON_MONTHS[i],v})).sort((a,b)=>b.v-a.v);
+
+  S.incomeSeasonality = {
+    industry,
+    data,
+    months:  OB_SEASON_MONTHS,
+    peak:    indexed.slice(0,3).map(x=>x.m),
+    slow:    indexed.slice(-3).map(x=>x.m),
+    source:  'preset',
+  };
+
+  // Persist to config so it survives page reload
+  if (S.cfg) S.cfg._seasonalityPreset = industry;
+  // Fire-and-forget: save to backend so it's in the onboard config
+  fetch('/api/onboard/complete', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ _seasonalityPreset: industry }),
+  }).catch(() => {});
+
+  const badge = $('ob-season-applied-badge');
+  if (badge) {
+    badge.style.display = '';
+    badge.textContent   = `✓ Applied: ${industry === 'default' ? 'General' : industry} seasonal pattern`;
+  }
+  console.log('[ob-season] Applied preset:', industry);
+}
+
+// ── Profile gaps nudge ─────────────────────────────────────────────────────────
+
+const OB_GAP_ACTIONS = {
+  'skills':     { icon: '🛠', label: 'Add your top skills', hint: 'Click skills above to edit' },
+  'industries': { icon: '🏢', label: 'Set your primary industry', hint: 'Click industries above to edit' },
+  'sow':        { icon: '📋', label: 'Upload a contract PDF', hint: 'Go back to Step 1 → Documents' },
+  'years':      { icon: '📅', label: 'Add years of experience', hint: 'Improves seniority signal scoring' },
+  'location':   { icon: '📍', label: 'Add your location', hint: 'Enables geo-targeted signals' },
+};
+
+function obRenderGaps(profile) {
+  const gapsEl = $('ob-gaps-list');
+  if (!gapsEl) return;
+
+  const gaps = [];
+  if (!profile?.skills || profile.skills.length < 3)      gaps.push('skills');
+  if (!profile?.industries || profile.industries.length < 1) gaps.push('industries');
+  if (!profile?.sowKeywords || profile.sowKeywords.length < 3) gaps.push('sow');
+  if (!profile?.yearsExperience)                            gaps.push('years');
+  if (!profile?.location)                                   gaps.push('location');
+
+  if (gaps.length === 0) { gapsEl.style.display = 'none'; return; }
+
+  gapsEl.style.display = '';
+  gapsEl.innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">
+      💡 Improve your profile (${5 - gaps.length}/5 complete)
+    </div>
+    ${gaps.slice(0,3).map(g => {
+      const a = OB_GAP_ACTIONS[g] || {};
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:10.5px;color:var(--sub)">
+        <span>${a.icon || '•'}</span>
+        <span>${a.label}</span>
+        <span style="color:var(--dim);font-size:10px">— ${a.hint}</span>
+      </div>`;
+    }).join('')}`;
+}
+
+// ── Cowork search import functions ─────────────────────────────────────────────
+
+/**
+ * Process a parsed searches JSON payload, POST to /api/profile/import-searches,
+ * and update the UI with the result.
+ */
+async function obProcessSearchImport(payload, source = 'file') {
+  const resultEl = $('ob-import-result');
+  const badgeEl  = $('ob-import-status-badge');
+  if (resultEl) resultEl.style.display = '';
+  if (resultEl) resultEl.textContent   = '⏳ Importing…';
+
+  try {
+    const r = await fetch('/api/profile/import-searches', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ...payload, source }),
+    });
+    const d = await r.json();
+
+    if (!d.ok) throw new Error(d.error || 'Import failed');
+
+    const { enriched } = d;
+    const parts = [];
+    if (enriched.keywordsAdded  > 0) parts.push(`+${enriched.keywordsAdded} keywords`);
+    if (enriched.skillsAdded    > 0) parts.push(`+${enriched.skillsAdded} skills`);
+    if (enriched.industriesAdded> 0) parts.push(`+${enriched.industriesAdded} industries`);
+
+    const summary = parts.length > 0
+      ? `✓ Linked ${enriched.searchesImported} search${enriched.searchesImported>1?'es':''} · ${parts.join(', ')}`
+      : `✓ Linked — no new terms found (already covered)`;
+
+    if (resultEl) { resultEl.textContent = summary; resultEl.style.color = 'var(--acc)'; }
+    if (badgeEl)  { badgeEl.textContent = `${enriched.searchesImported} linked`; badgeEl.style.color = 'var(--acc)'; }
+
+    // Refresh the keywords display
+    if (d.filters?.keywords) {
+      $('ob-filter-keywords').innerHTML = (d.filters.keywords || []).slice(0,15)
+        .map(kw => `<span class="ob-filter-kw">${kw}</span>`).join('');
+    }
+
+    // Update stored profile
+    if (d.profile) {
+      S.builtProfile = d.profile;
+      obRenderGaps(d.profile);
+    }
+  } catch (e) {
+    if (resultEl) { resultEl.textContent = `✗ ${e.message}`; resultEl.style.color = 'var(--orange)'; }
+  }
+}
+
+/** Handle .json file drop into the import dropzone */
+function obHandleImportDrop(event) {
+  event.preventDefault();
+  const dz = $('ob-import-dropzone');
+  if (dz) dz.style.borderColor = 'var(--border)';
+  const file = event.dataTransfer?.files?.[0];
+  if (!file) return;
+  obReadImportFile(file);
+}
+
+/** Handle file picker selection */
+function obHandleImportFile(event) {
+  const file = event.target?.files?.[0];
+  if (!file) return;
+  obReadImportFile(file);
+}
+
+/** Read a File object, parse as JSON, send to backend */
+function obReadImportFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const payload = JSON.parse(e.target.result);
+      // Accept either { searches:[...] } or a bare array
+      const normalized = Array.isArray(payload)
+        ? { searches: payload }
+        : (payload.searches ? payload : { searches: [payload] });
+      obProcessSearchImport(normalized, 'file');
+    } catch (err) {
+      const r = $('ob-import-result');
+      if (r) { r.style.display=''; r.textContent=`✗ Invalid JSON: ${err.message}`; r.style.color='var(--orange)'; }
+    }
+  };
+  reader.readAsText(file);
+}
+
+/** Open a textarea prompt so user can paste raw JSON */
+function obImportFromPaste() {
+  const raw = window.prompt('Paste your Cowork search export JSON:');
+  if (!raw || !raw.trim()) return;
+  try {
+    const payload = JSON.parse(raw.trim());
+    const normalized = Array.isArray(payload)
+      ? { searches: payload }
+      : (payload.searches ? payload : { searches: [payload] });
+    obProcessSearchImport(normalized, 'paste');
+  } catch (err) {
+    const r = $('ob-import-result');
+    if (r) { r.style.display=''; r.textContent=`✗ Invalid JSON: ${err.message}`; r.style.color='var(--orange)'; }
+  }
 }
 
 async function obConfirmProfile() {
