@@ -1,214 +1,158 @@
-# Nexus Live — Sandbox Deployment Guide
+# Nexus Live — Deploying to hustle1000.com (Multi-User SaaS)
 
-Deploy a shared hosted instance so testers can access the dashboard via a URL, no local setup needed.
-
----
-
-## What Gets Deployed
-
-- The Nexus Live Node.js dashboard (port 3333)
-- Password-protected via HTTP Basic Auth (`SANDBOX_USER` / `SANDBOX_PASS`)
-- Connected to **your existing Notion workspace** (read + write)
-- Budget App integration disabled by default in hosted mode (runs locally only)
+This guide deploys your tool as a **multi-user SaaS** at `app.hustle1000.com`.
+Stack: **Railway** (Node.js hosting) + **Google Domains** (CNAME pointing to Railway).
 
 ---
 
-## Option A — Render (Recommended, easiest)
+## 1. Pre-deployment checklist
 
-**Cost:** Free tier available · Starter ($7/mo) for always-on
-**Time:** ~10 minutes
+The codebase is multi-user ready as of commit `ff07f56`:
 
-### Step 1 — Push to GitHub
-```bash
-cd nexus_live
-git init          # if not already a repo
-git add .
-git commit -m "Add deployment config"
-gh repo create nexus-live --private --push --source=.
-```
-Or push to an existing private repo.
+- ✅ SQL DB with per-user tables (users, profiles, configs, files)
+- ✅ Passport auth: LinkedIn OAuth, Google OAuth, email + password, magic-link
+- ✅ Per-user store isolation (`lib/userStore.js` — each user's config/PIN/profile isolated)
+- ✅ Session cookies: httpOnly, secure, sameSite=lax
+- ✅ Magic-link tokens: SHA-256 hashed, 15-min TTL, 60-sec rate-limit
+- ✅ OAuth CSRF state: `crypto.randomBytes(16)`
 
-### Step 2 — Create Render Web Service
-1. Go to [dashboard.render.com](https://dashboard.render.com) → **New** → **Web Service**
-2. Connect your GitHub repo
-3. Render auto-detects the `render.yaml` — click **Apply**
+---
 
-### Step 3 — Set Environment Variables
-In Render Dashboard → your service → **Environment**, add:
+## 2. Deploy to Railway
+
+### 2a. Create the project
+
+1. Go to [railway.app](https://railway.app) → **New Project → Deploy from GitHub repo**
+2. Authorise Railway to access your GitHub
+3. Select the `nexus_live` repository
+
+Railway auto-detects Node.js and will run `npm start`.
+
+### 2b. Add a persistent volume (important — prevents data loss on redeploy)
+
+Railway's container filesystem resets on every deploy. Before the first deploy:
+
+1. Railway → your service → **Volumes** → **Add Volume**
+2. Mount path: `/app/data`
+
+This keeps the SQLite DB (`data/nexus.db`), the local store (`data/nexus-store.json`), and session files across restarts and deploys.
+
+### 2c. Set environment variables
+
+Railway → your project → **Variables** → add each of these:
 
 | Variable | Value | Notes |
 |----------|-------|-------|
-| `NOTION_TOKEN` | `ntn_xxx...` | From your Notion integration |
-| `DB_PROFILE` | `b0e5a566-...` | From your `.env` |
-| `DB_EXPENSES` | `fee01210-...` | From your `.env` |
-| `DB_CONTRACTS` | `240d284d-...` | From your `.env` |
-| `DB_SIGNALS` | `fe00287c-...` | From your `.env` |
-| `DB_CASHFLOW` | `3841c101-...` | From your `.env` |
-| `DB_COMPANIES` | `94fa68ba-...` | From your `.env` |
-| `DB_OPPORTUNITIES` | `bddacedc-...` | From your `.env` |
-| `DB_HISTORY` | `885597af-...` | From your `.env` |
-| `SANDBOX_USER` | `tester` | Share with testers |
-| `SANDBOX_PASS` | `nexus-demo-2026` | Choose something memorable |
-| `NODE_ENV` | `production` | |
-| `PORT` | `3333` | |
+| `SESSION_SECRET` | 64-char random string | **Required — must be set before first user signs up** |
+| `NODE_ENV` | `production` | Enables secure cookies |
+| `BASE_URL` | `https://app.hustle1000.com` | Used in magic-link emails |
+| `LINKEDIN_CLIENT_ID` | your LinkedIn app client ID | LinkedIn OAuth login |
+| `LINKEDIN_CLIENT_SECRET` | your LinkedIn app secret | — |
+| `LINKEDIN_CALLBACK_URL` | `https://app.hustle1000.com/auth/linkedin/callback` | Must match LinkedIn app settings exactly |
+| `GOOGLE_CLIENT_ID` | your Google OAuth client ID | Google login |
+| `GOOGLE_CLIENT_SECRET` | your Google OAuth secret | — |
+| `GOOGLE_CALLBACK_URL` | `https://app.hustle1000.com/auth/google/callback` | Must match Google Console exactly |
+| `SMTP_HOST` | e.g. `smtp.gmail.com` | Magic-link emails (optional — logs to console if absent) |
+| `SMTP_PORT` | `587` | — |
+| `SMTP_USER` | your email address | — |
+| `SMTP_PASS` | Gmail App Password | Never use your real Gmail password |
+| `SMTP_FROM` | `Nexus <noreply@hustle1000.com>` | From-name shown in emails |
+| `SANDBOX_USER` | (optional) e.g. `admin` | HTTP basic auth gate — omit to disable |
+| `SANDBOX_PASS` | (optional) password | — |
+| `NOTION_TOKEN` | your Notion integration token | Optional — for Notion sync |
+| `DB_PROFILE` | your Notion Profile DB ID | Optional |
 
-### Step 4 — Deploy
-Click **Manual Deploy** or push to `main`. Render builds and deploys (~2 min).
+**Generate a secure SESSION_SECRET:**
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-### Step 5 — Share with Testers
-Send testers:
-```
-URL:      https://nexus-live-sandbox.onrender.com
-Username: tester
-Password: nexus-demo-2026
-```
+### 2d. Add the custom domain in Railway
+
+1. Railway → your service → **Settings → Domains → Add Custom Domain**
+2. Enter: `app.hustle1000.com`
+3. Railway shows a **CNAME target** (e.g. `nexus-live.up.railway.app`) — copy it for the next step
 
 ---
 
-## Option B — Railway
+## 3. Configure DNS in Google Domains
 
-**Cost:** ~$2–5/month
-**Time:** ~8 minutes
+1. Go to [domains.google.com](https://domains.google.com)
+2. Select `hustle1000.com` → **DNS → Manage custom records**
+3. Click **Create new record**:
 
-### Step 1 — Push to GitHub
-Same as Render Step 1 above.
+| Host name | Type | TTL | Data |
+|-----------|------|-----|------|
+| `app` | `CNAME` | `3600` | ← paste Railway's CNAME target here |
 
-### Step 2 — Deploy
-```bash
-npm install -g @railway/cli
-railway login
-railway init
-railway up
-```
+4. Click **Save**
 
-### Step 3 — Set Variables
-```bash
-railway variables set NOTION_TOKEN=ntn_xxx...
-railway variables set DB_PROFILE=b0e5a566-...
-railway variables set DB_EXPENSES=fee01210-...
-railway variables set DB_CONTRACTS=240d284d-...
-railway variables set DB_SIGNALS=fe00287c-...
-railway variables set DB_CASHFLOW=3841c101-...
-railway variables set DB_COMPANIES=94fa68ba-...
-railway variables set DB_OPPORTUNITIES=bddacedc-...
-railway variables set DB_HISTORY=885597af-...
-railway variables set SANDBOX_USER=tester
-railway variables set SANDBOX_PASS=nexus-demo-2026
-railway variables set NODE_ENV=production
-railway variables set PORT=3333
-```
-
-### Step 4 — Get URL
-```bash
-railway open
-```
-Railway assigns a `.up.railway.app` URL automatically.
+DNS propagates in 5–30 minutes. Railway auto-provisions a free TLS certificate (Let's Encrypt) once it detects the CNAME.
 
 ---
 
-## Option C — Docker (any VPS / cloud)
+## 4. Update OAuth callback URLs
 
-**Cost:** Depends on host
-**Time:** ~15 minutes
+### LinkedIn
 
-```bash
-# Build image
-docker build -t nexus-live .
-
-# Run with env vars
-docker run -d \
-  -p 3333:3333 \
-  -e NOTION_TOKEN=ntn_xxx... \
-  -e DB_PROFILE=b0e5a566-... \
-  -e DB_EXPENSES=fee01210-... \
-  -e DB_CONTRACTS=240d284d-... \
-  -e DB_SIGNALS=fe00287c-... \
-  -e DB_CASHFLOW=3841c101-... \
-  -e DB_COMPANIES=94fa68ba-... \
-  -e DB_OPPORTUNITIES=bddacedc-... \
-  -e DB_HISTORY=885597af-... \
-  -e SANDBOX_USER=tester \
-  -e SANDBOX_PASS=nexus-demo-2026 \
-  -e NODE_ENV=production \
-  --name nexus-sandbox \
-  nexus-live
-```
-
-Add a reverse proxy (Caddy, nginx, or Cloudflare Tunnel) for HTTPS.
-
----
-
-## Sandbox Access Control
-
-When `SANDBOX_USER` and `SANDBOX_PASS` are set:
-- The app prompts for credentials on every new browser session
-- Only `/health` is public (used by uptime monitors)
-- If either variable is unset, the app runs without auth (local dev mode)
-
-To change credentials: update the env vars in your platform dashboard and redeploy.
-
----
-
-## Giving Testers Read-Only Access
-
-By default, testers can use all features including saving data to your Notion workspace. To restrict to read-only:
-
-1. Create a **separate Notion integration** with read-only permissions
-2. Create a **demo Notion workspace** with seeded test data:
-   ```bash
-   # In your local nexus_live directory:
-   node seed.js
+1. [linkedin.com/developers](https://www.linkedin.com/developers/apps) → your app → **Auth tab**
+2. Under **Authorized redirect URLs**, add:
    ```
-3. Use that integration's token as `NOTION_TOKEN` for the sandbox
+   https://app.hustle1000.com/auth/linkedin/callback
+   ```
 
-This way testers see realistic data without touching your real workspace.
+### Google
 
----
-
-## Seeding a Demo Workspace
-
-If you want testers to see pre-populated data:
-
-1. Create a new Notion account (or use a secondary workspace)
-2. Create the required databases (Profile, Expenses, Contracts, Signals, Cashflow, Companies, Opportunities, History)
-3. Share all databases with your integration
-4. Copy the database IDs into the sandbox env vars
-5. Run the seed script locally against the demo workspace:
-   ```bash
-   NOTION_TOKEN=ntn_demo... \
-   DB_PROFILE=... \
-   node seed.js
+1. [console.cloud.google.com](https://console.cloud.google.com) → **APIs & Services → Credentials** → your OAuth client
+2. Under **Authorized redirect URIs**, add:
+   ```
+   https://app.hustle1000.com/auth/google/callback
    ```
 
 ---
 
-## Monitoring
+## 5. Verify the deployment
 
-Both Render and Railway show logs and uptime automatically.
+Once DNS is propagated and Railway shows the deploy as healthy:
 
-For external monitoring, use [UptimeRobot](https://uptimerobot.com) (free):
-- Monitor URL: `https://your-sandbox-url.onrender.com/health`
-- Type: HTTP(s)
-- Interval: 5 minutes
-- This also prevents Render free-tier cold starts by pinging regularly
+```bash
+# Health check — should return {"ok":true,...}
+curl https://app.hustle1000.com/health
+
+# OAuth providers — shows which login methods are active
+curl https://app.hustle1000.com/auth/providers
+```
+
+Then open `https://app.hustle1000.com` in a browser — you should see the Nexus login screen.
 
 ---
 
-## Environment Variable Reference
+## 6. How multi-user isolation works
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NOTION_TOKEN` | ✓ | Notion integration token (`ntn_...`) |
-| `DB_PROFILE` | ✓ | Profile database ID |
-| `DB_EXPENSES` | ✓ | Expenses database ID |
-| `DB_CONTRACTS` | ✓ | Contracts database ID |
-| `DB_SIGNALS` | ✓ | Seasonality signals database ID |
-| `DB_CASHFLOW` | ✓ | Cashflow database ID |
-| `DB_COMPANIES` | ✓ | Companies / leads database ID |
-| `DB_OPPORTUNITIES` | ✓ | Opportunities database ID |
-| `DB_HISTORY` | ✓ | History database ID |
-| `PORT` | — | Defaults to `3333` |
-| `NODE_ENV` | — | Set to `production` for hosted |
-| `SANDBOX_USER` | — | Basic auth username (omit for no auth) |
-| `SANDBOX_PASS` | — | Basic auth password (omit for no auth) |
-| `BUDGET_APP_URL` | — | Leave empty in hosted mode |
+Every authenticated user gets their own namespace in the JSON store:
+
+| Data | Store key (per user) |
+|------|---------------------|
+| Config (name, rates, currency, etc.) | `u{id}:config` |
+| PIN hash | `u{id}:auth` |
+| AI-built search profile | `u{id}:profile` |
+| Expenses, contracts, scenarios | SQL table rows with `user_id` FK (already isolated) |
+
+Your existing personal data (saved before this update) is readable as user 1 via automatic backward-compat fallback — nothing is lost.
+
+---
+
+## 7. Deployment summary checklist
+
+| Step | Status |
+|------|--------|
+| Push code to GitHub | ☐ |
+| Create Railway project from repo | ☐ |
+| Add Railway Volume at `/app/data` | ☐ |
+| Set all required env vars in Railway | ☐ |
+| Add `app.hustle1000.com` domain in Railway | ☐ |
+| Copy CNAME target from Railway | ☐ |
+| Add CNAME record in Google Domains | ☐ |
+| Add callback URLs in LinkedIn developer app | ☐ |
+| Add callback URLs in Google Cloud Console | ☐ |
+| Visit `https://app.hustle1000.com` | ☐ |
