@@ -1,12 +1,17 @@
+# syntax=docker/dockerfile:1
 # ── Nexus Live — Dockerfile ───────────────────────────────────────────────────
 # Multi-stage build: deps first, then app. Keeps image lean (~120MB).
-# Compatible with: Railway, Render, Fly.io, any Docker host.
+# Compatible with: Railway (Dockerfile mode), Render, Fly.io, any Docker host.
+# NOTE: Railway now uses Railpack by default (railway.toml). This Dockerfile
+#       is kept as a fallback. The --mount=type=cache persists npm downloads
+#       between builds so you don't re-download 200MB of packages every time.
 
 # ── Stage 1: install dependencies ────────────────────────────────────────────
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --omit=dev --no-audit --no-fund
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --omit=dev --no-audit --no-fund
 
 # ── Stage 2: runtime image ────────────────────────────────────────────────────
 FROM node:20-alpine AS runner

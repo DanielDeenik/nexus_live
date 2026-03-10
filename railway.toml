@@ -6,7 +6,7 @@
 # Free tier: $5 credit/month (~500 hours). Hobby plan ($5/mo) recommended.
 
 [build]
-builder = "DOCKERFILE"
+builder = "RAILPACK"
 
 [deploy]
 startCommand = "node server.js"
