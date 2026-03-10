@@ -3106,8 +3106,17 @@ function connectLinkedIn() {
   const w = 520, h = 620;
   const left = Math.round(window.screenX + (window.outerWidth - w) / 2);
   const top  = Math.round(window.screenY + (window.outerHeight - h) / 2);
-  const popup = window.open('/api/onboard/linkedin/auth', 'linkedin-oauth',
+
+  // Pass our origin so the popup callback uses it for targeted postMessage (not '*')
+  const url   = `/api/onboard/linkedin/auth?origin=${encodeURIComponent(window.location.origin)}`;
+  const popup = window.open(url, 'linkedin-oauth',
     `width=${w},height=${h},left=${left},top=${top},scrollbars=yes`);
+
+  // Popup blocked — browser prevented window.open() from opening
+  if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+    toast('LinkedIn: Your browser blocked the popup. Please allow popups for this site and try again.', 'err');
+    return;
+  }
 
   AUTH.onPopupMessage(function(msg) {
     if (popup && !popup.closed) popup.close();
@@ -3120,13 +3129,29 @@ function connectLinkedIn() {
     const li = msg.profile || {};
     S.linkedinData = li;
 
-    // Pre-fill onboarding fields
-    if (li.name)     { $('ob-name').value = li.name; }
-    if (li.headline) { try { $('s-headline').value = li.headline; } catch {} }
+    // ── Pre-fill every field available from LinkedIn data ───────────────────
+    // Onboarding: name + headline (step 0 / step 1 visible)
+    if (li.name)    { const el = $('ob-name');     if (el) el.value = li.name; }
+    if (li.headline){ const el = $('s-headline');  if (el) el.value = li.headline; }
+    // Onboarding: summary (if step 2 is accessible)
+    if (li.about || li.summary) {
+      const el = $('ob-psummary');
+      if (el && !el.value) el.value = li.about || li.summary;
+    }
+    // Settings: all available fields
+    if (li.name)    { const el = $('s-name');         if (el) el.value = li.name; }
+    if (li.headline){ const el = $('s-headline');      if (el) el.value = li.headline; }
+    if (li.email)   { const el = $('s-email');         if (el) el.value = li.email; }
+    if (li.country) { const el = $('s-location');      if (el && !el.value) el.value = li.country; }
+    if (li.picture) {
+      // Update avatar preview if present in settings
+      const av = $('s-avatar-img') || $('s-avatar');
+      if (av && av.tagName === 'IMG') av.src = li.picture;
+    }
 
-    // Update settings badges
+    // Update LinkedIn connect status badges
     try {
-      $('li-connect-status').textContent = '✓ Connected as ' + (li.name || li.sub || li.id || 'LinkedIn user');
+      $('li-connect-status').textContent = '✓ Connected as ' + (li.name || li.sub || 'LinkedIn user');
       $('li-badge').textContent = 'Connected';
       $('li-badge').className   = 'connect-badge connected';
     } catch {}
@@ -4449,9 +4474,12 @@ async function initLoginScreen() {
 
   // ── Pre-populate profile cards ──────────────────────────────────────────────
   if (d.hasProfile) {
-    const name     = d.name || 'Your Profile';
+    // Use name from session data — never fall back to a hardcoded string
+    const name     = d.name     || '';
     const headline = d.headline || '';
-    const initials = name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+    const initials = name
+      ? name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+      : '?';
 
     if ($('lp-name'))         $('lp-name').textContent          = name;
     if ($('lp-headline'))     $('lp-headline').textContent       = headline;
@@ -4460,11 +4488,12 @@ async function initLoginScreen() {
     if ($('lp-pin-headline')) $('lp-pin-headline').textContent   = headline;
     if ($('lp-pin-avatar'))   $('lp-pin-avatar').textContent     = initials;
 
-    // Async: load rate + availability for meta row in view A
+    // Async: load rate + availability — currency symbol comes from config
     fetch('/api/config').then(r2 => r2.json()).then(cfg => {
-      const rate    = cfg.dayRate || (cfg.hourlyRate ? cfg.hourlyRate * 8 : null);
-      const rateStr = rate ? '€' + Math.round(rate) + '/day' : '—';
-      let availStr  = 'Not set';
+      const currency = cfg.currency || '€';
+      const rate     = cfg.dayRate || (cfg.hourlyRate ? cfg.hourlyRate * 8 : null);
+      const rateStr  = rate ? `${currency}${Math.round(rate)}/day` : '—';
+      let availStr   = cfg.availability || 'Not set';
       if (cfg.contractStartDate && cfg.contractMonths) {
         const end = new Date(cfg.contractStartDate);
         end.setMonth(end.getMonth() + parseFloat(cfg.contractMonths));
@@ -4706,13 +4735,15 @@ async function lpRegister() {
 const _authError = new URLSearchParams(window.location.search).get('auth_error');
 if (_authError) {
   const msgs = {
-    linkedin_not_configured: 'LinkedIn login is not configured on this server.',
-    linkedin_failed:         'LinkedIn login failed. Try another method.',
-    google_not_configured:   'Google login is not configured on this server.',
-    google_failed:           'Google login failed. Try another method.',
-    invalid_or_expired_token:'That sign-in link has expired. Request a new one.',
-    missing_token:           'Invalid sign-in link.',
-    login_failed:            'Login failed. Please try again.',
+    linkedin_not_configured:  'LinkedIn login is not configured on this server.',
+    linkedin_failed:          'LinkedIn login failed. Try another method.',
+    google_not_configured:    'Google login is not configured on this server.',
+    google_failed:            'Google login failed. Try another method.',
+    link_expired:             'That sign-in link has expired (links last 15 minutes). Request a new one.',
+    invalid_token:            'That sign-in link is invalid or has already been used.',
+    invalid_or_expired_token: 'That sign-in link has expired or is invalid. Request a new one.',
+    missing_token:            'Invalid sign-in link.',
+    login_failed:             'Login failed. Please try again.',
   };
   window.addEventListener('DOMContentLoaded', () => {
     lpSetStatus(msgs[_authError] || 'Login error. Please try again.', true);

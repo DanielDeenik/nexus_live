@@ -1,4 +1,5 @@
 'use strict';
+const crypto           = require('crypto');
 const store            = require('../lib/store');
 const db               = require('../lib/db');
 const { currentUserId }      = require('../lib/auth');
@@ -392,7 +393,8 @@ router.get('/linkedin/auth', (req, res) => {
     `);
   }
 
-  const state  = Math.random().toString(36).slice(2, 12);
+  // Cryptographically secure state for CSRF protection (replaces Math.random)
+  const state  = crypto.randomBytes(16).toString('hex');
   const params = new URLSearchParams({
     response_type: 'code',
     client_id:     cfg.clientId,
@@ -401,8 +403,10 @@ router.get('/linkedin/auth', (req, res) => {
     state,
   });
 
-  // Store state briefly in a cookie for CSRF check
-  res.cookie('li_state', state, { httpOnly: true, maxAge: 5 * 60 * 1000, sameSite: 'lax' });
+  // Store state + caller origin in cookies for CSRF check and postMessage targeting
+  const callerOrigin = req.query.origin || '';
+  res.cookie('li_state',  state,        { httpOnly: true, maxAge: 5 * 60 * 1000, sameSite: 'lax' });
+  res.cookie('li_origin', callerOrigin, { httpOnly: true, maxAge: 5 * 60 * 1000, sameSite: 'lax' });
   res.redirect(`${LI_AUTH_URL}?${params}`);
 });
 
@@ -415,9 +419,15 @@ router.get('/linkedin/auth', (req, res) => {
 router.get('/linkedin/callback', async (req, res) => {
   const { code, state, error, error_description } = req.query;
 
-  // Helper — render a page that posts a message to opener then closes
+  // Helper — render a page that posts a message to opener then closes.
+  // targetOrigin is read from the li_origin cookie (set during /linkedin/auth).
+  // Falls back to window.location.origin so postMessage is never broadcast to '*'.
+  const targetOrigin = req.cookies?.li_origin || null;
   const respond = (payload) => {
-    const json = JSON.stringify(payload);
+    const json           = JSON.stringify(payload);
+    const targetOriginJs = targetOrigin
+      ? JSON.stringify(targetOrigin)   // e.g. "https://app.example.com"
+      : 'window.location.origin';      // same-origin fallback (no quotes — JS expression)
     res.send(`<!DOCTYPE html>
 <html><head><title>Connecting…</title></head>
 <body style="font-family:sans-serif;background:#0f1117;color:#e8eaf2;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
@@ -428,14 +438,15 @@ router.get('/linkedin/callback', async (req, res) => {
   <script>
     try {
       if (window.opener) {
-        // Unified NEXUS_AUTH format (matches routes/auth.js afterAuth popup flow)
-        const msg = payload.ok
-          ? { type: 'NEXUS_AUTH', ok: true,  purpose: 'profile_import', profile: payload.profile }
-          : { type: 'NEXUS_AUTH', ok: false, purpose: 'profile_import', error: payload.error };
-        window.opener.postMessage(msg, '*');
+        // Unified NEXUS_AUTH format — postMessage to verified origin, never '*'
+        var _p = ${json};
+        var msg = _p.ok
+          ? { type: 'NEXUS_AUTH', ok: true,  purpose: 'profile_import', profile: _p.profile }
+          : { type: 'NEXUS_AUTH', ok: false, purpose: 'profile_import', error:   _p.error };
+        window.opener.postMessage(msg, ${targetOriginJs});
       }
     } catch(e) {}
-    setTimeout(() => window.close(), 1200);
+    setTimeout(function(){ window.close(); }, 1200);
   </script>
 </body></html>`);
   };
@@ -498,16 +509,28 @@ router.get('/linkedin/callback', async (req, res) => {
     };
     const country = localeCountry ? (countryMap[localeCountry] || localeCountry) : null;
 
+    // Build full name from multiple LinkedIn fields (name is most reliable;
+    // given_name + family_name are fallbacks in case display name is absent)
+    const fullName = u.name
+      || (u.given_name && u.family_name ? `${u.given_name} ${u.family_name}` : null)
+      || u.given_name
+      || u.family_name
+      || null;
+
     respond({
       ok: true,
       profile: {
-        name:     u.name       || null,
-        headline: u.headline   || null,   // job title / professional headline
-        email:    u.email      || null,
-        picture:  u.picture    || null,
+        name:        fullName,
+        given_name:  u.given_name  || null,   // first name
+        family_name: u.family_name || null,   // last name
+        headline:    u.headline    || u.job_title || null,  // role title (LinkedIn-specific extension)
+        about:       u.about       || null,   // "About" summary (not in standard openid scope)
+        email:       u.email       || null,
+        picture:     u.picture     || null,
         country,
         localeCountry,
-        linkedInSub: u.sub     || null,
+        locale:      u.locale      || null,   // e.g. { country:'NL', language:'en' }
+        linkedInSub: u.sub         || null,   // LinkedIn OpenID sub (stable user identifier)
         source: 'linkedin-oauth',
       },
     });

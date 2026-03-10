@@ -55,21 +55,24 @@ window.AUTH = (() => {
    * }
    */
   async function init() {
-    try {
-      const r = await fetch('/auth/session', { credentials: 'same-origin' });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      _session = await r.json();
-    } catch {
-      _session = {
-        authenticated: false,
-        user: null,
-        hasPin: false,
-        hasProfile: false,
-        onboardingComplete: false,
-        name: null,
-        headline: null,
-      };
-    }
+    // Timeout guard: if the server hangs, proceed with safe defaults after 5 s
+    const _timeout = new Promise(resolve =>
+      setTimeout(() => resolve(null), 5000)
+    );
+    const _fetch = fetch('/auth/session', { credentials: 'same-origin' })
+      .then(r => (r.ok ? r.json() : null))
+      .catch(() => null);
+
+    const result = await Promise.race([_fetch, _timeout]);
+    _session = result || {
+      authenticated: false,
+      user: null,
+      hasPin: false,
+      hasProfile: false,
+      onboardingComplete: false,
+      name: null,
+      headline: null,
+    };
     return _session;
   }
 
@@ -123,6 +126,9 @@ window.AUTH = (() => {
    */
   function onPopupMessage(callback) {
     function handler(e) {
+      // Security: only trust messages from our own origin — prevents spoofing
+      if (e.origin !== window.location.origin) return;
+
       // New unified format: { type: 'NEXUS_AUTH', purpose, ok, user, profile, error }
       if (e.data?.type === 'NEXUS_AUTH') {
         window.removeEventListener('message', handler);
@@ -135,7 +141,7 @@ window.AUTH = (() => {
         });
         return;
       }
-      // Legacy format from onboard LinkedIn popup: { source: 'nexus-linkedin', payload: {...} }
+      // Legacy format (belt-and-suspenders for old popup still in flight)
       if (e.data?.source === 'nexus-linkedin') {
         window.removeEventListener('message', handler);
         const p = e.data.payload || {};

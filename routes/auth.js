@@ -125,14 +125,21 @@ router.post('/magic', async (req, res) => {
     user = db.users.create({ email, name: email.split('@')[0] });
   }
 
+  const MAGIC_TTL = 900; // 15 minutes — best-practice for one-click auth tokens
+
+  // Rate-limit: prevent re-sending within 60 seconds
+  if (!db.users.canSendMagicLink(user.id, MAGIC_TTL)) {
+    return res.status(429).json({ ok: false, error: 'Please wait 60 seconds before requesting another link.' });
+  }
+
   const token   = generateToken();
   const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
 
-  db.users.setMagicToken(user.id, token, 3600); // 1 hour TTL
+  db.users.setMagicToken(user.id, token, MAGIC_TTL);
 
   try {
     await sendMagicLink(email, token, baseUrl);
-    res.json({ ok: true, message: 'Magic link sent. Check your inbox.' });
+    res.json({ ok: true, message: 'Magic link sent. Check your inbox — it expires in 15 minutes.' });
   } catch (e) {
     console.error('[auth/magic] email send failed:', e.message);
     res.status(500).json({ ok: false, error: 'Failed to send email. Please try again.' });
@@ -145,9 +152,16 @@ router.get('/magic', (req, res) => {
   const { token } = req.query;
   if (!token) return res.redirect('/?auth_error=missing_token');
 
+  // Try valid (not-yet-expired) token first
   const user = db.users.findByMagicToken(token);
-  if (!user)  return res.redirect('/?auth_error=invalid_or_expired_token');
+  if (!user) {
+    // Distinguish: does the token exist but is expired?
+    const expired = db.users.findExpiredMagicToken(token);
+    if (expired) return res.redirect('/?auth_error=link_expired');
+    return res.redirect('/?auth_error=invalid_token');
+  }
 
+  // Atomically clear token so it cannot be reused
   db.users.clearMagicToken(user.id);
 
   req.login(user, err => {

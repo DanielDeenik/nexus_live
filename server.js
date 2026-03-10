@@ -64,6 +64,7 @@ app.use(session({
   cookie: {
     httpOnly: true,
     secure:   process.env.NODE_ENV === 'production',
+    sameSite: 'lax',                  // CSRF protection — allows OAuth redirects back to app
     maxAge:   30 * 24 * 3600 * 1000, // 30 days
   },
 }));
