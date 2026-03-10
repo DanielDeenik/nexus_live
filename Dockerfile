@@ -21,6 +21,7 @@ COPY server.js    ./
 COPY package.json ./
 COPY lib/         ./lib/
 COPY routes/      ./routes/
+COPY workers/     ./workers/
 COPY public/      ./public/
 COPY config/      ./config/
 

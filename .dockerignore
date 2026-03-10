@@ -11,7 +11,9 @@ diagnose*.js
 seed.js
 setup-scenarios.js
 market-intel/
-workers/
+data/
+coverage/
+tests/
 .git
 .gitignore
 README.md

@@ -6,8 +6,7 @@
 # Free tier: $5 credit/month (~500 hours). Hobby plan ($5/mo) recommended.
 
 [build]
-builder = "NIXPACKS"
-buildCommand = "npm ci --omit=dev"
+builder = "DOCKERFILE"
 
 [deploy]
 startCommand = "node server.js"
