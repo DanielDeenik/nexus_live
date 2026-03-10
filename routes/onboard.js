@@ -428,7 +428,11 @@ router.get('/linkedin/callback', async (req, res) => {
   <script>
     try {
       if (window.opener) {
-        window.opener.postMessage({ source: 'nexus-linkedin', payload: ${json} }, '*');
+        // Unified NEXUS_AUTH format (matches routes/auth.js afterAuth popup flow)
+        const msg = payload.ok
+          ? { type: 'NEXUS_AUTH', ok: true,  purpose: 'profile_import', profile: payload.profile }
+          : { type: 'NEXUS_AUTH', ok: false, purpose: 'profile_import', error: payload.error };
+        window.opener.postMessage(msg, '*');
       }
     } catch(e) {}
     setTimeout(() => window.close(), 1200);

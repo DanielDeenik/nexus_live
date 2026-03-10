@@ -11,6 +11,8 @@
  * GET  /auth/magic              → verify magic link token
  * POST /auth/logout             → destroy session
  * GET  /auth/me                 → current user info
+ * GET  /auth/session            → unified session state (replaces /auth/me + /api/auth/status + /api/onboard/status)
+ * GET  /auth/providers          → list of configured OAuth providers
  */
 
 const express    = require('express');
@@ -18,6 +20,7 @@ const passport   = require('passport');
 const bcrypt     = require('bcryptjs');
 const { generateToken, sendMagicLink } = require('../lib/magicLink');
 const { currentUserId } = require('../lib/auth');
+const store      = require('../lib/store');
 
 let db; // injected via module.exports.init()
 
@@ -169,6 +172,80 @@ router.get('/me', (req, res) => {
     return res.json({ ok: true, authenticated: false, user: null });
   }
   res.json({ ok: true, authenticated: true, user: _safeUser(req.user) });
+});
+
+// ─── Session (unified) ────────────────────────────────────────────────────────
+
+/**
+ * GET /auth/session
+ *
+ * Single endpoint that replaces three separate calls:
+ *   GET /auth/me            (is user authenticated?)
+ *   GET /api/auth/status    (hasPin, hasProfile, name, headline)
+ *   GET /api/onboard/status (onboardingComplete)
+ *
+ * Response: {
+ *   authenticated:      boolean,
+ *   user:               SafeUser | null,
+ *   hasPin:             boolean,
+ *   hasProfile:         boolean,
+ *   onboardingComplete: boolean,
+ *   name:               string | null,
+ *   headline:           string | null,
+ * }
+ */
+router.get('/session', (req, res) => {
+  const cfg  = store.get('config', {});
+  const auth = store.get('auth',   {});
+
+  const hasPin     = Boolean(auth.pinHash);
+  const hasProfile = Boolean(cfg.name || cfg.hourlyRate || cfg.headline);
+  const onboardingComplete = Boolean(cfg.name);
+
+  if (req.isAuthenticated()) {
+    return res.json({
+      authenticated:      true,
+      user:               _safeUser(req.user),
+      hasPin,
+      hasProfile,
+      onboardingComplete,
+      name:               cfg.name     || req.user?.name     || null,
+      headline:           cfg.headline || req.user?.headline  || null,
+    });
+  }
+
+  res.json({
+    authenticated:      false,
+    user:               null,
+    hasPin,
+    hasProfile,
+    onboardingComplete,
+    name:               cfg.name     || null,
+    headline:           cfg.headline || null,
+  });
+});
+
+// ─── Providers ────────────────────────────────────────────────────────────────
+
+/**
+ * GET /auth/providers
+ *
+ * Returns the list of OAuth providers that are actually configured on this
+ * server instance.  The client renders login buttons from this list rather
+ * than hard-coding them in HTML — so adding / removing a provider on the
+ * server side automatically reflects in the UI.
+ *
+ * Response: { providers: [{ id, label, url }] }
+ */
+router.get('/providers', (req, res) => {
+  const providers = [];
+  if (passport._strategies?.linkedin) {
+    providers.push({ id: 'linkedin', label: 'LinkedIn', url: '/auth/linkedin' });
+  }
+  if (passport._strategies?.google) {
+    providers.push({ id: 'google',   label: 'Google',   url: '/auth/google'   });
+  }
+  res.json({ ok: true, providers });
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

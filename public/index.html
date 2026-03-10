@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>⬡ Nexus Live</title>
 <script src="/chart.umd.js"></script>
+<script src="/js/auth.js"></script>
 <style>
 /* ─────────────────────────────────────────────────────────
    DESIGN TOKENS
@@ -3108,18 +3109,15 @@ function connectLinkedIn() {
   const popup = window.open('/api/onboard/linkedin/auth', 'linkedin-oauth',
     `width=${w},height=${h},left=${left},top=${top},scrollbars=yes`);
 
-  window.addEventListener('message', async function handler(e) {
-    if (e.data?.source !== 'nexus-linkedin') return;
-    window.removeEventListener('message', handler);
+  AUTH.onPopupMessage(function(msg) {
     if (popup && !popup.closed) popup.close();
 
-    const payload = e.data.payload || {};
-    if (!payload.ok || payload.error) {
-      toast('LinkedIn: ' + (payload.error || 'Connection failed'), 'err');
+    if (!msg.ok || msg.error) {
+      toast('LinkedIn: ' + (msg.error || 'Connection failed'), 'err');
       return;
     }
 
-    const li = payload.profile || {};
+    const li = msg.profile || {};
     S.linkedinData = li;
 
     // Pre-fill onboarding fields
@@ -3137,7 +3135,7 @@ function connectLinkedIn() {
 
     // If in onboarding step 0, advance to document upload
     if (S.obStep === 0) obGoTo(1);
-  }, false);
+  });
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -4407,118 +4405,118 @@ function loginShowBuildView() {
 }
 
 async function initLoginScreen() {
-  // ── 1. Check for active server session (OAuth / magic link / email login) ──
-  const hasServerSession = await checkSessionAuth();
-  if (hasServerSession) {
-    // Check if this user actually has a built profile yet
-    let hasBuiltProfile = false;
-    try {
-      const sr = await fetch('/api/onboard/status', { credentials: 'same-origin' });
-      const sd = await sr.json();
-      hasBuiltProfile = !!(sd.completed && sd.name);
-    } catch {}
+  // ── Single fetch replaces: /auth/me + /api/auth/status + /api/onboard/status ──
+  const d = await AUTH.init();
 
-    if (hasBuiltProfile) {
-      // Returning user — go straight to dashboard
+  LOGIN.hasPin     = d.hasPin;
+  LOGIN.hasProfile = d.hasProfile;
+
+  // ── Authenticated via session (OAuth / magic link / email) ──────────────────
+  if (d.authenticated && d.user) {
+    // Seed S.linkedinData so profile builder has name/email without file upload
+    if (!S.linkedinData && d.user.name) {
+      S.linkedinData = {
+        name:    d.user.name,
+        email:   d.user.email     || null,
+        picture: d.user.avatar_url || null,
+        headline: null,
+        country:  null,
+        source:   'session',
+      };
+    }
+    if (d.user.name) {
+      if ($('lp-name'))       $('lp-name').textContent     = d.user.name;
+      if ($('lp-headline'))   $('lp-headline').textContent  = d.user.email || '';
+      const initials = d.user.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      if ($('lp-avatar'))     $('lp-avatar').textContent   = initials;
+      if ($('lp-pin-name'))   $('lp-pin-name').textContent = d.user.name;
+      if ($('lp-pin-avatar')) $('lp-pin-avatar').textContent = initials;
+    }
+    if (d.onboardingComplete) {
       loginShowView('lp-view-enter');
       LOGIN.autoDismissTimer = setTimeout(loginEnter, 800);
     } else {
-      // New OAuth user — skip login screen and go straight to onboarding step 1
-      // S.linkedinData already seeded by checkSessionAuth above
       loginBuildProfile();
     }
     return;
   }
 
-  // ── If already unlocked this browser session, skip the screen entirely ──
+  // ── Already unlocked this browser session ───────────────────────────────────
   if (sessionStorage.getItem('nexus_unlocked') === '1') {
     loginDismiss();
     return;
   }
 
+  // ── Pre-populate profile cards ──────────────────────────────────────────────
+  if (d.hasProfile) {
+    const name     = d.name || 'Your Profile';
+    const headline = d.headline || '';
+    const initials = name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+
+    if ($('lp-name'))         $('lp-name').textContent          = name;
+    if ($('lp-headline'))     $('lp-headline').textContent       = headline;
+    if ($('lp-avatar'))       $('lp-avatar').textContent         = initials;
+    if ($('lp-pin-name'))     $('lp-pin-name').textContent       = name;
+    if ($('lp-pin-headline')) $('lp-pin-headline').textContent   = headline;
+    if ($('lp-pin-avatar'))   $('lp-pin-avatar').textContent     = initials;
+
+    // Async: load rate + availability for meta row in view A
+    fetch('/api/config').then(r2 => r2.json()).then(cfg => {
+      const rate    = cfg.dayRate || (cfg.hourlyRate ? cfg.hourlyRate * 8 : null);
+      const rateStr = rate ? '€' + Math.round(rate) + '/day' : '—';
+      let availStr  = 'Not set';
+      if (cfg.contractStartDate && cfg.contractMonths) {
+        const end = new Date(cfg.contractStartDate);
+        end.setMonth(end.getMonth() + parseFloat(cfg.contractMonths));
+        const daysLeft = Math.round((end - new Date()) / 86400000);
+        availStr = daysLeft > 0 ? `${daysLeft}d left` : 'On bench';
+      }
+      if ($('lp-rate'))     $('lp-rate').textContent  = rateStr;
+      if ($('lp-avail'))    $('lp-avail').textContent = availStr;
+      if ($('lp-meta-row')) $('lp-meta-row').style.display = 'flex';
+      const card = $('lp-profile-card');
+      if (card) card.classList.add('ready');
+    }).catch(() => {});
+  }
+
+  // ── Check for partial onboarding session ────────────────────────────────────
+  let savedObStep = null;
   try {
-    const r = await fetch('/api/auth/status');
-    const d = await r.json();
-    LOGIN.hasPin     = d.hasPin;
-    LOGIN.hasProfile = d.hasProfile;
+    const s = localStorage.getItem('nexus_ob_step');
+    if (s !== null) savedObStep = parseInt(s, 10) || 0;
+  } catch {}
+  LOGIN.savedObStep = savedObStep;
 
-    // Pre-populate both profile cards (enter view + pin view share same data)
-    if (d.hasProfile) {
-      const name     = d.name || 'Your Profile';
-      const headline = d.headline || '';
-      const initials = name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0,2).toUpperCase() || '?';
+  // ── FSM: route to the right login view ──────────────────────────────────────
+  if (!d.hasProfile && savedObStep !== null && savedObStep > 0) {
+    // Partial onboarding — offer resume
+    loginShowView('lp-view-new');
+    const heroText   = $('lp-hero-text');
+    const heroSub    = $('lp-hero-sub');
+    const benefits   = $('lp-benefits-block');
+    const primaryBtn = $('lp-new-primary-btn');
+    const timeHint   = $('lp-time-hint');
+    if (heroText)   heroText.textContent = 'Welcome back';
+    if (heroSub)    heroSub.innerHTML = `You're on Step ${savedObStep + 1} of 5 — <span style="color:var(--acc)">pick up where you left off.</span>`;
+    if (benefits)   benefits.style.display = 'none';
+    if (primaryBtn) { primaryBtn.textContent = 'Resume setup →'; primaryBtn.onclick = loginResumeOnboarding; }
+    if (timeHint)   timeHint.style.display = 'none';
+    const secBtn = $('lp-back-btn');
+    if (secBtn) { secBtn.style.display = 'block'; secBtn.textContent = 'Start over'; secBtn.onclick = loginBuildProfile; }
 
-      // View A (enter) card
-      if ($('lp-name'))        $('lp-name').textContent     = name;
-      if ($('lp-headline'))    $('lp-headline').textContent  = headline;
-      if ($('lp-avatar'))      $('lp-avatar').textContent    = initials;
+  } else if (!d.hasProfile) {
+    // New user — show sign-in options
+    loginShowView('lp-view-new');
+    lpShowEmailForm();
 
-      // View B (pin) card
-      if ($('lp-pin-name'))    $('lp-pin-name').textContent    = name;
-      if ($('lp-pin-headline'))$('lp-pin-headline').textContent = headline;
-      if ($('lp-pin-avatar'))  $('lp-pin-avatar').textContent   = initials;
+  } else if (!d.hasPin) {
+    // Returning user, no PIN — profile card + auto-enter
+    loginShowView('lp-view-enter');
+    LOGIN.autoDismissTimer = setTimeout(loginEnter, 1600);
 
-      // Async: load rate + availability for meta row in view A
-      fetch('/api/config').then(r2 => r2.json()).then(cfg => {
-        const rate    = cfg.dayRate || (cfg.hourlyRate ? cfg.hourlyRate * 8 : null);
-        const rateStr = rate ? '€' + Math.round(rate) + '/day' : '—';
-        let availStr  = 'Not set';
-        if (cfg.contractStartDate && cfg.contractMonths) {
-          const end = new Date(cfg.contractStartDate);
-          end.setMonth(end.getMonth() + parseFloat(cfg.contractMonths));
-          const daysLeft = Math.round((end - new Date()) / 86400000);
-          availStr = daysLeft > 0 ? `${daysLeft}d left` : 'On bench';
-        }
-        if ($('lp-rate'))         $('lp-rate').textContent  = rateStr;
-        if ($('lp-avail'))        $('lp-avail').textContent = availStr;
-        if ($('lp-meta-row'))     $('lp-meta-row').style.display = 'flex';
-        // Green border signals the card is ready
-        const card = $('lp-profile-card');
-        if (card) card.classList.add('ready');
-      }).catch(() => {});
-    }
-
-    // Check for a partially-complete onboarding session
-    let savedObStep = null;
-    try {
-      const s = localStorage.getItem('nexus_ob_step');
-      if (s !== null) { savedObStep = parseInt(s, 10) || 0; }
-    } catch {}
-    LOGIN.savedObStep = savedObStep;
-
-    if (!d.hasProfile && savedObStep !== null && savedObStep > 0) {
-      // ── Partial onboarding: offer resume ──
-      loginShowView('lp-view-new');
-      // Update hero text to show resume prompt
-      const heroText = $('lp-hero-text');
-      const heroSub  = $('lp-hero-sub');
-      const benefits = $('lp-benefits-block');
-      const primaryBtn = $('lp-new-primary-btn');
-      const timeHint = $('lp-time-hint');
-      if (heroText) heroText.textContent = 'Welcome back';
-      if (heroSub)  heroSub.innerHTML = `You're on Step ${savedObStep + 1} of 5 — <span style="color:var(--acc)">pick up where you left off.</span>`;
-      if (benefits) benefits.style.display = 'none';
-      if (primaryBtn) { primaryBtn.textContent = 'Resume setup →'; primaryBtn.onclick = loginResumeOnboarding; }
-      if (timeHint) timeHint.style.display = 'none';
-      // Secondary: start over
-      const secBtn = $('lp-back-btn');
-      if (secBtn) { secBtn.style.display = 'block'; secBtn.textContent = 'Start over'; secBtn.onclick = loginBuildProfile; }
-    } else if (!d.hasProfile) {
-      // ── New user: show sign-in options ──
-      loginShowView('lp-view-new');
-      lpShowEmailForm(); // default to magic link form
-    } else if (!d.hasPin) {
-      // ── Returning user, no PIN: show profile + Enter button ──
-      loginShowView('lp-view-enter');
-      // Auto-dismiss after 1.6s so experienced users don't have to click at all
-      LOGIN.autoDismissTimer = setTimeout(loginEnter, 1600);
-    } else {
-      // ── Returning user, PIN set: show PIN pad ──
-      loginShowView('lp-view-pin');
-    }
-  } catch (e) {
-    // Server error → just let them in
-    loginDismiss();
+  } else {
+    // Returning user, PIN set — PIN pad
+    loginShowView('lp-view-pin');
   }
 }
 
@@ -4648,6 +4646,8 @@ function lpSetStatus(msg, isErr = false) {
   el.style.color = isErr ? 'var(--red)' : 'var(--acc)';
 }
 
+// ── Auth action helpers — all delegate to AUTH.action() ─────────────────────
+
 async function lpSendMagicLink() {
   const email = ($('lp-email-input') || {}).value?.trim();
   if (!email || !email.includes('@')) { lpSetStatus('Enter a valid email address.', true); return; }
@@ -4655,11 +4655,7 @@ async function lpSendMagicLink() {
   if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   lpSetStatus('');
   try {
-    const r = await fetch('/auth/magic', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin', body: JSON.stringify({ email })
-    });
-    const d = await r.json();
+    const d = await AUTH.action('magic', { email });
     if (d.ok) {
       lpSetStatus('✓ Check your inbox — link sent!');
       if (btn) { btn.disabled = false; btn.textContent = 'Resend →'; }
@@ -4679,14 +4675,10 @@ async function lpPasswordLogin() {
   if (!email || !pass) { lpSetStatus('Email and password required.', true); return; }
   lpSetStatus('Signing in…');
   try {
-    const r = await fetch('/auth/login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin', body: JSON.stringify({ email, password: pass })
-    });
-    const d = await r.json();
+    const d = await AUTH.action('password', { email, password: pass });
     if (d.ok) {
       lpSetStatus('✓ Signed in!');
-      setTimeout(() => { loginEnter(); }, 600);
+      setTimeout(() => loginEnter(), 600);
     } else {
       lpSetStatus(d.error || 'Login failed.', true);
     }
@@ -4700,52 +4692,14 @@ async function lpRegister() {
   if (pass.length < 8) { lpSetStatus('Password must be 8+ characters.', true); return; }
   lpSetStatus('Creating account…');
   try {
-    const r = await fetch('/auth/register', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin', body: JSON.stringify({ email, password: pass })
-    });
-    const d = await r.json();
+    const d = await AUTH.action('register', { email, password: pass });
     if (d.ok) {
       lpSetStatus('✓ Account created!');
-      setTimeout(() => { loginBuildProfile(); }, 600);
+      setTimeout(() => loginBuildProfile(), 600);
     } else {
       lpSetStatus(d.error || 'Registration failed.', true);
     }
   } catch { lpSetStatus('Network error.', true); }
-}
-
-// Check if already authenticated via session on page load
-async function checkSessionAuth() {
-  try {
-    const r = await fetch('/auth/me', { credentials: 'same-origin' });
-    const d = await r.json();
-    if (d.authenticated && d.user) {
-      // Session active — update LOGIN state
-      LOGIN.hasProfile = true;
-      LOGIN.sessionUser = d.user;
-      // Seed S.linkedinData so profile builder has name/email without needing file upload
-      if (!S.linkedinData && d.user.name) {
-        S.linkedinData = {
-          name:    d.user.name,
-          email:   d.user.email    || null,
-          picture: d.user.avatar_url || null,
-          headline: null,
-          country:  null,
-          source:  'session',
-        };
-      }
-      if (d.user.name) {
-        if ($('lp-name'))     $('lp-name').textContent = d.user.name;
-        if ($('lp-headline')) $('lp-headline').textContent = d.user.email || '';
-        const initials = d.user.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-        if ($('lp-avatar'))   $('lp-avatar').textContent = initials;
-        if ($('lp-pin-name')) $('lp-pin-name').textContent = d.user.name;
-        if ($('lp-pin-avatar')) $('lp-pin-avatar').textContent = initials;
-      }
-      return true;
-    }
-    return false;
-  } catch { return false; }
 }
 
 // Handle auth error from OAuth redirect
@@ -4770,8 +4724,8 @@ if (_authError) {
 
 async function loadPinStatus() {
   try {
-    const r = await fetch('/api/auth/status');
-    const d = await r.json();
+    // Use unified /auth/session (already cached if login screen ran, else fresh fetch)
+    const d = AUTH.getSession() || await (await fetch('/auth/session')).json();
     const sub = $('pin-setup-sub');
     const btn = $('pin-setup-btn');
     if (d.hasPin) {
