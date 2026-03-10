@@ -32,3 +32,12 @@ build/
 # Temp / generated
 *.tmp
 wireframe-*.html
+
+# Runtime data — never commit (Railway uses a mounted volume at /app/data)
+data/nexus.db
+data/nexus-store.json
+data/sessions/
+
+# Generated output
+coverage/
+market-intel/
