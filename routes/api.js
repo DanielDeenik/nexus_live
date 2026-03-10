@@ -20,7 +20,6 @@ const { getFeed, refresh: refreshFeed, getFeedMeta } = require('../workers/jobFe
 const { assessContract } = require('../lib/forecast');
 const { parsePdf, extractContractFields } = require('../lib/pdfParser');
 const scenarioStore                     = require('../lib/scenarioStore');
-const store                             = require('../lib/store');
 
 const router = Router();
 
@@ -66,7 +65,7 @@ router.get('/config', async (req, res) => {
   // If Notion is not configured or unreachable, return the locally stored config.
   const ws = getWorkspace(req.query.ws);
   if (!ws?.token) {
-    const local = store.get('config', {});
+    const local = req.userStore.get('config', {});
     return res.json(local);
   }
   req.ws = ws;
@@ -131,7 +130,7 @@ router.get('/config', async (req, res) => {
     });
 
     // Merge with any locally stored overrides (e.g. from POST /api/config)
-    const localOverride = store.get('config', {});
+    const localOverride = req.userStore.get('config', {});
     const merged = { ...cfg, ...localOverride };
 
     cache.set(key, merged);
@@ -139,7 +138,7 @@ router.get('/config', async (req, res) => {
   } catch (e) {
     console.error('[config] Notion failed, falling back to local store:', e.message);
     // Notion unreachable — return local store
-    return res.json(store.get('config', {}));
+    return res.json(req.userStore.get('config', {}));
   }
 });
 
@@ -150,7 +149,7 @@ router.post('/config', async (req, res) => {
   const payload = req.body || {};
 
   // Always save locally first — works with zero external keys
-  store.merge('config', payload);
+  req.userStore.merge('config', payload);
 
   // Optional: async Notion sync (don't block response)
   const ws = getWorkspace(req.query.ws);
@@ -1727,10 +1726,10 @@ function hashPin(pin) {
 }
 
 // GET /api/auth/status — returns whether a PIN is set and whether app has a profile
-router.get('/auth/status', (_req, res) => {
-  const cfg       = store.get('config', {});
-  const auth      = store.get('auth', {});
-  const hasPin    = Boolean(auth.pinHash);
+router.get('/auth/status', (req, res) => {
+  const cfg        = req.userStore.get('config', {});
+  const auth       = req.userStore.get('auth', {});
+  const hasPin     = Boolean(auth.pinHash);
   const hasProfile = Boolean(cfg.name || cfg.hourlyRate || cfg.headline);
   res.json({ hasPin, hasProfile, name: cfg.name || null, headline: cfg.headline || null });
 });
@@ -1741,14 +1740,14 @@ router.post('/auth/pin', (req, res) => {
   if (!pin || !/^\d{4,8}$/.test(String(pin))) {
     return res.status(400).json({ error: 'PIN must be 4–8 digits' });
   }
-  store.merge('auth', { pinHash: hashPin(pin) });
+  req.userStore.merge('auth', { pinHash: hashPin(pin) });
   res.json({ ok: true });
 });
 
 // POST /api/auth/verify — verify PIN  { pin: '1234' }
 router.post('/auth/verify', (req, res) => {
   const { pin } = req.body || {};
-  const auth    = store.get('auth', {});
+  const auth    = req.userStore.get('auth', {});
   if (!auth.pinHash) {
     // No PIN set — always grant access
     return res.json({ ok: true, noPin: true });
@@ -1763,11 +1762,11 @@ router.post('/auth/verify', (req, res) => {
 // POST /api/auth/pin/remove — clear PIN (requires current PIN)
 router.post('/auth/pin/remove', (req, res) => {
   const { pin } = req.body || {};
-  const auth    = store.get('auth', {});
+  const auth    = req.userStore.get('auth', {});
   if (auth.pinHash && hashPin(pin) !== auth.pinHash) {
     return res.status(401).json({ error: 'Incorrect PIN' });
   }
-  store.merge('auth', { pinHash: null });
+  req.userStore.merge('auth', { pinHash: null });
   res.json({ ok: true });
 });
 

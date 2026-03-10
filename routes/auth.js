@@ -20,7 +20,6 @@ const passport   = require('passport');
 const bcrypt     = require('bcryptjs');
 const { generateToken, sendMagicLink } = require('../lib/magicLink');
 const { currentUserId } = require('../lib/auth');
-const store      = require('../lib/store');
 
 let db; // injected via module.exports.init()
 
@@ -209,8 +208,8 @@ router.get('/me', (req, res) => {
  * }
  */
 router.get('/session', (req, res) => {
-  const cfg  = store.get('config', {});
-  const auth = store.get('auth',   {});
+  const cfg  = req.userStore.get('config', {});
+  const auth = req.userStore.get('auth',   {});
 
   const hasPin     = Boolean(auth.pinHash);
   const hasProfile = Boolean(cfg.name || cfg.hourlyRate || cfg.headline);

@@ -1,6 +1,5 @@
 'use strict';
 const crypto           = require('crypto');
-const store            = require('../lib/store');
 const db               = require('../lib/db');
 const { currentUserId }      = require('../lib/auth');
 const { getSeasonality, getAllAvailable } = require('../lib/seasonalityEngine');
@@ -177,7 +176,7 @@ router.post('/complete', async (req, res) => {
     };
     // Remove nulls to avoid overwriting real data with null on re-saves
     Object.keys(cfgPatch).forEach(k => cfgPatch[k] === null && delete cfgPatch[k]);
-    store.merge('config', cfgPatch);
+    req.userStore.merge('config', cfgPatch);
 
     // ── Always respond with local success ─────────────────────────────────
     // Notion sync is best-effort and must NOT block or fail the response.
@@ -308,7 +307,7 @@ router.get('/rates', async (req, res) => {
  */
 router.get('/status', async (req, res) => {
   // First: check local store (fast, no network)
-  const localCfg = store.get('config') || {};
+  const localCfg = req.userStore.get('config') || {};
   if (localCfg.name) {
     return res.json({ ok: true, completed: true, name: localCfg.name, source: 'local' });
   }

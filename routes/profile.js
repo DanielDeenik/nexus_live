@@ -31,7 +31,6 @@
 const express    = require('express');
 const router     = express.Router();
 const { Client } = require('@notionhq/client');
-const store      = require('../lib/store');
 
 const { extractText, documentFileFilter, ACCEPTED_EXTENSIONS } = require('../lib/documentParser');
 const { extractCvProfile }      = require('../lib/cvParser');
@@ -247,8 +246,8 @@ router.post('/confirm', async (req, res) => {
     console.warn('[profile/confirm] Notion save failed (non-fatal):', e.message);
   }
 
-  // 2. Always save profile to local store (zero-key)
-  store.set('profile', profile);
+  // 2. Always save profile to local store (scoped to this user)
+  req.userStore.set('profile', profile);
 
   // 3. Set profile in market intel worker
   intel.setProfile(profile);
@@ -324,7 +323,7 @@ router.get('/signals/meta', (req, res) => {
  *   { ok, industry, data[12], months[12], peak[3], slow[3], isDefault, gaps[] }
  */
 router.get('/seasonality-preset', (req, res) => {
-  const profile = store.get('profile') || {};
+  const profile = req.userStore.get('profile') || {};
   const preset  = getSeasonalityPreset(profile);
   const gaps    = getActionableGaps(profile);
   res.json({ ok: true, ...preset, gaps });
@@ -368,7 +367,7 @@ router.post('/import-searches', (req, res) => {
   }
 
   // Get existing profile (or empty shell)
-  const existing = store.get('profile') || {};
+  const existing = req.userStore.get('profile') || {};
 
   const beforeSkills     = (existing.skills     || []).length;
   const beforeKeywords   = (existing.sowKeywords || []).length;
@@ -377,8 +376,8 @@ router.post('/import-searches', (req, res) => {
   // Merge the imports
   const enriched = mergeSearchImport(existing, searches);
 
-  // Persist
-  store.set('profile', enriched);
+  // Persist (scoped to this user)
+  req.userStore.set('profile', enriched);
 
   // Update market intel worker if running
   try { intel.setProfile(enriched); } catch { /* ignore if intel not started */ }
@@ -416,7 +415,7 @@ router.post('/import-searches', (req, res) => {
  * Used by the UI to show the "Linked Searches" status widget.
  */
 router.get('/import-searches', (req, res) => {
-  const profile = store.get('profile') || {};
+  const profile = req.userStore.get('profile') || {};
   res.json({
     ok:             true,
     searchImports:  profile.searchImports   || 0,

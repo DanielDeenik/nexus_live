@@ -30,7 +30,8 @@ const profileRouter               = require('./routes/profile');
 const scheduler                   = require('./lib/scheduler');
 const basicAuth                   = require('./lib/basicAuth');
 const intel                       = require('./workers/marketIntel');
-const store                       = require('./lib/store');
+const userStore                   = require('./lib/userStore');
+const { currentUserId }           = require('./lib/auth');
 
 // ── Multer for PDF file uploads ───────────────────────────────────────────────
 let multer;
@@ -72,6 +73,12 @@ app.use(session({
 // ── Passport ──────────────────────────────────────────────────────────────────
 app.use(passport.initialize());
 app.use(passport.session());
+
+// ── Per-user store — attach after passport so req.user is already populated ──
+app.use((req, _res, next) => {
+  req.userStore = userStore(currentUserId(req));
+  next();
+});
 
 app.use(basicAuth);  // no-op if SANDBOX_USER/SANDBOX_PASS not set
 app.use(express.static(path.join(__dirname, 'public')));
@@ -163,7 +170,8 @@ app.listen(PORT, async () => {
   scheduler.start();
 
   // Restore saved profile into market intel worker (survives server restarts)
-  const savedProfile = store.get('profile');
+  // Uses user 1 (legacy local user) — multi-user: each user's profile is loaded on their first request
+  const savedProfile = userStore(1).get('profile');
   if (savedProfile) {
     intel.setProfile(savedProfile);
     console.log('  ✓  Restored profile from local store —', savedProfile.name || 'unnamed');
