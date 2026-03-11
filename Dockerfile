@@ -28,6 +28,10 @@ COPY workers/     ./workers/
 COPY public/      ./public/
 COPY config/      ./config/
 
+# Create data dir (SQLite DB + sessions) and give nexus user write access.
+# Without this, db.init() fails on first write → process.exit(1) before healthcheck.
+RUN mkdir -p /app/data/sessions && chown -R nexus:nexus /app/data
+
 # The app reads PORT from env; default to 3333 for local Docker runs
 ENV PORT=3333
 ENV NODE_ENV=production
