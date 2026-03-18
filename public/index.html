@@ -943,6 +943,27 @@ nav{flex:1;padding:10px 0;overflow-y:auto}
 .lp-auth-status{font-size:12px;text-align:center;margin-top:10px;min-height:18px;color:var(--acc)}
 
 /* ─────────────────────────────────────────────────────────
+   SKILL CHIPS — settings page
+───────────────────────────────────────────────────────── */
+.s-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--acc-dim);color:var(--acc);
+  border:1px solid rgba(0,245,160,.2);border-radius:20px;
+  padding:3px 10px 3px 12px;font-size:11px;font-weight:500;
+  cursor:default;
+}
+.s-chip.service{
+  background:var(--violet-dim);color:var(--violet);
+  border-color:rgba(139,92,246,.2);
+}
+.s-chip-x{
+  background:none;border:none;color:inherit;opacity:.5;cursor:pointer;
+  font-size:10px;padding:0 2px;line-height:1;font-family:var(--font);
+  transition:opacity .12s;
+}
+.s-chip-x:hover{opacity:1}
+
+/* ─────────────────────────────────────────────────────────
    AVAILABILITY STATE — sidebar widget
 ───────────────────────────────────────────────────────── */
 .sb-avail{
@@ -1146,33 +1167,39 @@ nav{flex:1;padding:10px 0;overflow-y:auto}
       <div class="lp-hero" id="lp-hero-text">Your freelancer financial OS</div>
       <div class="lp-hero-sub" id="lp-hero-sub">Sign in to build your profile and get your first forecast.</div>
 
-      <!-- OAuth buttons -->
-      <a href="/auth/linkedin" class="login-oauth-btn linkedin-btn" id="lp-linkedin-btn">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-        Continue with LinkedIn
-      </a>
+      <!-- Primary action — shown for resume-onboarding flow, hidden in default -->
+      <button class="login-cta primary" id="lp-new-primary-btn" onclick="loginBuildProfile()" style="display:none;margin-bottom:16px">Get started →</button>
 
-      <a href="/auth/google" class="login-oauth-btn google-btn" id="lp-google-btn">
-        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-        Continue with Google
-      </a>
+      <!-- Benefits block — hidden when resuming onboarding -->
+      <div id="lp-benefits-block">
+        <!-- OAuth buttons -->
+        <a href="/auth/linkedin" class="login-oauth-btn linkedin-btn" id="lp-linkedin-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+          Continue with LinkedIn
+        </a>
 
-      <div class="lp-divider"><span>or</span></div>
+        <a href="/auth/google" class="login-oauth-btn google-btn" id="lp-google-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Continue with Google
+        </a>
 
-      <!-- Email / magic link -->
-      <div id="lp-email-form">
-        <input type="email" id="lp-email-input" class="login-email-input" placeholder="your@email.com" autocomplete="email">
-        <button class="login-cta primary" id="lp-email-btn" onclick="lpSendMagicLink()">Send magic link →</button>
-        <div class="lp-email-hint">or <a href="#" onclick="lpShowPasswordForm();return false">use password</a></div>
-      </div>
+        <div class="lp-divider"><span>or</span></div>
 
-      <!-- Password form (shown on demand) -->
-      <div id="lp-password-form" style="display:none">
-        <input type="email" id="lp-pw-email" class="login-email-input" placeholder="Email" autocomplete="email">
-        <input type="password" id="lp-pw-pass" class="login-email-input" placeholder="Password" style="margin-top:8px" autocomplete="current-password">
-        <button class="login-cta primary" onclick="lpPasswordLogin()">Sign in →</button>
-        <button class="login-cta secondary" style="margin-top:6px" onclick="lpRegister()">Create account</button>
-        <div class="lp-email-hint" style="margin-top:8px"><a href="#" onclick="lpShowEmailForm();return false">← Use magic link instead</a></div>
+        <!-- Email / magic link -->
+        <div id="lp-email-form">
+          <input type="email" id="lp-email-input" class="login-email-input" placeholder="your@email.com" autocomplete="email">
+          <button class="login-cta primary" id="lp-email-btn" onclick="lpSendMagicLink()">Send magic link →</button>
+          <div class="lp-email-hint">or <a href="#" onclick="lpShowPasswordForm();return false">use password</a></div>
+        </div>
+
+        <!-- Password form (shown on demand) -->
+        <div id="lp-password-form" style="display:none">
+          <input type="email" id="lp-pw-email" class="login-email-input" placeholder="Email" autocomplete="email">
+          <input type="password" id="lp-pw-pass" class="login-email-input" placeholder="Password" style="margin-top:8px" autocomplete="current-password">
+          <button class="login-cta primary" onclick="lpPasswordLogin()">Sign in →</button>
+          <button class="login-cta secondary" style="margin-top:6px" onclick="lpRegister()">Create account</button>
+          <div class="lp-email-hint" style="margin-top:8px"><a href="#" onclick="lpShowEmailForm();return false">← Use magic link instead</a></div>
+        </div>
       </div>
 
       <div class="lp-auth-status" id="lp-auth-status"></div>
@@ -1513,6 +1540,36 @@ nav{flex:1;padding:10px 0;overflow-y:auto}
         <div class="field"><label>LinkedIn Profile URL</label><input type="url" id="s-linkedin-url" placeholder="https://linkedin.com/in/yourname"></div>
         <div class="field"><label>Portfolio / Website URL</label><input type="url" id="s-portfolio-url" placeholder="https://yourname.com"></div>
       </div>
+    </div>
+
+    <!-- ── Skills & Profile ──────────────────────────────── -->
+    <div class="settings-section">
+      <div class="settings-section-title">Skills & Profile</div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:8px;font-weight:500">Skills <span style="color:var(--dim)">(click × to remove · type and press Enter to add)</span></div>
+        <div id="s-skills-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:28px"></div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="s-skill-input" class="login-email-input"
+            placeholder="e.g. Product Management" autocomplete="off"
+            style="flex:1;padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();settingsAddSkill()}"
+            onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
+          <button class="btn-secondary" style="font-size:11px;padding:6px 12px;flex-shrink:0" onclick="settingsAddSkill()">+ Add</button>
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:8px;font-weight:500">Services / Deliverables <span style="color:var(--dim)">(what you deliver)</span></div>
+        <div id="s-services-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:28px"></div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="s-service-input" class="login-email-input"
+            placeholder="e.g. Product strategy roadmaps" autocomplete="off"
+            style="flex:1;padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();settingsAddService()}"
+            onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
+          <button class="btn-secondary" style="font-size:11px;padding:6px 12px;flex-shrink:0" onclick="settingsAddService()">+ Add</button>
+        </div>
+      </div>
+      <button class="btn-save" style="margin-bottom:0" onclick="saveProfileSkills()">Save Skills &amp; Services</button>
     </div>
 
     <div class="settings-section">
@@ -2115,6 +2172,7 @@ function navTo(page) {
   if (pageEl) pageEl.classList.add('active');
   if (page === 'forecast') renderForecastPage();
   if (page === 'pipeline') renderPipeline();
+  if (page === 'settings') loadProfileSkills();
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -3322,6 +3380,92 @@ function populateSettingsFields() {
     $('li-badge').className   = 'connect-badge connected';
   }
   updateWetDBA(c);
+  loadProfileSkills();
+}
+
+/* ─────────────────────────────────────────────────────────
+   SKILLS & PROFILE EDITING
+───────────────────────────────────────────────────────── */
+
+// In-memory stores for the settings page chip editors
+let S_SKILLS   = [];  // current skill list
+let S_SERVICES = [];  // current services list
+
+/** Render chips for the skills editor. */
+function renderSettingsChips(arr, containerId, type) {
+  const el = $(containerId);
+  if (!el) return;
+  el.innerHTML = arr.map((item, i) =>
+    `<span class="s-chip${type === 'service' ? ' service' : ''}">
+      ${item}
+      <button class="s-chip-x" onclick="settingsRemoveChip('${type}',${i})" title="Remove">×</button>
+    </span>`
+  ).join('');
+}
+
+function settingsRemoveChip(type, idx) {
+  if (type === 'skill') {
+    S_SKILLS.splice(idx, 1);
+    renderSettingsChips(S_SKILLS, 's-skills-chips', 'skill');
+  } else {
+    S_SERVICES.splice(idx, 1);
+    renderSettingsChips(S_SERVICES, 's-services-chips', 'service');
+  }
+}
+
+function settingsAddSkill() {
+  const inp = $('s-skill-input');
+  const val = inp?.value?.trim();
+  if (!val) return;
+  if (!S_SKILLS.includes(val)) {
+    S_SKILLS.push(val);
+    renderSettingsChips(S_SKILLS, 's-skills-chips', 'skill');
+  }
+  if (inp) inp.value = '';
+}
+
+function settingsAddService() {
+  const inp = $('s-service-input');
+  const val = inp?.value?.trim();
+  if (!val) return;
+  if (!S_SERVICES.includes(val)) {
+    S_SERVICES.push(val);
+    renderSettingsChips(S_SERVICES, 's-services-chips', 'service');
+  }
+  if (inp) inp.value = '';
+}
+
+/** Load the profile from the server and populate the chip editors. */
+async function loadProfileSkills() {
+  try {
+    const r = await fetch('/api/profile/me', { credentials: 'same-origin' });
+    if (!r.ok) return;
+    const { profile } = await r.json();
+    if (!profile) return;
+
+    // Prefer profile.skills; fall back to config's targetIndustries for industries
+    S_SKILLS   = (profile.skills   || []).map(s => typeof s === 'string' ? s : s.name).filter(Boolean);
+    S_SERVICES = (profile.services || []).filter(Boolean);
+
+    renderSettingsChips(S_SKILLS,   's-skills-chips',   'skill');
+    renderSettingsChips(S_SERVICES, 's-services-chips', 'service');
+  } catch(e) { console.warn('loadProfileSkills failed', e); }
+}
+
+/** Save the skill/service chips back to the server profile. */
+async function saveProfileSkills() {
+  try {
+    const r = await fetch('/api/profile/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ skills: S_SKILLS, services: S_SERVICES }),
+      credentials: 'same-origin',
+    });
+    if (!r.ok) throw new Error(await r.text());
+    toast('Skills & Services saved ✓');
+  } catch(e) {
+    toast('Save failed: ' + e.message, 'err');
+  }
 }
 
 function updateWetDBA(cfg) {

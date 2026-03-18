@@ -166,6 +166,7 @@ router.post('/complete', async (req, res) => {
       savings:           rates.savings            || null,
       vatPct:            rates.vatPct             || 21,
       taxReservePct:     rates.taxReservePct       || 35,
+      utilisation:       rates.utilisation         || 75,
       targetIndustries:  preferences.industries    || [],
       linkedinId:        body.linkedinId           || null,
       // Contract fields

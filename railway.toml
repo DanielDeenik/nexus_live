@@ -4,6 +4,19 @@
 # Railway auto-detects Node.js and runs "npm start" by default.
 #
 # Free tier: $5 credit/month (~500 hours). Hobby plan ($5/mo) recommended.
+#
+# ── PERSISTENT STORAGE (CRITICAL) ────────────────────────────────────────────
+# All user data (JSON store + SQLite) lives in /app/data/.
+# Without a Railway Volume this directory is wiped on every redeploy.
+#
+# One-time setup in Railway dashboard:
+#   1. Open your service → "Volumes" tab
+#   2. Click "Add Volume"
+#   3. Set Mount Path: /app/data
+#   4. Save → Railway will remount on next deploy
+#
+# After adding the volume, your profile, config, and sessions persist forever.
+# ─────────────────────────────────────────────────────────────────────────────
 
 [build]
 builder = "RAILPACK"

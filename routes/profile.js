@@ -263,6 +263,34 @@ router.post('/confirm', async (req, res) => {
   });
 });
 
+// ── GET /api/profile/me ───────────────────────────────────────────────────────
+/**
+ * Returns the currently stored synthesized profile for this user.
+ * Used by the settings page to populate skill/industry chips.
+ */
+router.get('/me', (req, res) => {
+  const profile = req.userStore.get('profile') || {};
+  res.json({ ok: true, profile });
+});
+
+// ── PATCH /api/profile/me ─────────────────────────────────────────────────────
+/**
+ * Merge a patch into the stored profile (skills, industries, services, etc.)
+ * Body: partial profile object — only provided keys are updated.
+ */
+router.patch('/me', (req, res) => {
+  const patch = req.body || {};
+  if (typeof patch !== 'object' || Array.isArray(patch)) {
+    return res.status(400).json({ ok: false, error: 'Body must be an object' });
+  }
+  const current = req.userStore.get('profile') || {};
+  const updated = { ...current, ...patch };
+  req.userStore.set('profile', updated);
+  // Keep market intel worker in sync
+  try { intel.setProfile(updated); } catch { /* intel may not have started */ }
+  res.json({ ok: true, profile: updated });
+});
+
 // ── GET /api/profile/filters ──────────────────────────────────────────────────
 
 router.get('/filters', (req, res) => {
