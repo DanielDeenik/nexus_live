@@ -43,6 +43,11 @@ try {
 
 const app = express();
 
+// ── Trust Railway/Render/Fly reverse proxy ────────────────────────────────────
+// Without this, req.protocol is 'http' and session cookies break OAuth state
+// checks when behind Railway's load balancer.
+app.set('trust proxy', 1);
+
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
