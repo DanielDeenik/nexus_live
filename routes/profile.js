@@ -35,6 +35,7 @@ const { Client } = require('@notionhq/client');
 const { extractText, documentFileFilter, ACCEPTED_EXTENSIONS } = require('../lib/documentParser');
 const { extractCvProfile }      = require('../lib/cvParser');
 const { parseSow }              = require('../lib/sowParser');
+const { extractWithLLM, isLLMAvailable } = require('../lib/llmProfileExtractor');
 const {
   synthesize, generateSearchFilters,
   mergeSearchImport, getSeasonalityPreset, getActionableGaps,
@@ -130,11 +131,21 @@ router.post('/build', (req, res) => {
 
       // 2. Parse CV (any supported format)
       let cv = null;
+      let llmProfile = null;
       const cvFile = req.files?.cv?.[0];
       if (cvFile) {
         const extracted = await extractText(cvFile.buffer, cvFile.originalname, cvFile.mimetype);
         if (extracted.error) console.warn('[profile/build] CV parse warning:', extracted.error);
-        cv = extractCvProfile(extracted.text || '');
+        const rawText = extracted.text || '';
+
+        // ── LLM-first extraction ────────────────────────────────────────────
+        // Claude extracts context-aware industries, tiered skills, services,
+        // education, languages, work preferences — things regex can't infer.
+        if (isLLMAvailable()) {
+          llmProfile = await extractWithLLM(rawText, linkedin);
+        }
+        // Always run regex parser too — some fields are reliably extracted by regex
+        cv = extractCvProfile(rawText);
       }
 
       // 3. Parse SOW / contract documents (any supported format)
@@ -151,19 +162,40 @@ router.post('/build', (req, res) => {
       }
 
       // 4. Guard: need at least some input
-      if (!linkedin && !cv && sows.length === 0) {
+      if (!linkedin && !cv && !llmProfile && sows.length === 0) {
         return res.status(400).json({ ok: false, error: 'No data provided. Upload a CV, SOW, or connect LinkedIn.' });
       }
 
-      // 5. Synthesize
-      const profile = synthesize(linkedin, cv, sows);
+      // 5. Synthesize — merge all sources
+      // Use LLM profile as the CV input if available (it's richer);
+      // synthesize() handles backwards compat flat-field format
+      const cvInput  = llmProfile || cv;
+      const profile  = synthesize(linkedin, cvInput, sows);
+
+      // 6. Overlay rich LLM-only fields that synthesize() doesn't handle yet
+      if (llmProfile) {
+        profile.skillTiers        = llmProfile.skillTiers;
+        profile.certifications    = llmProfile.certifications   || [];
+        profile.servicesRich      = llmProfile.servicesRich     || [];
+        profile.industriesRich    = llmProfile.industriesRich   || [];
+        profile.education         = llmProfile.education        || [];
+        profile.languages         = llmProfile.languages        || [];
+        profile.workPreferences   = llmProfile.workPreferences  || {};
+        profile.elevatorPitch     = llmProfile.elevatorPitch    || null;
+        profile.summary           = profile.summary || llmProfile.summary || null;
+        profile.primaryEngagementType = llmProfile.primaryEngagementType || null;
+        profile.extractedBy       = 'llm';
+      }
+
       const filters = generateSearchFilters(profile);
 
       res.json({
         ok: true,
         profile,
         filters,
-        sources: { linkedin: !!linkedin, cv: !!cv, sows: sows.length },
+        sources:      { linkedin: !!linkedin, cv: !!cv, sows: sows.length },
+        llmAvailable: isLLMAvailable(),
+        extractedBy:  profile.extractedBy || 'regex',
       });
 
     } catch (e) {
@@ -212,20 +244,62 @@ router.post('/confirm', async (req, res) => {
       if (profile.email)       rows.push(['Email',               profile.email,            'Identity',   'Self Reported',   'Confirmed']);
       if (profile.location)    rows.push(['Location',            profile.location,         'Identity',   'AI Extracted',    'AI Extracted']);
 
-      // Skills
-      if (profile.skills?.length) {
+      // Skills — tiered if LLM extracted, flat otherwise
+      const t = profile.skillTiers;
+      if (t?.tier1?.length)      rows.push(['Skills — Tier 1 (Primary)',    t.tier1.join(', '),      'Skills — Tier 1',   'AI Extracted', 'AI Extracted']);
+      if (t?.tier2?.length)      rows.push(['Skills — Tier 2 (Supporting)', t.tier2.join(', '),      'Skills — Tier 2',   'AI Extracted', 'AI Extracted']);
+      if (t?.tier3?.length)      rows.push(['Skills — Tier 3 (Adjacent)',   t.tier3.join(', '),      'Skills — Tier 3',   'AI Extracted', 'AI Extracted']);
+      if (t?.tools?.length)      rows.push(['Tools & Platforms',            t.tools.join(', '),      'Skills — Tier 1',   'AI Extracted', 'AI Extracted']);
+      if (t?.softSkills?.length) rows.push(['Soft Skills',                  t.softSkills.join(', '), 'Skills — Tier 3',   'AI Extracted', 'AI Extracted']);
+      // Flat fallback if no tiers
+      if (!t && profile.skills?.length) {
         rows.push(['Top Skills', profile.skills.slice(0, 20).join(', '), 'Skills — Tier 1', 'CV Extracted', 'AI Extracted']);
       }
 
-      // Industries
-      if (profile.industries?.length) {
+      // Certifications
+      if (profile.certifications?.length) {
+        const certStr = profile.certifications.map(c =>
+          c.name + (c.issuer ? ` (${c.issuer})` : '') + (c.year ? ` — ${c.year}` : '')
+        ).join(' | ');
+        rows.push(['Certifications', certStr, 'Skills — Tier 1', 'CV Extracted', 'Confirmed']);
+      }
+
+      // Industries (rich or flat)
+      if (profile.industriesRich?.length) {
+        rows.push(['Target Industries', profile.industriesRich.map(i => i.name || i).join(', '), 'Identity', 'AI Extracted', 'AI Extracted']);
+        const highConf = profile.industriesRich.filter(i => i.confidence === 'high').map(i => i.name);
+        if (highConf.length) rows.push(['Primary Industry', highConf[0], 'Identity', 'AI Extracted', 'AI Extracted']);
+      } else if (profile.industries?.length) {
         rows.push(['Target Industries', profile.industries.join(', '), 'Identity', 'AI Extracted', 'AI Extracted']);
       }
 
-      // Services from SOW
-      if (profile.services?.length) {
+      // Services
+      if (profile.servicesRich?.length) {
+        profile.servicesRich.slice(0, 5).forEach((svc, i) => {
+          const name  = typeof svc === 'string' ? svc : svc.name;
+          const desc  = typeof svc === 'object' ? (svc.description || '') : '';
+          rows.push([`Service ${i + 1}`, name + (desc ? ` — ${desc}` : ''), 'Identity', 'AI Extracted', 'AI Extracted']);
+        });
+      } else if (profile.services?.length) {
         rows.push(['Services Provided', profile.services.slice(0,5).join(' | '), 'Identity', 'SOW Extracted', 'AI Extracted']);
       }
+
+      // Education
+      if (profile.education?.length) {
+        const eduStr = profile.education.map(e =>
+          `${e.degree}${e.field ? ` in ${e.field}` : ''}, ${e.institution}${e.year ? ` (${e.year})` : ''}`
+        ).join(' | ');
+        rows.push(['Education', eduStr, 'Identity', 'CV Extracted', 'Confirmed']);
+      }
+
+      // Languages
+      if (profile.languages?.length) {
+        rows.push(['Languages', profile.languages.map(l => `${l.language} (${l.proficiency})`).join(', '), 'Identity', 'CV Extracted', 'AI Extracted']);
+      }
+
+      // Engagement type / work preferences
+      if (profile.primaryEngagementType) rows.push(['Engagement Type', profile.primaryEngagementType, 'Identity', 'AI Extracted', 'AI Extracted']);
+      if (profile.workPreferences?.availability) rows.push(['Availability', profile.workPreferences.availability, 'Identity', 'Self Reported', 'Self Reported']);
 
       // Search keywords
       const filters = generateSearchFilters(profile);

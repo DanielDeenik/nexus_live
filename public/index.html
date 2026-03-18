@@ -956,6 +956,10 @@ nav{flex:1;padding:10px 0;overflow-y:auto}
   background:var(--violet-dim);color:var(--violet);
   border-color:rgba(139,92,246,.2);
 }
+.s-chip.tool{
+  background:rgba(255,126,0,.08);color:var(--orange);
+  border-color:rgba(255,126,0,.2);
+}
 .s-chip-x{
   background:none;border:none;color:inherit;opacity:.5;cursor:pointer;
   font-size:10px;padding:0 2px;line-height:1;font-family:var(--font);
@@ -1544,32 +1548,173 @@ nav{flex:1;padding:10px 0;overflow-y:auto}
 
     <!-- ── Skills & Profile ──────────────────────────────── -->
     <div class="settings-section">
-      <div class="settings-section-title">Skills & Profile</div>
-      <div style="margin-bottom:14px">
-        <div style="font-size:11px;color:var(--sub);margin-bottom:8px;font-weight:500">Skills <span style="color:var(--dim)">(click × to remove · type and press Enter to add)</span></div>
+      <div class="settings-section-title">Skills & Expertise</div>
+
+      <!-- Tier 1 — Primary skills -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--acc);margin-bottom:6px;font-weight:600;letter-spacing:.03em">PRIMARY SKILLS <span style="color:var(--dim);font-weight:400">(what you're hired for — 5–8 max)</span></div>
         <div id="s-skills-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:28px"></div>
         <div style="display:flex;gap:8px">
-          <input type="text" id="s-skill-input" class="login-email-input"
-            placeholder="e.g. Product Management" autocomplete="off"
+          <input type="text" id="s-skill-input" autocomplete="off"
+            placeholder="e.g. Financial Modelling"
             style="flex:1;padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
             onkeydown="if(event.key==='Enter'){event.preventDefault();settingsAddSkill()}"
             onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
           <button class="btn-secondary" style="font-size:11px;padding:6px 12px;flex-shrink:0" onclick="settingsAddSkill()">+ Add</button>
         </div>
       </div>
-      <div style="margin-bottom:14px">
-        <div style="font-size:11px;color:var(--sub);margin-bottom:8px;font-weight:500">Services / Deliverables <span style="color:var(--dim)">(what you deliver)</span></div>
-        <div id="s-services-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:28px"></div>
+
+      <!-- Tier 2 — Supporting skills -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--violet);margin-bottom:6px;font-weight:600;letter-spacing:.03em">SUPPORTING SKILLS <span style="color:var(--dim);font-weight:400">(mentioned across roles)</span></div>
+        <div id="s-skills2-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:24px"></div>
         <div style="display:flex;gap:8px">
-          <input type="text" id="s-service-input" class="login-email-input"
-            placeholder="e.g. Product strategy roadmaps" autocomplete="off"
+          <input type="text" id="s-skill2-input" autocomplete="off"
+            placeholder="e.g. Stakeholder Management"
+            style="flex:1;padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();settingsAddSkill2()}"
+            onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
+          <button class="btn-secondary" style="font-size:11px;padding:6px 12px;flex-shrink:0" onclick="settingsAddSkill2()">+ Add</button>
+        </div>
+      </div>
+
+      <!-- Tools & Platforms -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--orange);margin-bottom:6px;font-weight:600;letter-spacing:.03em">TOOLS & PLATFORMS <span style="color:var(--dim);font-weight:400">(specific software, systems)</span></div>
+        <div id="s-tools-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:24px"></div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="s-tool-input" autocomplete="off"
+            placeholder="e.g. Bloomberg, SimCorp, Jira"
+            style="flex:1;padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();settingsAddTool()}"
+            onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border)'">
+          <button class="btn-secondary" style="font-size:11px;padding:6px 12px;flex-shrink:0" onclick="settingsAddTool()">+ Add</button>
+        </div>
+      </div>
+
+      <!-- Services / Deliverables -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:6px;font-weight:600;letter-spacing:.03em">SERVICES / DELIVERABLES <span style="color:var(--dim);font-weight:400">(what you sell and deliver)</span></div>
+        <div id="s-services-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:24px"></div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="s-service-input" autocomplete="off"
+            placeholder="e.g. Operating model design"
             style="flex:1;padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
             onkeydown="if(event.key==='Enter'){event.preventDefault();settingsAddService()}"
             onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
           <button class="btn-secondary" style="font-size:11px;padding:6px 12px;flex-shrink:0" onclick="settingsAddService()">+ Add</button>
         </div>
       </div>
-      <button class="btn-save" style="margin-bottom:0" onclick="saveProfileSkills()">Save Skills &amp; Services</button>
+
+      <button class="btn-save" style="margin-bottom:0" onclick="saveProfileSkills()">Save Skills &amp; Expertise</button>
+    </div>
+
+    <!-- ── Education & Certifications ───────────────────── -->
+    <div class="settings-section">
+      <div class="settings-section-title">Education & Certifications</div>
+
+      <!-- Education entries -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:8px;font-weight:600;letter-spacing:.03em">EDUCATION</div>
+        <div id="s-education-list" style="margin-bottom:10px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <input type="text" id="s-edu-degree" autocomplete="off" placeholder="Degree (e.g. MBA, BSc Finance)"
+            style="padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
+            onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
+          <input type="text" id="s-edu-institution" autocomplete="off" placeholder="Institution"
+            style="padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
+            onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
+          <input type="text" id="s-edu-field" autocomplete="off" placeholder="Field of study (optional)"
+            style="padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
+            onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
+          <input type="number" id="s-edu-year" placeholder="Year (e.g. 2014)"
+            style="padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
+            onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <button class="btn-secondary" style="font-size:11px;padding:6px 14px" onclick="settingsAddEducation()">+ Add Education</button>
+      </div>
+
+      <!-- Certifications -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:8px;font-weight:600;letter-spacing:.03em">CERTIFICATIONS & LICENCES</div>
+        <div id="s-certs-list" style="margin-bottom:10px"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;margin-bottom:8px">
+          <input type="text" id="s-cert-name" autocomplete="off" placeholder="Certification name"
+            style="padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
+            onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
+          <input type="text" id="s-cert-issuer" autocomplete="off" placeholder="Issuer (optional)"
+            style="padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
+            onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
+          <input type="number" id="s-cert-year" placeholder="Year"
+            style="padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
+            onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <button class="btn-secondary" style="font-size:11px;padding:6px 14px" onclick="settingsAddCert()">+ Add Certification</button>
+      </div>
+
+      <!-- Languages -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:8px;font-weight:600;letter-spacing:.03em">LANGUAGES</div>
+        <div id="s-languages-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:24px"></div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="s-lang-input" autocomplete="off" placeholder="e.g. Dutch"
+            style="flex:1;padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt);font-family:var(--font);outline:none"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();settingsAddLanguage()}"
+            onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
+          <select id="s-lang-prof"
+            style="padding:7px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);color:var(--txt)">
+            <option value="Native">Native</option>
+            <option value="Fluent">Fluent</option>
+            <option value="Professional">Professional</option>
+            <option value="Basic">Basic</option>
+          </select>
+          <button class="btn-secondary" style="font-size:11px;padding:6px 12px;flex-shrink:0" onclick="settingsAddLanguage()">+ Add</button>
+        </div>
+      </div>
+
+      <button class="btn-save" style="margin-bottom:0" onclick="saveProfileEduCerts()">Save Education &amp; Certs</button>
+    </div>
+
+    <!-- ── Work Preferences ──────────────────────────────── -->
+    <div class="settings-section">
+      <div class="settings-section-title">Work Preferences</div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;color:var(--sub);margin-bottom:10px;font-weight:600;letter-spacing:.03em">WORK ARRANGEMENT</div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt);cursor:pointer">
+            <input type="checkbox" id="s-pref-remote" style="accent-color:var(--acc);width:14px;height:14px">
+            Remote
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt);cursor:pointer">
+            <input type="checkbox" id="s-pref-hybrid" style="accent-color:var(--acc);width:14px;height:14px">
+            Hybrid
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt);cursor:pointer">
+            <input type="checkbox" id="s-pref-onsite" style="accent-color:var(--acc);width:14px;height:14px">
+            On-site
+          </label>
+        </div>
+      </div>
+      <div class="field-group" style="margin-bottom:14px">
+        <div class="field">
+          <label>Preferred Engagement Length</label>
+          <select id="s-pref-contract-len"
+            style="background:var(--bg2);color:var(--txt);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;width:100%">
+            <option value="">No preference</option>
+            <option value="1-3">1–3 months</option>
+            <option value="3-6">3–6 months</option>
+            <option value="6-12">6–12 months</option>
+            <option value="12+">12+ months</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Preferred Locations <span style="color:var(--dim);font-weight:400">(comma-separated)</span></label>
+          <input type="text" id="s-pref-locations" placeholder="e.g. Amsterdam, London, Remote"
+            style="padding:8px 10px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--txt);font-family:var(--font);outline:none;width:100%;box-sizing:border-box"
+            onfocus="this.style.borderColor='var(--acc)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+      </div>
+      <button class="btn-save" style="margin-bottom:0" onclick="saveWorkPreferences()">Save Work Preferences</button>
     </div>
 
     <div class="settings-section">
@@ -3388,54 +3533,129 @@ function populateSettingsFields() {
 ───────────────────────────────────────────────────────── */
 
 // In-memory stores for the settings page chip editors
-let S_SKILLS   = [];  // current skill list
-let S_SERVICES = [];  // current services list
+// ── Rich profile state ────────────────────────────────────────────────────────
+let S_SKILLS    = [];   // tier1 primary skills
+let S_SKILLS2   = [];   // tier2 supporting skills
+let S_TOOLS     = [];   // tools & platforms
+let S_SERVICES  = [];   // services / deliverables
+let S_EDUCATION = [];   // { degree, institution, field, year }
+let S_CERTS     = [];   // { name, issuer, year }
+let S_LANGUAGES = [];   // { language, proficiency }
 
-/** Render chips for the skills editor. */
+/** Render chip list into a container. */
 function renderSettingsChips(arr, containerId, type) {
   const el = $(containerId);
   if (!el) return;
-  el.innerHTML = arr.map((item, i) =>
-    `<span class="s-chip${type === 'service' ? ' service' : ''}">
-      ${item}
-      <button class="s-chip-x" onclick="settingsRemoveChip('${type}',${i})" title="Remove">×</button>
-    </span>`
-  ).join('');
+  const colorMap = { skill: '', skill2: ' service', tool: ' tool', service: ' service', lang: ' service' };
+  const cls = colorMap[type] || '';
+  el.innerHTML = arr.map((item, i) => {
+    const label = typeof item === 'object' ? `${item.language} (${item.proficiency})` : item;
+    return `<span class="s-chip${cls}">${label}<button class="s-chip-x" onclick="settingsRemoveChip('${type}',${i})" title="Remove">×</button></span>`;
+  }).join('');
 }
 
 function settingsRemoveChip(type, idx) {
-  if (type === 'skill') {
-    S_SKILLS.splice(idx, 1);
-    renderSettingsChips(S_SKILLS, 's-skills-chips', 'skill');
-  } else {
-    S_SERVICES.splice(idx, 1);
-    renderSettingsChips(S_SERVICES, 's-services-chips', 'service');
-  }
+  const map = { skill: [S_SKILLS,'s-skills-chips','skill'], skill2: [S_SKILLS2,'s-skills2-chips','skill2'], tool: [S_TOOLS,'s-tools-chips','tool'], service: [S_SERVICES,'s-services-chips','service'], lang: [S_LANGUAGES,'s-languages-chips','lang'] };
+  if (!map[type]) return;
+  const [arr, cid, t] = map[type];
+  arr.splice(idx, 1);
+  renderSettingsChips(arr, cid, t);
 }
 
-function settingsAddSkill() {
-  const inp = $('s-skill-input');
+function _addToChipList(inputId, arr, containerId, type) {
+  const inp = $(inputId);
   const val = inp?.value?.trim();
   if (!val) return;
-  if (!S_SKILLS.includes(val)) {
-    S_SKILLS.push(val);
-    renderSettingsChips(S_SKILLS, 's-skills-chips', 'skill');
+  if (!arr.some(x => (typeof x === 'string' ? x : x.language).toLowerCase() === val.toLowerCase())) {
+    arr.push(val);
+    renderSettingsChips(arr, containerId, type);
   }
   if (inp) inp.value = '';
 }
 
-function settingsAddService() {
-  const inp = $('s-service-input');
-  const val = inp?.value?.trim();
-  if (!val) return;
-  if (!S_SERVICES.includes(val)) {
-    S_SERVICES.push(val);
-    renderSettingsChips(S_SERVICES, 's-services-chips', 'service');
+function settingsAddSkill()   { _addToChipList('s-skill-input',   S_SKILLS,   's-skills-chips',   'skill');   }
+function settingsAddSkill2()  { _addToChipList('s-skill2-input',  S_SKILLS2,  's-skills2-chips',  'skill2');  }
+function settingsAddTool()    { _addToChipList('s-tool-input',    S_TOOLS,    's-tools-chips',    'tool');    }
+function settingsAddService() { _addToChipList('s-service-input', S_SERVICES, 's-services-chips', 'service'); }
+
+function settingsAddLanguage() {
+  const lang = $('s-lang-input')?.value?.trim();
+  const prof = $('s-lang-prof')?.value || 'Fluent';
+  if (!lang) return;
+  if (!S_LANGUAGES.some(l => l.language.toLowerCase() === lang.toLowerCase())) {
+    S_LANGUAGES.push({ language: lang, proficiency: prof });
+    renderSettingsChips(S_LANGUAGES, 's-languages-chips', 'lang');
   }
-  if (inp) inp.value = '';
+  if ($('s-lang-input')) $('s-lang-input').value = '';
 }
 
-/** Load the profile from the server and populate the chip editors. */
+// ── Education ─────────────────────────────────────────────────────────────────
+
+function renderEducationList() {
+  const el = $('s-education-list');
+  if (!el) return;
+  if (!S_EDUCATION.length) { el.innerHTML = '<div style="font-size:11px;color:var(--dim);padding:4px 0">No education added yet.</div>'; return; }
+  el.innerHTML = S_EDUCATION.map((e, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);margin-bottom:6px;font-size:12px">
+      <div>
+        <span style="color:var(--txt);font-weight:500">${e.degree}${e.field ? ` in ${e.field}` : ''}</span>
+        <span style="color:var(--sub)"> · ${e.institution}${e.year ? ` (${e.year})` : ''}</span>
+      </div>
+      <button class="s-chip-x" style="font-size:13px;padding:0 4px" onclick="settingsRemoveEducation(${i})" title="Remove">×</button>
+    </div>`).join('');
+}
+
+function settingsAddEducation() {
+  const degree      = $('s-edu-degree')?.value?.trim();
+  const institution = $('s-edu-institution')?.value?.trim();
+  if (!degree || !institution) { toast('Degree and institution required', 'err'); return; }
+  const field = $('s-edu-field')?.value?.trim() || null;
+  const year  = parseInt($('s-edu-year')?.value) || null;
+  S_EDUCATION.push({ degree, institution, field, year });
+  renderEducationList();
+  ['s-edu-degree','s-edu-institution','s-edu-field','s-edu-year'].forEach(id => { if ($(id)) $(id).value = ''; });
+}
+
+function settingsRemoveEducation(idx) {
+  S_EDUCATION.splice(idx, 1);
+  renderEducationList();
+}
+
+// ── Certifications ────────────────────────────────────────────────────────────
+
+function renderCertsList() {
+  const el = $('s-certs-list');
+  if (!el) return;
+  if (!S_CERTS.length) { el.innerHTML = '<div style="font-size:11px;color:var(--dim);padding:4px 0">No certifications added yet.</div>'; return; }
+  el.innerHTML = S_CERTS.map((c, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);margin-bottom:6px;font-size:12px">
+      <div>
+        <span style="color:var(--txt);font-weight:500">${c.name}</span>
+        ${c.issuer ? `<span style="color:var(--sub)"> · ${c.issuer}</span>` : ''}
+        ${c.year   ? `<span style="color:var(--dim)"> (${c.year})</span>` : ''}
+      </div>
+      <button class="s-chip-x" style="font-size:13px;padding:0 4px" onclick="settingsRemoveCert(${i})" title="Remove">×</button>
+    </div>`).join('');
+}
+
+function settingsAddCert() {
+  const name = $('s-cert-name')?.value?.trim();
+  if (!name) { toast('Certification name required', 'err'); return; }
+  const issuer = $('s-cert-issuer')?.value?.trim() || null;
+  const year   = parseInt($('s-cert-year')?.value) || null;
+  S_CERTS.push({ name, issuer, year });
+  renderCertsList();
+  ['s-cert-name','s-cert-issuer','s-cert-year'].forEach(id => { if ($(id)) $(id).value = ''; });
+}
+
+function settingsRemoveCert(idx) {
+  S_CERTS.splice(idx, 1);
+  renderCertsList();
+}
+
+// ── Load & save ───────────────────────────────────────────────────────────────
+
+/** Load the full rich profile from the server and populate all editors. */
 async function loadProfileSkills() {
   try {
     const r = await fetch('/api/profile/me', { credentials: 'same-origin' });
@@ -3443,29 +3663,91 @@ async function loadProfileSkills() {
     const { profile } = await r.json();
     if (!profile) return;
 
-    // Prefer profile.skills; fall back to config's targetIndustries for industries
-    S_SKILLS   = (profile.skills   || []).map(s => typeof s === 'string' ? s : s.name).filter(Boolean);
-    S_SERVICES = (profile.services || []).filter(Boolean);
+    const tiers = profile.skillTiers || {};
 
-    renderSettingsChips(S_SKILLS,   's-skills-chips',   'skill');
-    renderSettingsChips(S_SERVICES, 's-services-chips', 'service');
+    // Tier 1 skills — prefer tiers, fall back to flat skills array
+    S_SKILLS   = tiers.tier1?.length ? tiers.tier1 : (profile.skills || []).map(s => typeof s === 'string' ? s : s.name).filter(Boolean);
+    S_SKILLS2  = tiers.tier2  || [];
+    S_TOOLS    = tiers.tools  || [];
+    S_SERVICES = (profile.services || []).map(s => typeof s === 'string' ? s : (s.name || s.description || '')).filter(Boolean);
+    S_EDUCATION = profile.education    || [];
+    S_CERTS     = profile.certifications || [];
+    S_LANGUAGES = (profile.languages || []).map(l => typeof l === 'string' ? { language: l, proficiency: 'Fluent' } : l);
+
+    // Work preferences
+    const wp = profile.workPreferences || {};
+    if ($('s-pref-remote')) $('s-pref-remote').checked = !!wp.remote;
+    if ($('s-pref-hybrid')) $('s-pref-hybrid').checked = !!wp.hybrid;
+    if ($('s-pref-onsite')) $('s-pref-onsite').checked = !!wp.onSite;
+    if ($('s-pref-locations')) $('s-pref-locations').value = (wp.preferredLocations || []).join(', ');
+    if ($('s-pref-contract-len') && wp.minContractMonths && wp.maxContractMonths) {
+      const val = `${wp.minContractMonths}-${wp.maxContractMonths}`;
+      const opt = $('s-pref-contract-len').querySelector(`option[value="${val}"]`);
+      if (opt) $('s-pref-contract-len').value = val;
+    }
+
+    // Render all chip lists
+    renderSettingsChips(S_SKILLS,   's-skills-chips',    'skill');
+    renderSettingsChips(S_SKILLS2,  's-skills2-chips',   'skill2');
+    renderSettingsChips(S_TOOLS,    's-tools-chips',     'tool');
+    renderSettingsChips(S_SERVICES, 's-services-chips',  'service');
+    renderSettingsChips(S_LANGUAGES,'s-languages-chips', 'lang');
+    renderEducationList();
+    renderCertsList();
   } catch(e) { console.warn('loadProfileSkills failed', e); }
 }
 
-/** Save the skill/service chips back to the server profile. */
+/** Save skills & expertise tiers. */
 async function saveProfileSkills() {
   try {
+    const patch = {
+      skills: [...S_SKILLS, ...S_SKILLS2, ...S_TOOLS],  // flat list for compat
+      skillTiers: { tier1: S_SKILLS, tier2: S_SKILLS2, tools: S_TOOLS, tier3: [], softSkills: [] },
+      services: S_SERVICES,
+    };
     const r = await fetch('/api/profile/me', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ skills: S_SKILLS, services: S_SERVICES }),
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch), credentials: 'same-origin',
+    });
+    if (!r.ok) throw new Error(await r.text());
+    toast('Skills & Expertise saved ✓');
+  } catch(e) { toast('Save failed: ' + e.message, 'err'); }
+}
+
+/** Save education, certifications, and languages. */
+async function saveProfileEduCerts() {
+  try {
+    const r = await fetch('/api/profile/me', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ education: S_EDUCATION, certifications: S_CERTS, languages: S_LANGUAGES }),
       credentials: 'same-origin',
     });
     if (!r.ok) throw new Error(await r.text());
-    toast('Skills & Services saved ✓');
-  } catch(e) {
-    toast('Save failed: ' + e.message, 'err');
-  }
+    toast('Education & Certifications saved ✓');
+  } catch(e) { toast('Save failed: ' + e.message, 'err'); }
+}
+
+/** Save work preferences. */
+async function saveWorkPreferences() {
+  try {
+    const contractLen = $('s-pref-contract-len')?.value || '';
+    const [minM, maxM] = contractLen ? contractLen.split('-').map(Number) : [null, null];
+    const locations = ($('s-pref-locations')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+    const wp = {
+      remote:              !!$('s-pref-remote')?.checked,
+      hybrid:              !!$('s-pref-hybrid')?.checked,
+      onSite:              !!$('s-pref-onsite')?.checked,
+      preferredLocations:  locations,
+      minContractMonths:   minM  || null,
+      maxContractMonths:   contractLen === '12+' ? 24 : (maxM || null),
+    };
+    const r = await fetch('/api/profile/me', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workPreferences: wp }), credentials: 'same-origin',
+    });
+    if (!r.ok) throw new Error(await r.text());
+    toast('Work Preferences saved ✓');
+  } catch(e) { toast('Save failed: ' + e.message, 'err'); }
 }
 
 function updateWetDBA(cfg) {

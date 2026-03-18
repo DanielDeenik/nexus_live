@@ -23,6 +23,7 @@ const { Client } = require('@notionhq/client');
 
 const { parsePdf }        = require('../lib/pdfParser');
 const { extractCvProfile } = require('../lib/cvParser');
+const { extractWithLLM, isLLMAvailable } = require('../lib/llmProfileExtractor');
 
 // Multer for PDF uploads (memory storage — never writes to disk)
 let multer;
@@ -116,14 +117,29 @@ router.post('/extract', (req, res, next) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
     try {
-      // Use pdf-parse to get raw text
+      // Extract raw text from the uploaded PDF
       const parsed  = await parsePdf(req.file.buffer);
-      const profile = extractCvProfile(parsed.rawText || '');
+      const rawText = parsed.rawText || '';
+
+      // ── LLM-first extraction ──────────────────────────────────────────────
+      // Try Claude for intelligent, context-aware extraction.
+      // Falls back to regex parser if ANTHROPIC_API_KEY not set.
+      let profile;
+      if (isLLMAvailable()) {
+        profile = await extractWithLLM(rawText);
+      }
+      if (!profile) {
+        // Regex fallback — still useful without an API key
+        const regexProfile = extractCvProfile(rawText);
+        profile = { ...regexProfile, extractedBy: 'regex' };
+      }
 
       res.json({
-        ok:      true,
-        profile, // { name, headline, email, location, industries, skills, yearsExperience, confidence }
-        pages:   req.file.size, // raw bytes for display
+        ok:          true,
+        profile,
+        pages:       req.file.size,
+        extractedBy: profile.extractedBy || 'regex',
+        llmAvailable: isLLMAvailable(),
       });
     } catch (e) {
       res.status(500).json({ error: `CV parsing failed: ${e.message}` });
