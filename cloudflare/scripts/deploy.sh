@@ -39,7 +39,7 @@ set -a; source "$ROOT_DIR/.env.deploy"; set +a
 # --- Validate required IDs ---
 required_vars=(
   CLOUDFLARE_ACCOUNT_ID WORKER_NAME COMPATIBILITY_DATE
-  ZONE_NAME API_DEV_ROUTE API_PROD_ROUTE API_BASE_URL WEB_BASE_URL
+  ZONE_NAME API_DEV_ROUTE API_PROD_ROUTE API_BASE_URL WEB_BASE_URL ALLOWED_ORIGINS
   D1_DATABASE_NAME D1_DATABASE_ID D1_PREVIEW_DATABASE_ID
   KV_CACHE_ID KV_CACHE_PREVIEW_ID
   R2_BUCKET_NAME R2_BUCKET_PREVIEW_NAME
@@ -88,7 +88,7 @@ if [[ $SKIP_SECRETS -eq 0 ]]; then
     echo "==> Pushing secrets to Worker"
     cd "$API_DIR"
     # Skip blank lines, comments, and public vars (those live in [vars])
-    public_vars="API_BASE_URL|WEB_BASE_URL|JWT_ALGORITHM|JWT_EXPIRY_HOURS|LLM_PROVIDER"
+    public_vars="API_BASE_URL|WEB_BASE_URL|ALLOWED_ORIGINS|JWT_ALGORITHM|JWT_EXPIRY_HOURS|LLM_PROVIDER"
     while IFS='=' read -r key val; do
       [[ -z "$key" || "$key" =~ ^# ]] && continue
       [[ "$key" =~ ^($public_vars)$ ]] && continue
@@ -110,8 +110,10 @@ cd "$ROOT_DIR"
 # --- Deploy Pages (web) ---
 echo "==> Building + deploying Pages project: $PAGES_PROJECT_NAME"
 cd "$WEB_DIR"
-npm run build
-npx wrangler pages deploy dist --project-name "$PAGES_PROJECT_NAME"
+# Bake API base URL into the bundle at build time (Vite reads VITE_*).
+# Read from .env.deploy so there are zero hardcoded values in this script.
+VITE_API_URL="$API_BASE_URL" npm run build
+npx wrangler pages deploy dist --project-name "$PAGES_PROJECT_NAME" --branch "$ENV_NAME"
 cd "$ROOT_DIR"
 
 echo "==> Deploy complete."

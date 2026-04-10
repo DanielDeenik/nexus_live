@@ -28,6 +28,13 @@ build/
 .idea/
 *.swp
 *.swo
+*.code-workspace
+
+# macOS Finder duplicates ("filename 2.ext", "filename copy.ext")
+* 2.html
+* 2.css
+* 2.js
+* copy.html
 
 # Temp / generated
 *.tmp
