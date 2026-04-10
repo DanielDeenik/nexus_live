@@ -1,0 +1,52 @@
+# .dev.vars.example — copy to apps/api/.dev.vars for local `wrangler dev`.
+# All secrets needed by the Workers runtime. Zero hardcoded values in code.
+
+# --- Auth ---
+JWT_SECRET=
+JWT_ALGORITHM=HS256
+JWT_EXPIRY_HOURS=24
+
+# --- LLM ---
+LLM_API_KEY=
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-opus-4-1
+
+# --- Notion (knowledge graph + ticket sync) ---
+NOTION_TOKEN=
+NOTION_DATABASE_ID=
+
+# --- Plaid (bank transactions, READ-ONLY) ---
+PLAID_CLIENT_ID=
+PLAID_SECRET=
+PLAID_ENV=sandbox
+
+# --- Wise (multi-currency balances, READ-ONLY) ---
+WISE_TOKEN=
+WISE_API_BASE=https://api.wise.com
+
+# --- Stripe (payouts, READ-ONLY) ---
+STRIPE_SECRET=
+
+# --- Moneybird (Dutch invoicing) ---
+MONEYBIRD_TOKEN=
+MONEYBIRD_ADMINISTRATION_ID=
+
+# --- FX rates (provider chosen via app_config integrations.fx.provider) ---
+FX_API_KEY=
+
+# --- OAuth social login ---
+LINKEDIN_CLIENT_ID=
+LINKEDIN_CLIENT_SECRET=
+LINKEDIN_REDIRECT_URI=
+
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=
+
+# --- Email + observability ---
+SMTP_CONNECTION_STRING=
+SENTRY_DSN=
+
+# --- Public URLs (mirrored in wrangler vars) ---
+API_BASE_URL=http://localhost:8787
+WEB_BASE_URL=http://localhost:5173

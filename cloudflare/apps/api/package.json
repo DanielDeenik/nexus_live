@@ -1,0 +1,39 @@
+{
+  "name": "@nexus-live/api",
+  "version": "1.0.0",
+  "description": "Nexus Live API - Cloudflare Workers with Hono",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist .wrangler"
+  },
+  "dependencies": {
+    "@nexus-live/shared": "workspace:*",
+    "hono": "^4.1.0",
+    "zod": "^3.22.4",
+    "zod-validation-error": "^3.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240620.0",
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^6.18.0",
+    "@typescript-eslint/parser": "^6.18.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0",
+    "wrangler": "^3.29.0"
+  },
+  "keywords": [
+    "nexus-live",
+    "cloudflare-workers",
+    "hono",
+    "api"
+  ]
+}

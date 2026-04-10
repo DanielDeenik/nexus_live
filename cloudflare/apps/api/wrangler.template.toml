@@ -1,0 +1,76 @@
+# wrangler.template.toml — substituted at deploy time by ../../scripts/deploy.sh
+# All ${VAR} tokens are replaced from .env.deploy (gitignored). DO NOT hardcode IDs.
+
+name = "${WORKER_NAME}"
+account_id = "${CLOUDFLARE_ACCOUNT_ID}"
+main = "src/index.ts"
+compatibility_date = "${COMPATIBILITY_DATE}"
+compatibility_flags = ["nodejs_compat"]
+
+[env.development]
+name = "${WORKER_NAME}-dev"
+routes = [
+  { pattern = "${API_DEV_ROUTE}", zone_name = "${ZONE_NAME}" }
+]
+
+[env.production]
+name = "${WORKER_NAME}"
+routes = [
+  { pattern = "${API_PROD_ROUTE}", zone_name = "${ZONE_NAME}" }
+]
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "${D1_DATABASE_NAME}"
+database_id = "${D1_DATABASE_ID}"
+preview_database_id = "${D1_PREVIEW_DATABASE_ID}"
+
+# KV Namespace (cache)
+[[kv_namespaces]]
+binding = "CACHE"
+id = "${KV_CACHE_ID}"
+preview_id = "${KV_CACHE_PREVIEW_ID}"
+
+# R2 (file storage)
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "${R2_BUCKET_NAME}"
+preview_bucket_name = "${R2_BUCKET_PREVIEW_NAME}"
+
+# AI Gateway
+[ai]
+binding = "AI"
+
+# Public env vars (non-secret)
+[vars]
+API_BASE_URL = "${API_BASE_URL}"
+WEB_BASE_URL = "${WEB_BASE_URL}"
+LLM_PROVIDER = "${LLM_PROVIDER}"
+JWT_ALGORITHM = "${JWT_ALGORITHM}"
+JWT_EXPIRY_HOURS = "${JWT_EXPIRY_HOURS}"
+
+# Secrets — set via `wrangler secret put` (see deploy.sh):
+#   JWT_SECRET, LLM_API_KEY, LLM_MODEL,
+#   NOTION_TOKEN,
+#   PLAID_CLIENT_ID, PLAID_SECRET, PLAID_ENV,
+#   WISE_TOKEN, WISE_API_BASE,
+#   STRIPE_SECRET,
+#   MONEYBIRD_TOKEN, MONEYBIRD_ADMINISTRATION_ID,
+#   FX_API_KEY,
+#   LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET,
+#   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+#   SMTP_CONNECTION_STRING, SENTRY_DSN
+
+# Cron Triggers (read by src/index.ts scheduled handler)
+[[triggers.crons]]
+cron = "${CRON_DAILY}"
+
+[[triggers.crons]]
+cron = "${CRON_FEED_REFRESH}"
+
+[limits]
+cpu_ms = 50000
+
+[observability]
+enabled = true

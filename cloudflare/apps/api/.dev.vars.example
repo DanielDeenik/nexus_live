@@ -1,0 +1,42 @@
+# .dev.vars - Environment variables for local development
+# Copy this file to .dev.vars and fill in your actual values
+# DO NOT commit .dev.vars to version control
+
+# Cloudflare Workers Configuration
+JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
+JWT_EXPIRY_HOURS=24
+
+# API Configuration
+API_BASE_URL=http://localhost:8787
+WEB_BASE_URL=http://localhost:3000
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+
+# Database (D1 Preview ID for local development)
+# Binding is configured in wrangler.toml
+
+# KV Cache (Preview ID for local development)
+# Binding is configured in wrangler.toml
+
+# R2 Storage (Preview ID for local development)
+# Binding is configured in wrangler.toml
+
+# Optional: External API Integrations
+# Only set these if you're integrating with external services
+
+# Notion Integration
+# NOTION_TOKEN=your_notion_api_token_here
+
+# Plaid Integration
+# PLAID_CLIENT_ID=your_plaid_client_id
+# PLAID_SECRET=your_plaid_secret
+# PLAID_ENV=sandbox  # or 'development' or 'production'
+
+# Email Integration (SMTP)
+# SMTP_CONNECTION_STRING=smtp://user:pass@host:port
+
+# Error Tracking (Sentry)
+# SENTRY_DSN=https://your_sentry_dsn
+
+# LLM Configuration
+# The AI Gateway binding is configured in wrangler.toml
+# LLM_MODEL is configured via AI Gateway routes

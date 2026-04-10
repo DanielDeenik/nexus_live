@@ -1,0 +1,176 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@layer base {
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  body {
+    @apply bg-slate-950 text-slate-50 font-sans;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .font-mono-num {
+    @apply font-mono;
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Glass morphism cards */
+  .glass {
+    @apply bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl;
+  }
+
+  .glass-dark {
+    @apply bg-slate-900/50 backdrop-blur-sm border border-slate-800/50 rounded-xl;
+  }
+
+  /* Status badges */
+  .badge-paid {
+    @apply bg-emerald-500/20 text-emerald-300 border border-emerald-500/30;
+  }
+
+  .badge-pending {
+    @apply bg-amber-500/20 text-amber-300 border border-amber-500/30;
+  }
+
+  .badge-overdue {
+    @apply bg-red-500/20 text-red-300 border border-red-500/30;
+  }
+
+  .badge-active {
+    @apply bg-emerald-500/20 text-emerald-300 border border-emerald-500/30;
+  }
+
+  .badge-proposed {
+    @apply bg-blue-500/20 text-blue-300 border border-blue-500/30;
+  }
+
+  .badge-cold {
+    @apply bg-slate-700/50 text-slate-300 border border-slate-600/50;
+  }
+
+  /* Button states */
+  .btn-base {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 inline-flex items-center gap-2 whitespace-nowrap;
+  }
+
+  .btn-primary {
+    @apply btn-base bg-cyan-600 hover:bg-cyan-500 text-slate-950 hover:shadow-lg hover:shadow-cyan-500/20;
+  }
+
+  .btn-secondary {
+    @apply btn-base bg-slate-700 hover:bg-slate-600 text-slate-50 border border-slate-600;
+  }
+
+  .btn-danger {
+    @apply btn-base bg-red-600 hover:bg-red-500 text-slate-50;
+  }
+
+  .btn-ghost {
+    @apply btn-base bg-transparent hover:bg-slate-800/50 text-slate-300 hover:text-slate-50;
+  }
+
+  /* Smooth transitions */
+  .transition-all-smooth {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes spin-slow {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes pulse-soft {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  .animate-slide-left {
+    animation: slideInLeft 0.3s ease-out forwards;
+  }
+
+  .animate-spin-slow {
+    animation: spin-slow 2s linear infinite;
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-900/50;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-700 rounded-full hover:bg-slate-600;
+  }
+}
+
+/* Recharts custom styles */
+.recharts-surface {
+  background-color: transparent !important;
+}
+
+.recharts-cartesian-axis-tick-value {
+  @apply fill-slate-400 font-mono-num text-xs;
+}
+
+.recharts-tooltip {
+  outline: none !important;
+  background-color: rgba(15, 23, 42, 0.95) !important;
+  border: 1px solid rgba(51, 65, 85, 0.5) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5) !important;
+}
+
+.recharts-tooltip-label {
+  @apply text-slate-400 text-sm;
+}
+
+.recharts-default-tooltip {
+  @apply text-xs;
+}

@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Build outputs
+dist/
+build/
+.turbo/
+.next/
+
+# Environment variables (never commit real secrets)
+.env
+.env.local
+.env.*.local
+.env.deploy
+.dev.vars
+
+# Rendered (do not commit — generated from wrangler.template.toml at deploy time)
+apps/api/wrangler.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Testing
+coverage/
+.nyc_output/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Cache
+.cache/
+.eslintcache
+tsconfig.tsbuildinfo
+
+# Temporary files
+*.tmp
+*.temp
+
+# Cloudflare Workers
+.wrangler/
+wrangler.toml.local
