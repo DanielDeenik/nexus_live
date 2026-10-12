@@ -59,3 +59,9 @@ verify_jwt = false
 
 [functions.recalc]
 verify_jwt = false
+
+# Every nexus route authenticates its own callers (user JWT, the Vault-held
+# scheduler secret, or the signed OAuth state); the gateway must let the
+# scheduler's non-JWT bearer and Google's redirect through.
+[functions.nexus]
+verify_jwt = false

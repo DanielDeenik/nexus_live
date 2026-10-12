@@ -208,7 +208,7 @@ export function IncomeTax() {
                   <td className="pr-4 text-right tabular-nums">{i.hours != null ? hrs(i.hours) : '-'}</td>
                   <td className="pr-4 text-right tabular-nums">{money(i.amount, i.currency)}</td>
                   <td className="pr-4 text-right tabular-nums">{i.amount_eur != null ? eur(i.amount_eur) : <span className="text-warning-400">pending</span>}</td>
-                  <td>{i.voided_at ? <span className="text-slate-500">void</span> : counted.has(i.id) ? <span className="text-success-400">yes</span> : <span className="text-warning-400">duplicate</span>}</td>
+                  <td>{i.voided_at ? <span className="text-slate-500">void</span> : i.review_state === 'needs_review' ? <Link to="/review" className="text-warning-400 underline">needs review</Link> : counted.has(i.id) ? <span className="text-success-400">yes</span> : <span className="text-warning-400">duplicate</span>}</td>
                 </tr>
               ))}
             </tbody>

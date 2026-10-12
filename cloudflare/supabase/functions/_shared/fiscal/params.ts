@@ -30,6 +30,7 @@ export interface FiscalParams {
   mileageRate: number;
   vatRates: { standard: number; reduced: number; zero: number };
   rubriekMap: Record<string, string>;
+  vatNotReported: string[];
   unverifiedKeys: string[];
 }
 
@@ -72,6 +73,7 @@ export function paramsFromRows(rows: ParamRow[], year: number): FiscalParams {
     mileageRate: Number(g("costs.mileage_rate_per_km")),
     vatRates: g("vat.rates"),
     rubriekMap: g("vat.rubriek_map"),
+    vatNotReported: byKey.has("vat.not_reported_treatments") ? g<string[]>("vat.not_reported_treatments") : [],
     unverifiedKeys: [...byKey.values()].filter((r) => r.verified === false).map((r) => r.key),
   };
 }

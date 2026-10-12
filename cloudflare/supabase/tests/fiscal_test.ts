@@ -79,9 +79,10 @@ Deno.test("income tax: worked example at 100k profit", () => {
   assertAlmostEquals(r.taxable_profit, 86252.4, 0.01);
   assertAlmostEquals(r.income_tax_before_credits, 32627.09, 0.02);
   assertEquals(r.algemene_heffingskorting, 0);
-  assertAlmostEquals(r.arbeidskorting, 3038.01, 0.02);
+  // Arbeidsinkomen = profit before ondernemersaftrek and MKB: 5,685 - 6.51% x (100,000 - 45,592)
+  assertAlmostEquals(r.arbeidskorting, 2143.04, 0.02);
   assertAlmostEquals(r.zvw, 3851.34, 0.01);
-  assertAlmostEquals(r.total_due, 33440.42, 0.05);
+  assertAlmostEquals(r.total_due, 34335.39, 0.05);
 });
 
 Deno.test("income tax: no zelfstandigenaftrek below the urencriterium", () => {
@@ -106,8 +107,8 @@ const receipts: ExpenseRow[] = [
 
 Deno.test("costs: Coolblue receipts", () => {
   const d = receipts.reduce((s, e) => s + deductibleEur(e, p), 0);
-  // 37.18 + 218.18 + 98.35 + half of AirPods (205.79 + private VAT share 21.605) / 2
-  assertAlmostEquals(d, 37.18 + 218.18 + 98.35 + (205.79 + 0.5 * 43.21) * 0.5, 0.02);
+  // 37.18 + 218.18 + 98.35 + half of AirPods excl VAT; the private VAT share is neither reclaimed nor deducted
+  assertAlmostEquals(d, 37.18 + 218.18 + 98.35 + 205.79 * 0.5, 0.02);
   const v = receipts.reduce((s, e) => s + reclaimableVatEur(e), 0);
   assertAlmostEquals(v, 173.38 + 7.81 + 45.82 + 20.65 + 21.61, 0.02);
 });
@@ -118,15 +119,18 @@ Deno.test("costs: Mac mini depreciation and no KIA", () => {
   assertAlmostEquals(depreciationForYear(mac, 2027), 165.12, 0.01);
   assertEquals(kiaForYear([mac], 2026, p).kia, 0);
   assertEquals(kiaForYear([{ ...mac, cost_excl_vat: 3000 }], 2026, p).kia, 840);
+  // between integer band edges
+  assertEquals(kiaForYear([{ ...mac, cost_excl_vat: 2900.5 }], 2026, p).kia, 812.14);
 });
 
-Deno.test("vat: Q3 draft places Canadian invoices in 1e and reclaims hardware VAT", () => {
+Deno.test("vat: Q3 draft leaves Canadian B2B services out of the return and reclaims hardware VAT", () => {
   const q = quarterBounds(2026, 3);
-  const vInv = invoices.map((i) => ({ id: i.id, issued_date: i.issued_date, voided_at: i.voided_at, amount: i.amount, currency: i.currency, amount_eur: round(i.amount * 0.6), vat_amount: 0, vat_treatment: "export_outside_eu_services" }));
+  const vInv = invoices.map((i) => ({ id: i.id, issued_date: i.issued_date, voided_at: i.voided_at, amount: i.amount, currency: i.currency, amount_eur: round(i.amount * 0.6), vat_amount: 0, vat_treatment: "export_outside_eu_services", fx_rate_eur: 0.6 }));
   const vExp = receipts.map((e) => ({ ...e, vendor_country: "NL" }));
   const d = draftVat(vInv, vExp, q.start, q.end, p);
-  assertEquals(d.boxes["1e"].items, 3);
-  assertAlmostEquals(d.boxes["1e"].base_eur, round((160 + 144 + 246) * 185 * 0.6), 0.01);
+  assertEquals(d.boxes["1e"], undefined);
+  assertEquals(d.not_reported.items, 3);
+  assertAlmostEquals(d.not_reported.base_eur, round((160 + 144 + 246) * 185 * 0.6), 0.01);
   assertAlmostEquals(d.input_vat_5b, 45.82 + 7.81, 0.01);
   assertAlmostEquals(d.payable_5g, -(45.82 + 7.81), 0.01);
 });
@@ -166,8 +170,15 @@ Deno.test("gate: arithmetic errors and duplicates", () => {
   assertEquals(gate(prop({ vat_amount: 9 }), 44.99, cfg, p, false).reasons, ["vat_arithmetic"]);
   assertEquals(gate(prop({}), 44.99, cfg, p, true).route, "discard");
 });
-Deno.test("params: unverified rubriek map is surfaced", () => {
-  assertEquals(p.unverifiedKeys, ["vat.rubriek_map"]);
+Deno.test("params: services to non-EU businesses are not reported", () => {
+  assertEquals(p.vatNotReported, ["export_outside_eu_services"]);
+});
+Deno.test("gate: refunds wait, incomplete config refuses", () => {
+  assertEquals(gate(prop({ total: -44.99, amount_excl_vat: -37.18, vat_amount: -7.81 }), -44.99, cfg, p, false).reasons.includes("non_positive_total"), true);
+  assertEquals(gate(prop({}), 44.99, cfg, p, false, true).reasons, ["possible_duplicate"]);
+  let threw = false;
+  try { gate(prop({}), 44.99, { ...cfg, reviewCategories: [] }, p, false); } catch { threw = true; }
+  assertEquals(threw, true);
 });
 
 function round(n: number) { return Math.round(n * 100) / 100; }

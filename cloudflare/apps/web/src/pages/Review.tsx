@@ -99,7 +99,8 @@ function FilingDecision({ item, onDone }: { item: ReviewItem; onDone: () => void
   useEffect(() => {
     if (item.item_id) supabase.from('tax_filings').select('warnings').eq('id', item.item_id).single().then(({ data }) => setWarnings(data?.warnings ?? []))
   }, [item.item_id])
-  const blocks = warnings.filter((w) => w.severity === 'block')
+  const change = (item.proposed as { change?: boolean }).change === true
+  const blocks = change ? [] : warnings.filter((w) => w.severity === 'block')
   const decide = async (action: 'approve' | 'reject') => {
     setBusy(true); setErr('')
     try { await callNexus('review-decide', { review_item_id: item.id, action, acknowledge_blocking: ack }); onDone() }
@@ -120,10 +121,14 @@ function FilingDecision({ item, onDone }: { item: ReviewItem; onDone: () => void
           I have checked the {blocks.length} blocking item(s) and accept the draft anyway
         </label>
       )}
-      <p className="text-xs text-slate-400">Approving records your sign-off. Filing with the Belastingdienst stays with you; mark it filed on the Tax page afterwards.</p>
+      <p className="text-xs text-slate-400">
+        {change
+          ? 'Your approved or filed draft stays untouched. Accepting creates a new draft (or a correction draft for a filed period) for you to review.'
+          : 'Approving records your sign-off. Filing with the Belastingdienst stays with you; mark it filed on the Tax page afterwards.'}
+      </p>
       <div className="flex gap-2">
-        <button disabled={busy} onClick={() => decide('approve')} className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2">Approve draft</button>
-        <button disabled={busy} onClick={() => decide('reject')} className="rounded-lg border border-slate-600 text-slate-300 text-sm px-4 py-2">Discard draft</button>
+        <button disabled={busy} onClick={() => decide('approve')} className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2">{change ? 'Create updated draft' : 'Approve draft'}</button>
+        <button disabled={busy} onClick={() => decide('reject')} className="rounded-lg border border-slate-600 text-slate-300 text-sm px-4 py-2">{change ? 'Keep as is' : 'Discard draft'}</button>
       </div>
       {err && <p className="text-sm text-danger-400">{err}</p>}
     </div>

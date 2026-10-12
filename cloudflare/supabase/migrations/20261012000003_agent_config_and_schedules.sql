@@ -13,6 +13,6 @@ insert into public.app_config (key, value, description) values
 on conflict (key) do nothing;
 
 select public.schedule_from_config('nexus-expense-agent', 'cron.expense_agent_schedule',
-  $$select public.invoke_edge('expense-agent')$$);
+  $$select public.invoke_edge('nexus/expense-agent')$$);
 select public.schedule_from_config('nexus-tax-agent', 'cron.tax_agent_schedule',
-  $$select public.invoke_edge('tax-agent')$$);
+  $$select public.invoke_edge('nexus/tax-agent')$$);

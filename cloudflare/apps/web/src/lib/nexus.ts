@@ -99,7 +99,9 @@ export async function loadParams(): Promise<Map<number, FiscalParams>> {
 export async function loadInvoices(): Promise<InvoiceRecord[]> {
   const { data, error } = await supabase.from('invoices').select('*').order('issued_date', { ascending: true })
   if (error) throw error
-  return (data ?? []).map((r) => ({
+  // Legacy Moneybird rows (VAT-inclusive, no periods) stay out of the ledger,
+  // exactly as in the tax agent.
+  return (data ?? []).filter((r) => r.source !== 'moneybird').map((r) => ({
     ...r, amount: Number(r.amount), amount_eur: num(r.amount_eur), hours: num(r.hours), unit_rate: num(r.unit_rate),
     vat_amount: Number(r.vat_amount ?? 0), fx_rate_eur: num(r.fx_rate_eur),
   })) as InvoiceRecord[]

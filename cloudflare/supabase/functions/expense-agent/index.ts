@@ -95,7 +95,8 @@ function validReceipt(o: unknown, categories: string[]): o is ReceiptOut {
   const n = (v: unknown) => v === null || v === undefined || typeof v === "number";
   return !!r && typeof r.is_business_document === "boolean" && TREATMENTS.includes(r.treatment) &&
     categories.includes(r.category) && typeof r.business_use_pct === "number" && r.business_use_pct >= 0 &&
-    r.business_use_pct <= 1 && typeof r.confidence === "number" && n(r.total) && n(r.amount_excl_vat) && n(r.vat_amount) &&
+    r.business_use_pct <= 1 && typeof r.confidence === "number" && r.confidence >= 0 && r.confidence <= 1 &&
+    n(r.total) && n(r.amount_excl_vat) && n(r.vat_amount) &&
     (r.date === null || /^\d{4}-\d{2}-\d{2}$/.test(r.date ?? ""));
 }
 
@@ -124,8 +125,7 @@ async function loadCtx(db: SupabaseClient): Promise<Ctx> {
     .select("system_prompt, llm_provider, llm_model, max_tokens, temperature, enabled").eq("agent_id", "expense").single();
   if (aErr || !agent) throw new Error("expense agent config missing");
   if (!agent.enabled) throw new Error("expense agent is disabled in agent_configs");
-  const categories: string[] = JSON.parse(cfg["expense_agent.categories"] ?? "[]");
-  if (!categories.length) throw new Error("app_config expense_agent.categories is empty");
+  const categories = requireList(cfg, "expense_agent.categories");
   return {
     db, cfg, params, categories,
     llm: { provider: agent.llm_provider, model: agent.llm_model, maxTokens: agent.max_tokens, temperature: Number(agent.temperature) },
@@ -134,9 +134,15 @@ async function loadCtx(db: SupabaseClient): Promise<Ctx> {
       autoBookMinConfidence: need(cfg, "expense_agent.auto_book_min_confidence"),
       autoBookMaxAmountEur: need(cfg, "expense_agent.auto_book_max_amount_eur"),
       amountToleranceEur: need(cfg, "expense_agent.amount_tolerance_eur"),
-      reviewCategories: JSON.parse(cfg["expense_agent.review_categories"] ?? "[]"),
+      reviewCategories: requireList(cfg, "expense_agent.review_categories"),
     },
   };
+}
+
+function requireList(cfg: AppConfig, key: string): string[] {
+  const v = JSON.parse(cfg[key] ?? "[]");
+  if (!Array.isArray(v) || !v.length) throw new Error(`app_config ${key} missing or empty`);
+  return v;
 }
 
 type VendorRule = { treatment: Treatment; category: string; business_use_pct: number };
@@ -144,16 +150,39 @@ async function vendorRules(db: SupabaseClient, userId: string): Promise<Map<stri
   const { data } = await db.from("agent_knowledge_graph").select("context_json, output_json")
     .eq("agent_id", "expense").eq("user_id", userId).eq("entry_type", "rule").is("superseded_by", null);
   const m = new Map<string, VendorRule>();
-  for (const r of data ?? []) m.set(r.context_json?.vendor_key, r.output_json);
+  for (const r of data ?? []) if (r.context_json?.vendor_key) m.set(r.context_json.vendor_key, r.output_json);
   return m;
 }
 
 async function alreadyHave(db: SupabaseClient, userId: string, hash: string | null, externalId: string): Promise<boolean> {
-  const q = db.from("expenses").select("id", { count: "exact", head: true }).eq("user_id", userId);
-  const { count } = hash
-    ? await q.or(`evidence_hash.eq.${hash},external_txn_id.eq.${externalId}`)
-    : await q.eq("external_txn_id", externalId);
-  return (count ?? 0) > 0;
+  const byId = await db.from("expenses").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("external_txn_id", externalId);
+  if (byId.error) throw new Error(`dedupe: ${byId.error.message}`);
+  if ((byId.count ?? 0) > 0) return true;
+  if (!hash) return false;
+  const byHash = await db.from("expenses").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("evidence_hash", hash);
+  if (byHash.error) throw new Error(`dedupe: ${byHash.error.message}`);
+  return (byHash.count ?? 0) > 0;
+}
+
+const addDays = (d: string, n: number) => new Date(Date.parse(d) + n * 864e5).toISOString().slice(0, 10);
+
+/** Same purchase arriving twice with different bytes (Gmail and Drive, or an
+ *  order mail plus a PDF): same vendor and invoice number, or same vendor,
+ *  date and total. Sends the newcomer to review instead of booking it. */
+async function possibleDuplicate(db: SupabaseClient, userId: string, o: ReceiptOut): Promise<boolean> {
+  if (!o.vendor) return false;
+  const base = () => db.from("expenses").select("id, vendor").eq("user_id", userId).neq("status", "rejected");
+  const key = vendorKey(o.vendor);
+  const same = (rows: { vendor: string | null }[] | null) => (rows ?? []).some((r) => vendorKey(r.vendor) === key);
+  if (o.invoice_number) {
+    const { data } = await base().eq("invoice_number", o.invoice_number);
+    if (same(data)) return true;
+  }
+  if (o.date && o.total != null) {
+    const { data } = await base().eq("date", o.date).gte("amount", o.total - 0.01).lte("amount", o.total + 0.01);
+    if (same(data)) return true;
+  }
+  return false;
 }
 
 // --------------------------------------------------------- receipt flow ----
@@ -169,20 +198,18 @@ async function processReceipt(ctx: Ctx, run: AgentRun, userId: string, doc: Coll
   if (doc.source === "wise" && doc.hint) {
     const h = doc.hint;
     const window = need(cfg, "expense_agent.bank_match_window_days");
-    const from = new Date(Date.parse(h.date) - window * 864e5).toISOString().slice(0, 10);
-    const to = new Date(Date.parse(h.date) + window * 864e5).toISOString().slice(0, 10);
     const { data: match } = await db.from("expenses").select("id").eq("user_id", userId).eq("currency", h.currency)
-      .gte("date", from).lte("date", to).gte("amount", h.amount - 0.01).lte("amount", h.amount + 0.01)
-      .is("external_txn_id", null).limit(1);
+      .gte("date", addDays(h.date, -window)).lte("date", addDays(h.date, window)).gte("amount", h.amount - 0.01).lte("amount", h.amount + 0.01)
+      .is("bank_txn_id", null).neq("status", "rejected").limit(1);
     if (match?.length) {
-      await db.from("expenses").update({ external_txn_id: doc.external_id, updated_at: new Date().toISOString() }).eq("id", match[0].id);
+      await db.from("expenses").update({ bank_txn_id: doc.external_id, updated_at: new Date().toISOString() }).eq("id", match[0].id);
       run.count("bank_matched");
       return;
     }
     const rate = await eurRate(db, cfg["integrations.fx_api_base"], h.currency, h.date);
     const { data: ins, error } = await db.from("expenses").insert({
       user_id: userId, amount: h.amount, currency: h.currency, category: "uncategorised", description: h.vendor,
-      date: h.date, source: "wise", external_txn_id: doc.external_id, status: "needs_review", treatment: "unknown",
+      date: h.date, source: "wise", external_txn_id: doc.external_id, bank_txn_id: doc.external_id, status: "needs_review", treatment: "unknown",
       vendor: h.vendor, fx_rate_eur: rate?.rate ?? null, amount_eur: rate ? round2(h.amount * rate.rate) : null,
       confidence: 0, rationale: "Bank payment found without a receipt.", agent_run_id: run.id,
     }).select("id").single();
@@ -237,7 +264,8 @@ async function processReceipt(ctx: Ctx, run: AgentRun, userId: string, doc: Coll
   }
 
   // Owner-confirmed vendor rule overrides the model's judgement.
-  const rule = rules.get(vendorKey(out.vendor));
+  const key = vendorKey(out.vendor);
+  const rule = !extractionFailed && key ? rules.get(key) : undefined;
   if (rule) { out.treatment = rule.treatment; out.category = rule.category; out.business_use_pct = rule.business_use_pct; }
 
   const date = out.date ?? doc.received_at.slice(0, 10);
@@ -255,9 +283,14 @@ async function processReceipt(ctx: Ctx, run: AgentRun, userId: string, doc: Coll
     confidence: out.confidence, is_business_document: out.is_business_document, vendor_rule_applied: !!rule,
   };
   const yearP = ctx.params.get(Number(date.slice(0, 4)));
+  const maybeDup = !extractionFailed && await possibleDuplicate(db, userId, out);
   const decision = yearP
-    ? gate(proposal, amountEur, ctx.gateCfg, yearP, false)
+    ? gate(proposal, amountEur, ctx.gateCfg, yearP, false, maybeDup)
     : { route: "review" as const, reasons: ["missing_parameters" as const] };
+  // Something the owner uploaded themselves is never silently dropped.
+  if (doc.source === "upload" && decision.route === "discard") {
+    (decision as { route: string }).route = "review";
+  }
   if (extractionFailed && !decision.reasons.includes("extraction_failed" as never)) decision.reasons.push("extraction_failed" as never);
   if (extractionFailed) (decision as { route: string }).route = "review";
 
@@ -276,9 +309,27 @@ async function processReceipt(ctx: Ctx, run: AgentRun, userId: string, doc: Coll
   const treatment: Treatment = isAsset ? "asset" : out.treatment;
   const status = decision.route === "book" ? "booked" : "needs_review";
 
+  // If this receipt belongs to a bank payment already waiting for evidence,
+  // complete that row instead of creating a second cost.
+  let bankTxnId: string | null = null;
+  if (out.total != null && !extractionFailed) {
+    const window = need(cfg, "expense_agent.bank_match_window_days");
+    const { data: waiting } = await db.from("expenses").select("id, bank_txn_id").eq("user_id", userId)
+      .eq("source", "wise").eq("status", "needs_review").is("evidence_path", null).eq("currency", currency)
+      .gte("date", addDays(date, -window)).lte("date", addDays(date, window))
+      .gte("amount", out.total - 0.01).lte("amount", out.total + 0.01).limit(1);
+    if (waiting?.length) {
+      bankTxnId = waiting[0].bank_txn_id;
+      await db.from("review_items").update({ status: "rejected", decision: { action: "superseded_by_receipt" }, decided_at: new Date().toISOString() })
+        .eq("user_id", userId).eq("item_id", waiting[0].id).eq("status", "open");
+      await db.from("expenses").delete().eq("id", waiting[0].id).eq("user_id", userId).is("evidence_path", null);
+      run.count("bank_payment_completed");
+    }
+  }
+
   const { data: exp, error } = await db.from("expenses").insert({
     user_id: userId, amount: out.total ?? 0, currency, category: out.category, description: out.description ?? doc.title,
-    date, source: doc.source, external_txn_id: doc.external_id, status, treatment,
+    date, source: doc.source, external_txn_id: doc.external_id, bank_txn_id: bankTxnId, status, treatment,
     business_use_pct: out.business_use_pct, vendor: out.vendor, vendor_country: out.vendor_country ?? null,
     amount_excl_vat: out.amount_excl_vat ?? null, vat_amount: out.vat_amount ?? null, vat_rate: out.vat_rate ?? null,
     vat_reclaimable: vatShown && domestic, vat_reverse_charge: foreign && !vatShown && treatment !== "private",
@@ -288,12 +339,12 @@ async function processReceipt(ctx: Ctx, run: AgentRun, userId: string, doc: Coll
   if (error) throw new Error(`insert expense: ${error.message}`);
 
   let assetId: string | null = null;
-  if (isAsset && yearP) {
+  if (isAsset && yearP && rate) {
     const cls = out.asset_class ?? "other";
     const excl = out.amount_excl_vat ?? out.total ?? 0;
     const { data: asset, error: aErr } = await db.from("fixed_assets").insert({
       user_id: userId, description: out.description ?? out.vendor ?? "Asset", asset_class: cls, acquired_date: date,
-      cost_excl_vat: rate ? round2(excl * rate.rate) : excl, useful_life_years: yearP.usefulLife[cls] ?? yearP.usefulLife.other,
+      cost_excl_vat: round2(excl * rate.rate), useful_life_years: yearP.usefulLife[cls] ?? yearP.usefulLife.other,
       status: "needs_review",
     }).select("id").single();
     if (aErr) throw new Error(`insert asset: ${aErr.message}`);
@@ -303,7 +354,7 @@ async function processReceipt(ctx: Ctx, run: AgentRun, userId: string, doc: Coll
 
   if (status === "needs_review") {
     await openReview(db, {
-      user_id: userId, item_type: isAsset ? "asset" : "expense", item_id: isAsset ? assetId : exp.id,
+      user_id: userId, item_type: assetId ? "asset" : "expense", item_id: assetId ?? exp.id,
       reason_codes: decision.reasons,
       summary: `${out.vendor ?? "Unknown vendor"}: ${(out.total ?? 0).toFixed(2)} ${currency}${out.description ? ` (${out.description})` : ""}`,
       proposed: {
@@ -334,6 +385,13 @@ async function processSalesInvoice(ctx: Ctx, run: AgentRun, userId: string, doc:
     salesInvoiceTool));
   const o = res!.value;
   run.count("input_tokens", res!.usage.input_tokens);
+  const isDate = (d: unknown) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d);
+  if (!o || typeof o.invoice_number !== "string" || !o.invoice_number.trim() || !isDate(o.issued_date) ||
+      typeof o.amount !== "number" || !(o.amount > 0) || typeof o.currency !== "string" || !/^[A-Z]{3}$/.test(o.currency) ||
+      typeof o.client !== "string" || typeof o.confidence !== "number" ||
+      (o.period_start != null && !isDate(o.period_start)) || (o.period_end != null && !isDate(o.period_end))) {
+    throw new Error("sales invoice could not be read reliably; add it manually");
+  }
   const country = (o.client_country ?? "").toUpperCase();
   const home = (cfg["locale.primary_region"] ?? "").toUpperCase();
   const vat = o.vat_amount ?? 0;
@@ -344,25 +402,42 @@ async function processSalesInvoice(ctx: Ctx, run: AgentRun, userId: string, doc:
   const lagDays = need(cfg, "fx.default_payment_lag_days");
   const due = o.due_date ?? new Date(Date.parse(o.issued_date) + lagDays * 864e5).toISOString().slice(0, 10);
 
-  const { data: inv, error } = await db.from("invoices").upsert({
+  const reasons: string[] = [];
+  if (!/^[A-Z]{2}$/.test(country)) reasons.push("invoice_needs_country");
+  if (o.confidence < ctx.gateCfg.autoBookMinConfidence) reasons.push("low_confidence");
+
+  const { data: inv, error } = await db.from("invoices").insert({
     user_id: userId, invoice_number: o.invoice_number, client: o.client, amount: o.amount, currency: o.currency,
     issued_date: o.issued_date, due_date: due, hours: o.hours ?? null, unit_rate: o.unit_rate ?? null,
     period_start: o.period_start ?? null, period_end: o.period_end ?? null, client_country: country || null,
     client_region: o.client_region ?? null, vat_treatment: treatment, vat_amount: vat, fx_rate_eur: rate?.rate ?? null,
     fx_rate_date: rate?.date ?? null, amount_eur: rate ? round2(o.amount * rate.rate) : null, description: o.description ?? null,
     source: "manual", ingest_channel: "upload", document_path: path,
-  }, { onConflict: "user_id,invoice_number" }).select("id, invoice_number, client, amount, currency, issued_date, period_start, period_end, hours, unit_rate, duplicate_of, voided_at, amount_eur").single();
-  if (error) throw new Error(`upsert invoice: ${error.message}`);
+    review_state: reasons.length ? "needs_review" : "confirmed",
+  }).select("id, invoice_number, client, amount, currency, issued_date, period_start, period_end, hours, unit_rate, duplicate_of, voided_at, amount_eur").single();
+  if (error?.code === "23505") {
+    // Never overwrite an existing invoice; ask instead.
+    const { data: existing } = await db.from("invoices").select("id").eq("user_id", userId).eq("invoice_number", o.invoice_number).single();
+    await openReview(db, {
+      user_id: userId, item_type: "invoice_anomaly", item_id: existing?.id ?? null, reason_codes: ["invoice_number_exists"],
+      summary: `${o.invoice_number} is already in your ledger; the uploaded copy was not applied`,
+      proposed: { uploaded: o, path }, agent_run_id: run.id,
+    });
+    run.count("invoice_conflicts");
+    return;
+  }
+  if (error) throw new Error(`insert invoice: ${error.message}`);
 
   const { data: same } = await db.from("invoices")
     .select("id, invoice_number, client, amount, currency, issued_date, period_start, period_end, hours, unit_rate, duplicate_of, voided_at, amount_eur")
     .eq("user_id", userId).eq("client", inv.client).is("voided_at", null);
   const { anomalies } = detectDuplicates((same ?? []) as never);
   const hit = anomalies.find((a) => a.invoice_ids.includes(inv.id));
-  if (hit || o.confidence < ctx.gateCfg.autoBookMinConfidence) {
+  if (hit) reasons.push("invoice_duplicate_period");
+  if (reasons.length) {
     await openReview(db, {
       user_id: userId, item_type: "invoice_anomaly", item_id: inv.id,
-      reason_codes: [hit ? "invoice_duplicate_period" : "low_confidence"],
+      reason_codes: reasons,
       summary: hit?.message ?? `${o.invoice_number}: please confirm the extracted figures`,
       proposed: { invoice: o }, agent_run_id: run.id,
     });
@@ -377,10 +452,23 @@ async function runForUser(ctx: Ctx, userId: string, trigger: Trigger, docs: () =
   try {
     const list = (await run.step("collect", docs, { summarize: (d) => ({ documents: d.length }) })) ?? [];
     const max = need(ctx.cfg, "expense_agent.max_documents_per_run");
-    for (const d of list.slice(0, max)) {
-      await run.step(`process:${d.source}:${d.external_id}`, () => handler ? handler(d, run) : processReceipt(ctx, run, userId, d), { tolerate: true });
+    const done = list.slice(0, max);
+    const failedDrive: string[] = [];
+    for (const d of done) {
+      const ok = await run.step(`process:${d.source}:${d.external_id}`, async () => { await (handler ? handler(d, run) : processReceipt(ctx, run, userId, d)); return true; }, { tolerate: true });
+      if (!ok && d.source === "drive") failedDrive.push(d.received_at);
     }
-    run.count("documents", Math.min(list.length, max));
+    // Advance the Drive cursor only past files that were processed; a failed
+    // file (or one beyond this run's cap) is picked up again next run.
+    const driveDone = done.filter((d) => d.source === "drive").map((d) => d.received_at).sort();
+    const skipped = list.slice(max).filter((d) => d.source === "drive").map((d) => d.received_at);
+    const blockers = [...failedDrive, ...skipped].sort();
+    const cursor = blockers.length ? driveDone.filter((t) => t < blockers[0]).at(-1) : driveDone.at(-1);
+    if (cursor) {
+      const { data: c } = await ctx.db.from("integration_connections").select("id, cursor").eq("user_id", userId).eq("provider", "google").maybeSingle();
+      if (c) await ctx.db.from("integration_connections").update({ cursor: { ...c.cursor, drive_modified_after: cursor } }).eq("id", c.id);
+    }
+    run.count("documents", done.length);
     return { run_id: run.id, status: await run.finish(), metrics: run.metrics };
   } catch (e) {
     await run.finish(e);
@@ -400,9 +488,7 @@ async function collectAll(ctx: Ctx, userId: string): Promise<CollectedDoc[]> {
       if (c.provider === "google") {
         const token = await googleAccessToken(db, cfg, c);
         docs.push(...await collectGmail(token, cfg, lookback, max));
-        const d = await collectDrive(token, cfg, c, max);
-        docs.push(...d.docs);
-        if (d.cursor) await db.from("integration_connections").update({ cursor: { ...c.cursor, drive_modified_after: d.cursor } }).eq("id", c.id);
+        docs.push(...(await collectDrive(token, cfg, c, max)).docs);
       } else if (c.provider === "wise") {
         docs.push(...await collectWise(db, cfg, c, lookback, max));
       }
@@ -420,11 +506,11 @@ export async function handler(req: Request): Promise<Response> {
   if (pf) return pf;
   const db = adminClient();
   try {
-    const ctx = await loadCtx(db);
-    const body = await req.json().catch(() => ({}));
     const who = await authorize(req, db);
     if (!who) return json({ error: "unauthorized" }, 401);
     const caller = who.kind === "user" ? who.id : null;
+    const body = await req.json().catch(() => ({}));
+    const ctx = await loadCtx(db);
 
     if (body.mode === "upload") {
       // A signed-in user uploads their own file; the scheduler identity may
@@ -433,7 +519,9 @@ export async function handler(req: Request): Promise<Response> {
       const owner = caller ?? (who.kind === "service" && typeof body.user_id === "string" ? body.user_id : null);
       if (!owner) return json({ error: "sign in required" }, 401);
       const path = String(body.path ?? "");
-      if (!path.startsWith(`${owner}/`)) return json({ error: "path outside your folder" }, 403);
+      if (!path.startsWith(`${owner}/`) || path.split("/").some((seg) => seg === ".." || seg === "")) {
+        return json({ error: "path outside your folder" }, 403);
+      }
       const dl = await db.storage.from("receipts").download(path);
       if (dl.error) return json({ error: dl.error.message }, 400);
       const bytes = new Uint8Array(await dl.data.arrayBuffer());

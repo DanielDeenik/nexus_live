@@ -185,10 +185,17 @@
    "nl_standard": "1a",
    "nl_reduced": "1b",
    "eu_reverse_charge": "3b",
-   "export_outside_eu_services": "1e",
    "purchases_services_outside_eu": "4a",
    "purchases_eu": "4b"
   },
-  "verified": false
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "vat.not_reported_treatments",
+  "value": [
+   "export_outside_eu_services"
+  ],
+  "verified": true
  }
 ]

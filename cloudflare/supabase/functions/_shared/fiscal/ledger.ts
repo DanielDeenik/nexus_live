@@ -17,6 +17,7 @@ export interface InvoiceRow {
   unit_rate: number | null;
   duplicate_of: string | null;
   voided_at: string | null;
+  review_state?: string | null;
 }
 
 export interface TimeEntryRow { entry_date: string; hours: number; category: string }
@@ -65,7 +66,7 @@ function seqNumber(n: string | null): { prefix: string; num: number; width: numb
 /** Invoices that should not count: void, explicitly linked duplicates, or
  *  detected same-period duplicates (the earliest-issued one is kept). */
 export function detectDuplicates(invoices: InvoiceRow[]): { keep: InvoiceRow[]; anomalies: Anomaly[] } {
-  const live = invoices.filter((i) => !i.voided_at && !i.duplicate_of);
+  const live = invoices.filter((i) => !i.voided_at && !i.duplicate_of && i.review_state !== "needs_review");
   const groups = new Map<string, InvoiceRow[]>();
   const keep: InvoiceRow[] = [];
   for (const inv of live) {

@@ -11,7 +11,7 @@ import { loadConfig, need, type AppConfig } from "../_shared/config.ts";
 import { json, preflight } from "../_shared/cors.ts";
 import { eurRate } from "../_shared/fx.ts";
 import { callStructured } from "../_shared/llm.ts";
-import { AgentRun, openReview, type Trigger } from "../_shared/harness.ts";
+import { AgentRun, openReview, sha256Hex, type Trigger } from "../_shared/harness.ts";
 import {
   type AssetRow, type ExpenseRow, type FiscalParams, type InvoiceRow, type ParamRow, type VatExpense,
   COUNTABLE, deductibleEur, depreciationForYear, draftVat, estimateIncomeTax, kiaForYear, paramsFromRows,
@@ -20,7 +20,7 @@ import {
 
 interface Warning { code: string; severity: "info" | "warn" | "block"; message: string }
 
-const INVOICE_COLS = "id, invoice_number, client, amount, currency, amount_eur, status, issued_date, period_start, period_end, hours, unit_rate, duplicate_of, voided_at, vat_amount, vat_treatment, fx_rate_eur";
+const INVOICE_COLS = "id, invoice_number, client, amount, currency, amount_eur, status, issued_date, period_start, period_end, hours, unit_rate, duplicate_of, voided_at, review_state, vat_amount, vat_treatment, fx_rate_eur, source, client_country, client_region";
 const EXPENSE_COLS = "id, date, status, treatment, amount, currency, amount_excl_vat, vat_amount, vat_reclaimable, vat_reverse_charge, business_use_pct, fx_rate_eur, category, vendor_country, evidence_path";
 
 async function backfillFx(db: SupabaseClient, cfg: AppConfig, userId: string, run: AgentRun) {
@@ -45,7 +45,9 @@ async function load(db: SupabaseClient, userId: string) {
   for (const r of [inv, exp, assets, time]) if (r.error) throw new Error(r.error.message);
   const n = (x: unknown) => (x == null ? null : Number(x));
   return {
-    invoices: (inv.data ?? []).map((r) => ({ ...r, amount: Number(r.amount), amount_eur: n(r.amount_eur), hours: n(r.hours), unit_rate: n(r.unit_rate), vat_amount: Number(r.vat_amount) })),
+    // Legacy Moneybird rows carry VAT-inclusive totals and no periods; the
+    // ledger only uses invoices ingested by the new pipeline or entered by hand.
+    invoices: (inv.data ?? []).filter((r) => r.source !== "moneybird").map((r) => ({ ...r, amount: Number(r.amount), amount_eur: n(r.amount_eur), hours: n(r.hours), unit_rate: n(r.unit_rate), vat_amount: Number(r.vat_amount), fx_rate_eur: n(r.fx_rate_eur) })),
     expenses: (exp.data ?? []).map((r) => ({ ...r, amount: Number(r.amount), amount_excl_vat: n(r.amount_excl_vat), vat_amount: n(r.vat_amount), business_use_pct: Number(r.business_use_pct), fx_rate_eur: n(r.fx_rate_eur) })) as (VatExpense & { evidence_path: string | null })[],
     assets: (assets.data ?? []).map((r) => ({ ...r, cost_excl_vat: Number(r.cost_excl_vat), residual_value: Number(r.residual_value), useful_life_years: Number(r.useful_life_years) })) as AssetRow[],
     time: (time.data ?? []).map((r) => ({ ...r, hours: Number(r.hours) })),
@@ -84,15 +86,36 @@ async function modelWarnings(db: SupabaseClient, run: AgentRun, figures: unknown
   return (res?.value.warnings ?? []).filter((x) => ["info", "warn", "block"].includes(x.severity) && typeof x.message === "string").map((x) => ({ ...x, code: `ai_${x.code}` }));
 }
 
-async function saveDraft(db: SupabaseClient, run: AgentRun, userId: string, kind: string, label: string, start: string, end: string, figures: unknown, warnings: Warning[]) {
+/** The date-independent part of a draft. The income tax projection moves
+ *  every day, so it never counts as a change to the books. */
+function stableFigures(kind: string, figures: Record<string, unknown>) {
+  if (kind !== "income_tax_year") return figures;
+  const { ledger, costs_eur, depreciation_eur, kia, ytd } = figures;
+  return { ledger, costs_eur, depreciation_eur, kia, ytd };
+}
+const stableHash = async (kind: string, f: Record<string, unknown>) => sha256Hex(new TextEncoder().encode(JSON.stringify(stableFigures(kind, f))));
+
+async function saveDraft(db: SupabaseClient, run: AgentRun, userId: string, kind: string, label: string, start: string, end: string, figures: Record<string, unknown>, warnings: Warning[]) {
   const { data: current } = await db.from("tax_filings").select("id, status, figures").eq("user_id", userId).eq("kind", kind).eq("period_label", label).neq("status", "superseded").maybeSingle();
-  const same = current && JSON.stringify(current.figures) === JSON.stringify(figures);
-  if (current && same) { run.count("drafts_unchanged"); return; }
+  const hash = await stableHash(kind, figures);
+  const same = current && (await stableHash(kind, current.figures)) === hash;
+  if (current && same) {
+    // Refresh the projection on an open draft without reopening review.
+    if (current.status === "needs_review") await db.from("tax_filings").update({ figures, warnings }).eq("id", current.id);
+    run.count("drafts_unchanged");
+    return;
+  }
   if (current && current.status !== "needs_review") {
+    // Approved and filed drafts are immutable. Tell the owner once per
+    // distinct change; review-decide turns an accepted change into a new
+    // draft (approved) or a correction draft (filed).
+    const { data: last } = await db.from("review_items").select("proposed").eq("user_id", userId).eq("item_id", current.id)
+      .contains("reason_codes", ["changed_after_approval"]).order("created_at", { ascending: false }).limit(1);
+    if (last?.[0]?.proposed?.stable_hash === hash) { run.count("change_already_raised"); return; }
     await openReview(db, {
       user_id: userId, item_type: "filing", item_id: current.id, reason_codes: ["changed_after_approval"],
-      summary: `${label} ${kind === "vat_quarter" ? "VAT" : "income tax"}: the books changed after you ${current.status} this draft`,
-      proposed: { new_figures: figures }, agent_run_id: run.id,
+      summary: `${label} ${kind === "vat_quarter" ? "VAT" : "income tax"}: the books changed after you ${current.status === "filed" ? "filed" : "approved"} this draft`,
+      proposed: { change: true, new_figures: figures, new_warnings: warnings, stable_hash: hash }, agent_run_id: run.id,
     });
     run.count("changed_after_approval");
     return;
@@ -119,9 +142,10 @@ async function vatDraft(db: SupabaseClient, run: AgentRun, userId: string, year:
   const b = quarterBounds(year, q);
   const d = draftVat(data.invoices, data.expenses, b.start, b.end, p);
   const warnings = baseWarnings(p, data, b.start, b.end);
+  if (d.not_reported.items) warnings.push({ code: "not_reported", severity: "info", message: `${d.not_reported.items} invoice(s), ${d.not_reported.base_eur.toFixed(2)} EUR, are B2B services to a non-EU business: not part of the Dutch VAT return.` });
   for (const u of d.unplaced) warnings.push({ code: "unplaced", severity: "block", message: `Item ${u.id} could not be placed: ${u.reason}.` });
   warnings.push(...await modelWarnings(db, run, d, warnings));
-  await saveDraft(db, run, userId, "vat_quarter", b.label, b.start, b.end, d, warnings);
+  await saveDraft(db, run, userId, "vat_quarter", b.label, b.start, b.end, d as unknown as Record<string, unknown>, warnings);
 }
 
 async function incomeTaxDraft(db: SupabaseClient, cfg: AppConfig, run: AgentRun, userId: string, year: number, p: FiscalParams, data: Awaited<ReturnType<typeof load>>) {
@@ -137,7 +161,11 @@ async function incomeTaxDraft(db: SupabaseClient, cfg: AppConfig, run: AgentRun,
 
   // Projection to year end at the latest billed rate on the client's calendar.
   let projection = null;
-  const region = data.profile?.work_calendar_region;
+  // Same rule as the dashboard: the owner's setting, else the client region
+  // on the most recent invoice.
+  const lastWithRegion = [...data.invoices].filter((i) => !i.voided_at && (i as { client_country?: string }).client_country && (i as { client_region?: string }).client_region)
+    .sort((a, b) => b.issued_date.localeCompare(a.issued_date))[0] as { client_country?: string; client_region?: string } | undefined;
+  const region = data.profile?.work_calendar_region ?? (lastWithRegion ? `${lastWithRegion.client_country}-${lastWithRegion.client_region}` : null);
   const perDay = data.profile?.standard_hours_per_day != null ? Number(data.profile.standard_hours_per_day) : null;
   const latest = [...data.invoices].filter((i) => !i.voided_at && i.unit_rate && i.amount_eur).sort((a, b) => b.issued_date.localeCompare(a.issued_date))[0];
   const today = new Date().toISOString().slice(0, 10);
@@ -202,14 +230,14 @@ export async function handler(req: Request): Promise<Response> {
   if (pf) return pf;
   const db = adminClient();
   try {
+    const who = await authorize(req, db);
+    if (!who) return json({ error: "unauthorized" }, 401);
+    const caller = who.kind === "user" ? who.id : null;
+    const body = await req.json().catch(() => ({}));
     const cfg = await loadConfig(db);
     const { data: rows } = await db.from("tax_parameters").select("year, key, value, verified");
     const params = new Map<number, FiscalParams>();
     for (const y of new Set((rows ?? []).map((r) => r.year as number))) params.set(y, paramsFromRows(rows as ParamRow[], y));
-    const body = await req.json().catch(() => ({}));
-    const who = await authorize(req, db);
-    if (!who) return json({ error: "unauthorized" }, 401);
-    const caller = who.kind === "user" ? who.id : null;
     const only = body.kind && body.period ? { kind: String(body.kind), period: String(body.period) } : undefined;
     if (only && !["vat_quarter", "income_tax_year"].includes(only.kind)) return json({ error: "invalid kind" }, 400);
     const users = caller ? [caller] : ((await db.from("profiles").select("id")).data ?? []).map((r) => r.id as string);

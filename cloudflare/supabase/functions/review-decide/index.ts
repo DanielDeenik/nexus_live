@@ -9,9 +9,10 @@ import { adminClient, userIdFromRequest } from "../_shared/client.ts";
 import { json, preflight } from "../_shared/cors.ts";
 import { AgentRun } from "../_shared/harness.ts";
 
-const TREATMENTS = ["fully_deductible", "limited_deductible", "asset", "private"];
+// "asset" is only reachable through the asset flow, which creates the asset row.
+const TREATMENTS = ["fully_deductible", "limited_deductible", "private"];
 const EXPENSE_EDITABLE = ["treatment", "category", "business_use_pct", "vendor", "date", "amount", "amount_excl_vat", "vat_amount", "vat_reclaimable", "vat_reverse_charge", "description"];
-const ASSET_EDITABLE = ["useful_life_years", "residual_value", "kia_eligible", "asset_class", "description"];
+const ASSET_EDITABLE = ["useful_life_years", "residual_value", "kia_eligible", "asset_class", "description", "cost_excl_vat"];
 
 const vendorKey = (v: string | null) => (v ?? "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 40);
 const pick = (o: Record<string, unknown> = {}, keys: string[]) => Object.fromEntries(Object.entries(o).filter(([k]) => keys.includes(k)));
@@ -41,7 +42,7 @@ export async function handler(req: Request): Promise<Response> {
     const { data: f } = await db.from("tax_filings").select("id, status").eq("id", body.filing_id).eq("user_id", userId).single();
     if (!f) return json({ error: "filing not found" }, 404);
     if (f.status !== "approved") return json({ error: "approve the draft before marking it filed" }, 409);
-    await db.from("tax_filings").update({ status: "filed", filed_at: now, filed_reference: ref }).eq("id", f.id);
+    await db.from("tax_filings").update({ status: "filed", filed_at: now, filed_reference: ref }).eq("id", f.id).eq("status", "approved");
     return json({ ok: true });
   }
 
@@ -61,11 +62,16 @@ export async function handler(req: Request): Promise<Response> {
           const bad = validateExpenseEdits(edits);
           if (bad) throw new Error(bad);
           const status = action === "reject" ? "rejected" : "approved";
+          if (edits.amount !== undefined) {
+            const { data: cur } = await db.from("expenses").select("currency, fx_rate_eur").eq("id", item.item_id).eq("user_id", userId).single();
+            const amt = Number(edits.amount);
+            (edits as Record<string, unknown>).amount_eur = cur?.currency === "EUR" ? amt : cur?.fx_rate_eur != null ? Math.round(amt * Number(cur.fx_rate_eur) * 100) / 100 : null;
+          }
           const { data: exp, error } = await db.from("expenses")
             .update({ ...edits, status, reviewed_by: userId, reviewed_at: now, updated_at: now })
             .eq("id", item.item_id).eq("user_id", userId).select("vendor, treatment, category, business_use_pct").single();
           if (error) throw new Error(error.message);
-          if (body.remember && status === "approved" && exp.vendor && exp.treatment !== "asset") {
+          if (body.remember && status === "approved" && vendorKey(exp.vendor) && exp.treatment !== "asset") {
             await rememberRule(db, userId, exp, run.id);
           }
           break;
@@ -75,7 +81,7 @@ export async function handler(req: Request): Promise<Response> {
           if (action === "reject") {
             // Not an asset after all: expense it with the owner's treatment.
             const t = (body.edits?.treatment as string) ?? "fully_deductible";
-            if (!TREATMENTS.includes(t) || t === "asset") throw new Error("choose how to treat it instead");
+            if (!TREATMENTS.includes(t)) throw new Error("choose how to treat it instead");
             if (expenseId) {
               await db.from("expenses").update({ treatment: t, asset_id: null, status: "approved", reviewed_by: userId, reviewed_at: now, updated_at: now })
                 .eq("id", expenseId).eq("user_id", userId);
@@ -84,6 +90,7 @@ export async function handler(req: Request): Promise<Response> {
           } else {
             const edits = pick(body.edits, ASSET_EDITABLE);
             if (edits.useful_life_years !== undefined && !(Number(edits.useful_life_years) > 0)) throw new Error("useful life must be positive");
+            if (edits.cost_excl_vat !== undefined && !(Number(edits.cost_excl_vat) > 0)) throw new Error("cost must be positive");
             const { error } = await db.from("fixed_assets").update({ ...edits, status: "active" }).eq("id", item.item_id).eq("user_id", userId);
             if (error) throw new Error(error.message);
             if (expenseId) {
@@ -94,15 +101,40 @@ export async function handler(req: Request): Promise<Response> {
           break;
         }
         case "filing": {
+          const { data: f } = await db.from("tax_filings").select("*").eq("id", item.item_id).eq("user_id", userId).single();
+          if (!f) throw new Error("filing not found");
+          if (item.proposed?.change) {
+            // The books changed after approval or filing. The original row is
+            // never modified: accepting creates a fresh draft for review.
+            if (action === "reject") break;
+            const corrected = f.status === "filed";
+            if (!corrected) await db.from("tax_filings").update({ status: "superseded" }).eq("id", f.id).eq("status", "approved");
+            let label = f.period_label;
+            if (corrected) {
+              const { count } = await db.from("tax_filings").select("id", { count: "exact", head: true }).eq("user_id", userId).like("period_label", `${f.period_label} correction%`);
+              label = `${f.period_label} correction ${(count ?? 0) + 1}`;
+            }
+            const { data: nf, error } = await db.from("tax_filings").insert({
+              user_id: userId, kind: f.kind, period_label: label, period_start: f.period_start, period_end: f.period_end,
+              status: "needs_review", figures: item.proposed.new_figures, warnings: item.proposed.new_warnings ?? [], agent_run_id: item.agent_run_id,
+            }).select("id").single();
+            if (error) throw new Error(error.message);
+            await db.from("review_items").insert({
+              user_id: userId, item_type: "filing", item_id: nf.id, reason_codes: [corrected ? "correction_draft" : "needs_sign_off"],
+              summary: corrected ? `${label}: correction (suppletie) draft for a filed period` : `${label}: updated draft ready for review`,
+              proposed: { figures: item.proposed.new_figures }, agent_run_id: item.agent_run_id,
+            });
+            break;
+          }
+          if (f.status !== "needs_review") throw new Error(`this draft is already ${f.status}`);
           if (action === "reject") {
-            await db.from("tax_filings").update({ status: "superseded" }).eq("id", item.item_id).eq("user_id", userId);
+            await db.from("tax_filings").update({ status: "superseded" }).eq("id", f.id).eq("status", "needs_review");
           } else {
-            const { data: f } = await db.from("tax_filings").select("warnings").eq("id", item.item_id).eq("user_id", userId).single();
-            const blocking = ((f?.warnings ?? []) as { severity: string }[]).filter((w) => w.severity === "block");
+            const blocking = ((f.warnings ?? []) as { severity: string }[]).filter((w) => w.severity === "block");
             if (blocking.length && !body.acknowledge_blocking) {
               throw new Error(`${blocking.length} blocking warning(s): resolve them or acknowledge explicitly`);
             }
-            await db.from("tax_filings").update({ status: "approved", approved_by: userId, approved_at: now }).eq("id", item.item_id).eq("user_id", userId);
+            await db.from("tax_filings").update({ status: "approved", approved_by: userId, approved_at: now }).eq("id", f.id).eq("status", "needs_review");
           }
           break;
         }
@@ -116,11 +148,12 @@ export async function handler(req: Request): Promise<Response> {
         }
       }
     });
-    await db.from("review_items").update({
+    const { data: closed } = await db.from("review_items").update({
       status: action === "approve" ? "approved" : action === "edit" ? "edited" : "rejected",
       decision: { action, edits: body.edits ?? null, remember: !!body.remember },
       decided_by: userId, decided_at: now,
-    }).eq("id", item.id);
+    }).eq("id", item.id).eq("status", "open").select("id");
+    if (!closed?.length) throw new Error("this item was decided elsewhere in the meantime");
     await run.finish();
     return json({ ok: true });
   } catch (e) {

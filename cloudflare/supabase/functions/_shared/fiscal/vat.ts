@@ -12,6 +12,7 @@ export interface VatInvoice {
   amount_eur: number | null;
   vat_amount: number;
   vat_treatment: string | null;
+  fx_rate_eur: number | null;
 }
 
 export interface VatExpense extends ExpenseRow { vendor_country: string | null }
@@ -26,6 +27,9 @@ export interface VatDraft {
   output_vat: number;
   payable_5g: number;
   unplaced: { id: string; reason: string }[];
+  /** Turnover deliberately left out of the return (e.g. B2B services taxed in
+   *  the customer's country outside the EU). */
+  not_reported: { base_eur: number; items: number; treatments: string[] };
 }
 
 export const EU_COUNTRIES = new Set([
@@ -48,6 +52,7 @@ export function draftVat(
 ): VatDraft {
   const boxes: Record<string, VatBox> = {};
   const unplaced: VatDraft["unplaced"] = [];
+  const notReported = { base_eur: 0, items: 0, treatments: [] as string[] };
   const add = (box: string, base: number, vat: number) => {
     const b = boxes[box] ?? { base_eur: 0, vat_eur: 0, items: 0 };
     b.base_eur = round2(b.base_eur + base);
@@ -59,11 +64,20 @@ export function draftVat(
 
   for (const inv of invoices) {
     if (inv.voided_at || !inPeriod(inv.issued_date)) continue;
-    const box = inv.vat_treatment ? p.rubriekMap[inv.vat_treatment] : undefined;
     const base = inv.currency === "EUR" ? inv.amount : inv.amount_eur;
+    if (inv.vat_treatment && p.vatNotReported.includes(inv.vat_treatment)) {
+      if (base == null) { unplaced.push({ id: inv.id, reason: "no EUR conversion" }); continue; }
+      notReported.base_eur = round2(notReported.base_eur + base);
+      notReported.items++;
+      if (!notReported.treatments.includes(inv.vat_treatment)) notReported.treatments.push(inv.vat_treatment);
+      continue;
+    }
+    const box = inv.vat_treatment ? p.rubriekMap[inv.vat_treatment] : undefined;
     if (!box) { unplaced.push({ id: inv.id, reason: "no VAT treatment set" }); continue; }
     if (base == null) { unplaced.push({ id: inv.id, reason: "no EUR conversion" }); continue; }
-    add(box, base, inv.vat_treatment?.startsWith("nl_") ? inv.vat_amount : 0);
+    const vatEur = inv.vat_treatment?.startsWith("nl_") ? toEur(inv.vat_amount, inv.currency, inv.fx_rate_eur) : 0;
+    if (vatEur == null) { unplaced.push({ id: inv.id, reason: "no EUR conversion for VAT" }); continue; }
+    add(box, base, vatEur);
   }
 
   let input = 0;
@@ -99,5 +113,6 @@ export function draftVat(
     output_vat: output,
     payable_5g: round2(output - input),
     unplaced,
+    not_reported: notReported,
   };
 }

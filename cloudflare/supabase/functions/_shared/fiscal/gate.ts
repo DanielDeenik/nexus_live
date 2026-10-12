@@ -32,7 +32,8 @@ export type ReasonCode =
   | "vat_arithmetic" | "missing_fx"
   | "asset_threshold" | "limited_deductible" | "private_or_mixed" | "review_category"
   | "low_confidence" | "above_auto_book_amount" | "unknown_treatment" | "duplicate"
-  | "missing_evidence" | "missing_parameters" | "extraction_failed" | "invoice_duplicate_period";
+  | "missing_evidence" | "missing_parameters" | "extraction_failed" | "invoice_duplicate_period"
+  | "non_positive_total" | "possible_duplicate" | "invoice_needs_country" | "invoice_number_exists";
 
 export interface GateDecision { route: "book" | "review" | "discard"; reasons: ReasonCode[] }
 
@@ -42,14 +43,20 @@ export function gate(
   cfg: GateConfig,
   p: FiscalParams,
   isDuplicate: boolean,
+  possibleDuplicate = false,
 ): GateDecision {
   if (isDuplicate) return { route: "discard", reasons: ["duplicate"] };
+  if (!cfg.reviewCategories.length || !Number.isFinite(cfg.autoBookMinConfidence) || !Number.isFinite(cfg.autoBookMaxAmountEur) || !Number.isFinite(cfg.amountToleranceEur)) {
+    throw new Error("gate config incomplete: refusing to classify");
+  }
   if (!e.is_business_document && e.confidence >= cfg.autoBookMinConfidence) {
     return { route: "discard", reasons: ["not_a_business_document"] };
   }
   const r: ReasonCode[] = [];
   if (!e.is_business_document) r.push("not_a_business_document");
   if (e.total == null) r.push("missing_total");
+  else if (e.total <= 0) r.push("non_positive_total");
+  if (possibleDuplicate) r.push("possible_duplicate");
   if (!e.date) r.push("missing_date");
   if (!e.vendor) r.push("missing_vendor");
   if (!e.currency) r.push("missing_currency");
@@ -95,4 +102,8 @@ export const REASON_TEXT: Record<ReasonCode, string> = {
   missing_parameters: "No fiscal parameters loaded for this year",
   extraction_failed: "Could not read the document reliably",
   invoice_duplicate_period: "Another invoice already bills this period",
+  non_positive_total: "Zero or negative amount (refund or credit note)",
+  possible_duplicate: "Looks like a purchase already in the ledger",
+  invoice_needs_country: "Client country missing: VAT treatment unknown",
+  invoice_number_exists: "An invoice with this number already exists",
 };

@@ -2,7 +2,8 @@
 --   edge_service_key    bearer the scheduler (invoke_edge) sends to the nexus function
 --   oauth_state_secret  HMAC key for the Google OAuth state parameter
 -- edge_base_url is project specific; set it once per project:
---   select vault.create_secret('https://<project-ref>.supabase.co/functions/v1/nexus', 'edge_base_url');
+--   select vault.create_secret('https://<project-ref>.supabase.co/functions/v1', 'edge_base_url');
+-- Agent jobs call invoke_edge('nexus/<route>'); foundation jobs call invoke_edge('<function>').
 create extension if not exists pgcrypto with schema extensions;
 
 do $$

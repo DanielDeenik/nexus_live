@@ -18,6 +18,11 @@ function VatFigures({ f }: { f: Record<string, unknown> }) {
         <tr className="border-t border-slate-700/50"><td className="py-1 font-mono">5b</td><td /><td className="text-right tabular-nums">{eur(Number(f.input_vat_5b ?? 0))}</td></tr>
         <tr><td className="py-1 font-semibold">5g payable</td><td /><td className="text-right tabular-nums font-semibold">{eur(Number(f.payable_5g ?? 0))}</td></tr>
       </tbody>
+      {(f.not_reported as { items: number; base_eur: number } | undefined)?.items ? (
+        <caption className="caption-bottom text-left text-xs text-slate-400 pt-2">
+          Not in the return: {eur((f.not_reported as { base_eur: number }).base_eur)} of B2B services to non-EU clients (taxed in the client's country).
+        </caption>
+      ) : null}
     </table>
   )
 }

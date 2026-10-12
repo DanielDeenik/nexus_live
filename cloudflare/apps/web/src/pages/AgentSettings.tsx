@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Link2, AlertTriangle } from 'lucide-react'
 import { Card, CardHeader } from '../components/ui/Card'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
@@ -17,6 +17,20 @@ export function AgentSettings() {
   const [msg, setMsg] = useState(params.get('connected') ? `Connected ${params.get('connected')}.` : params.get('integration_error') ? `Connection failed: ${params.get('integration_error')}` : '')
   const [wiseToken, setWiseToken] = useState('')
   const [folder, setFolder] = useState('')
+  const navigate = useNavigate()
+  const finishing = useRef(false)
+
+  // Google sends the browser back here with code and state; the exchange
+  // happens in an authenticated call so the grant lands on this account.
+  useEffect(() => {
+    const code = params.get('google_code'), state = params.get('google_state')
+    if (!code || !state || finishing.current) return
+    finishing.current = true
+    callNexus('integrations', { action: 'google_finish', code, state })
+      .then(() => setMsg('Google connected.'))
+      .catch((e) => setMsg((e as Error).message))
+      .finally(() => { navigate('/agent-settings', { replace: true }); load() })
+  }, [params])
 
   const load = useCallback(async () => {
     const [p, r, c] = await Promise.all([loadProfile(), loadRegions(), supabase.from('integration_connections').select('provider, status, account_label, last_error, settings, connected_at')])

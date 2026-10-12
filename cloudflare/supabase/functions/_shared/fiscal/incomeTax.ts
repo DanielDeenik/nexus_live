@@ -1,7 +1,8 @@
 // Box 1 income tax estimate for an IB-ondernemer with no other income.
 // Order of operations: profit, ondernemersaftrek (zelfstandigen + starters,
 // both conditional on the urencriterium), MKB-winstvrijstelling, brackets,
-// credits (capped at the tax), then the separate Zvw contribution.
+// credits (capped at the tax; arbeidskorting on arbeidsinkomen), then the
+// separate Zvw contribution on taxable profit, capped.
 import { type CreditBand, type FiscalParams, round2 } from "./params.ts";
 
 export interface IncomeTaxInput {
@@ -39,8 +40,9 @@ function bandCredit(income: number, bands: CreditBand[]): number {
 export function estimateIncomeTax(i: IncomeTaxInput, p: FiscalParams): IncomeTaxResult {
   const profit = round2(i.revenue_eur - i.deductible_costs_eur - i.depreciation_eur);
   const met = i.total_hours >= p.urencriteriumHours;
-  // KIA is an investment deduction from profit, before ondernemersaftrek.
-  const kia = Math.min(i.kia_eur, Math.max(0, profit));
+  // KIA is an investment deduction from profit, before ondernemersaftrek; it
+  // may create or increase a loss.
+  const kia = Math.max(0, i.kia_eur);
   const afterKia = profit - kia;
   // Ondernemersaftrek cannot create a loss in the year; the unused part
   // carries forward, which this estimate does not model.
@@ -68,7 +70,9 @@ export function estimateIncomeTax(i: IncomeTaxInput, p: FiscalParams): IncomeTax
   const ahkRaw = taxable <= p.ahk.phase_out_start
     ? p.ahk.max
     : Math.max(0, p.ahk.max - (taxable - p.ahk.phase_out_start) * p.ahk.phase_out_rate);
-  const akRaw = bandCredit(Math.max(0, taxable), p.arbeidskorting);
+  // Arbeidsinkomen of an ondernemer is profit before ondernemersaftrek and
+  // MKB-winstvrijstelling (mkbservicedesk.nl, arbeidskorting voor ondernemers).
+  const akRaw = bandCredit(Math.max(0, afterKia), p.arbeidskorting);
   const ahk = round2(Math.min(ahkRaw, tax));
   const ak = round2(Math.min(akRaw, Math.max(0, tax - ahk)));
   const incomeTax = round2(Math.max(0, tax - ahk - ak));

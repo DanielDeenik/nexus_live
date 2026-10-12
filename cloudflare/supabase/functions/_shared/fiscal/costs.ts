@@ -39,11 +39,15 @@ export function toEur(amount: number, currency: string, fx: number | null): numb
 }
 
 /** The cost base for income tax: excl VAT when the VAT is reclaimed,
- *  otherwise the VAT is part of the cost. */
+ *  otherwise the VAT is part of the cost. The business-use share is applied
+ *  by the caller, so the private share of VAT is neither reclaimed nor deducted. */
 export function costBaseEur(e: ExpenseRow): number | null {
-  const reclaim = e.vat_reclaimable === true && e.vat_amount != null && e.amount_excl_vat != null;
-  const base = reclaim ? e.amount_excl_vat! + (1 - e.business_use_pct) * e.vat_amount! : e.amount;
+  const base = vatReclaimed(e) ? e.amount_excl_vat! : e.amount;
   return toEur(base, e.currency, e.fx_rate_eur);
+}
+
+function vatReclaimed(e: ExpenseRow): boolean {
+  return e.vat_reclaimable === true && e.vat_amount != null && e.amount_excl_vat != null && e.treatment !== "limited_deductible";
 }
 
 export function deductibleEur(e: ExpenseRow, p: FiscalParams): number {
@@ -64,9 +68,11 @@ export function deductibleEur(e: ExpenseRow, p: FiscalParams): number {
   }
 }
 
-/** Input VAT the owner may reclaim in the VAT return. */
+/** Input VAT the owner may reclaim in the VAT return. Representation-type
+ *  (limited deductible) costs are excluded conservatively: VAT on food and
+ *  drink is not deductible, and the owner reviews every such item anyway. */
 export function reclaimableVatEur(e: ExpenseRow): number {
-  if (!COUNTABLE.has(e.status) || e.treatment === "private" || e.vat_reclaimable !== true) return 0;
+  if (!COUNTABLE.has(e.status) || e.treatment === "private" || !vatReclaimed(e)) return 0;
   const v = toEur(e.vat_amount ?? 0, e.currency, e.fx_rate_eur);
   return v == null ? 0 : round2(v * e.business_use_pct);
 }
@@ -86,7 +92,9 @@ export function depreciationForYear(a: AssetRow, year: number): number {
 
 export function kiaFor(totalQualifying: number, bands: KiaBand[]): number {
   const t = round2(totalQualifying);
-  const band = bands.find((b) => t >= b.from && (b.to == null || t <= b.to));
+  // Bands are ordered; the first whose upper bound covers t applies, so
+  // amounts between integer bounds (e.g. 2,900.50) are not dropped.
+  const band = bands.find((b) => b.to == null || t <= b.to);
   if (!band) return 0;
   switch (band.type) {
     case "pct": return round2(t * (band.rate ?? 0));
