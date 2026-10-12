@@ -1,0 +1,4 @@
+From,To,Sent At,Message,Direction,inviterProfileUrl,inviteeProfileUrl
+Mila Jansen,Sam Testowner,"7/15/26, 10:00 AM","Hi Sam, I recruit for data teams and would like to connect.",INCOMING,https://www.linkedin.com/in/mila-jansen-example,https://www.linkedin.com/in/sam-testowner-example
+Lee Example,Sam Testowner,"8/01/26, 09:00 AM",,INCOMING,https://www.linkedin.com/in/lee-example,https://www.linkedin.com/in/sam-testowner-example
+Sam Testowner,Otto Bakker,"8/02/26, 11:00 AM",,OUTGOING,https://www.linkedin.com/in/sam-testowner-example,https://www.linkedin.com/in/otto-bakker-example

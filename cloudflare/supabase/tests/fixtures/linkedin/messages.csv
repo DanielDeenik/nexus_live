@@ -1,0 +1,8 @@
+CONVERSATION ID,CONVERSATION TITLE,FROM,SENDER PROFILE URL,TO,DATE,SUBJECT,CONTENT,FOLDER
+conv-001,,Rita Vos,https://www.linkedin.com/in/rita-vos-example,Sam Testowner,2026-09-14 08:30:00 UTC,Front office role,"Hi Sam, I am working on a contract role for a front office consultant at a fictional asset manager. The team runs an order management platform and needs someone who can support traders, sort out allocations and keep the vendor honest. Rate and start date to be discussed, are you open to a call this week?",INBOX
+conv-001,,Sam Testowner,https://www.linkedin.com/in/sam-testowner-example,Rita Vos,2026-09-14 09:00:00 UTC,,"Thanks Rita, happy to talk.",SENT
+conv-002,,Otto Bakker,https://www.linkedin.com/in/otto-bakker-example,Sam Testowner,2026-09-20 18:00:00 UTC,,"Coffee next week? Bring the slides, ""the good ones"".",INBOX
+conv-002,,Sam Testowner,https://www.linkedin.com/in/sam-testowner-example,Otto Bakker,2026-09-20 18:05:00 UTC,,Sure.,SENT
+conv-003,,Pat Hunter,https://www.linkedin.com/in/pat-hunter-example,Sam Testowner,2026-10-02 07:15:00 UTC,Opportunity,"Hello,
+I am a headhunter with Example Search and have a permanent position that may interest you.",INBOX
+conv-004,,Mila Jansen,https://www.linkedin.com/in/mila-jansen-example,Sam Testowner,2026-10-05 12:00:00 UTC,,Thanks for connecting!,INBOX

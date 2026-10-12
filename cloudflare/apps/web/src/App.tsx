@@ -26,6 +26,8 @@ import { RecruiterOverview } from './pages/recruiter/RecruiterOverview'
 import { FitReports } from './pages/recruiter/FitReports'
 import { Applications } from './pages/recruiter/Applications'
 import { Roles } from './pages/recruiter/Roles'
+import { LinkedInOverview } from './pages/linkedin/LinkedInOverview'
+import { LinkedInImports } from './pages/linkedin/LinkedInImports'
 import { SignIn } from './pages/SignIn'
 import { LoadingSpinner } from './components/ui/LoadingSpinner'
 import { useAuthProvider } from './hooks/useAuth'
@@ -79,6 +81,8 @@ function App() {
           <Route path="/recruiter/fit" element={<FitReports />} />
           <Route path="/recruiter/applications" element={<Applications />} />
           <Route path="/recruiter/roles" element={<Roles />} />
+          <Route path="/linkedin" element={<LinkedInOverview />} />
+          <Route path="/linkedin/imports" element={<LinkedInImports />} />
           <Route path="/review" element={<Review />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/tax" element={<TaxFilings />} />

@@ -26,6 +26,8 @@ import {
   Gauge,
   Send,
   Radar,
+  Linkedin,
+  FileUp,
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -49,6 +51,8 @@ const sidebarItems: SidebarItem[] = [
   { label: 'Fit reports', path: '/recruiter/fit', icon: <Gauge size={20} /> },
   { label: 'Applications', path: '/recruiter/applications', icon: <Send size={20} /> },
   { label: 'Roles', path: '/recruiter/roles', icon: <Radar size={20} /> },
+  { label: 'LinkedIn', path: '/linkedin', icon: <Linkedin size={20} />, group: 'LinkedIn' },
+  { label: 'Imports', path: '/linkedin/imports', icon: <FileUp size={20} /> },
   { label: 'Review', path: '/review', icon: <ClipboardCheck size={20} />, divider: true },
   { label: 'Expenses', path: '/expenses', icon: <Receipt size={20} /> },
   { label: 'Tax filings', path: '/tax', icon: <Scale size={20} /> },

@@ -1,0 +1,9 @@
+Notes:
+"When exporting your connection data, you may notice that some of the email addresses are missing. You will only see email addresses for connections who have allowed their connections to see or download their email address."
+
+First Name,Last Name,URL,Email Address,Company,Position,Connected On
+Rita,Vos,https://www.linkedin.com/in/rita-vos-example,,Acme Talent B.V.,Senior Recruiter,12 Sep 2026
+Otto,Bakker,https://www.linkedin.com/in/otto-bakker-example,otto@example.test,Globex Systems,Data Engineer,02 Aug 2026
+Mila,Jansen,https://www.linkedin.com/in/mila-jansen-example,,Initech,Talent Acquisition Partner,15 Jul 2026
+Ward,Smit,https://www.linkedin.com/in/ward-smit-example,,Hooli Nederland,"Adviseur werving en selectie",01 Jun 2025
+Nina,Kok,https://www.linkedin.com/in/nina-kok-example,,Umbrella Staffing Ltd,Restaffing Lead Engineer,03 Mar 2024
