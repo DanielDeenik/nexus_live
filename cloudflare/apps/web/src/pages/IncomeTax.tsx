@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { AlertTriangle, CheckCircle2, Clock, Info } from 'lucide-react'
 import { Card, CardHeader } from '../components/ui/Card'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
+import { InvoiceUpload } from '../components/InvoiceUpload'
 import { supabase } from '../lib/supabase'
 import { type YearView, buildYearView, eur, hrs, loadOpenReviews, money } from '../lib/nexus'
 
@@ -214,8 +215,9 @@ export function IncomeTax() {
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-xs text-slate-400">Add invoices by uploading the PDF on the Expenses page (choose "my sales invoice").</p>
       </Card>
+
+      <InvoiceUpload onDone={load} />
 
       <Card>
         <CardHeader title="Log non-billable hours" subtitle="Admin, acquisition and product work count toward the urencriterium" />

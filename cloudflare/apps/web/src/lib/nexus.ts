@@ -152,8 +152,19 @@ export async function loadFilings(): Promise<TaxFiling[]> {
   return (data ?? []) as TaxFiling[]
 }
 
+let bucketCache: Promise<string> | null = null
+/** Private bucket for uploaded documents, from app_config storage.documents_bucket. */
+export function documentsBucket(): Promise<string> {
+  bucketCache ??= (async () => {
+    const { data, error } = await supabase.from('app_config').select('value').eq('key', 'storage.documents_bucket').maybeSingle()
+    if (error || !data?.value) { bucketCache = null; throw new Error('app_config storage.documents_bucket is missing') }
+    return String(data.value)
+  })()
+  return bucketCache
+}
+
 export async function evidenceUrl(path: string): Promise<string | null> {
-  const { data } = await supabase.storage.from('receipts').createSignedUrl(path, 300)
+  const { data } = await supabase.storage.from(await documentsBucket()).createSignedUrl(path, 300)
   return data?.signedUrl ?? null
 }
 
@@ -163,7 +174,7 @@ export async function uploadDocument(file: File): Promise<string> {
   if (!u.user) throw new Error('not signed in')
   const safe = file.name.replace(/[^A-Za-z0-9._-]/g, '_')
   const path = `${u.user.id}/uploads/${Date.now()}_${safe}`
-  const { error } = await supabase.storage.from('receipts').upload(path, file, { contentType: file.type || undefined })
+  const { error } = await supabase.storage.from(await documentsBucket()).upload(path, file, { contentType: file.type || undefined })
   if (error) throw error
   return path
 }
@@ -235,3 +246,34 @@ export async function buildYearView(year: number, today: string): Promise<YearVi
 export const eur = (n: number) => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
 export const money = (n: number, c: string) => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: c, maximumFractionDigits: 2 }).format(n)
 export const hrs = (n: number) => new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 1 }).format(n)
+
+export interface UploadOutcome { file: string; ok: boolean; text: string }
+
+/** Uploads the owner's own sales invoices; the agent reads them, adds them to
+ *  income and, once confirmed, writes their hours into DTrack. */
+export async function uploadSalesInvoices(files: File[]): Promise<UploadOutcome[]> {
+  const out: UploadOutcome[] = []
+  for (const f of files) {
+    try {
+      const path = await uploadDocument(f)
+      const r = await callNexus<{ status: string; metrics: Record<string, number>; error?: string }>('expense-agent', { mode: 'upload', path, kind: 'sales_invoice' })
+      const m = r.metrics ?? {}
+      const text = m.invoice_conflicts ? 'this invoice number is already in your ledger; see Review'
+        : m.duplicates ? 'already in your ledger'
+        : m.invoices_ingested && m.time_entries_from_invoices ? `added to income, ${m.time_entries_from_invoices} days of time added`
+        : m.invoices_ingested ? 'added to income; confirm it in Review and its time is added'
+        : m.step_errors ? 'could not be read reliably; check the file or add it on Review'
+        : r.error ?? r.status
+      out.push({ file: f.name, ok: !!m.invoices_ingested || !!m.duplicates, text })
+    } catch (e) {
+      out.push({ file: f.name, ok: false, text: (e as Error).message })
+    }
+  }
+  return out
+}
+
+/** Writes DTrack time for every confirmed invoice that has none yet. */
+export async function timeFromInvoices(): Promise<number> {
+  const r = await callNexus<{ time_entries_written: number }>('expense-agent', { mode: 'backfill_time' })
+  return r.time_entries_written
+}

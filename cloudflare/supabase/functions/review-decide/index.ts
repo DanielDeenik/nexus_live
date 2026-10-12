@@ -143,6 +143,14 @@ export async function handler(req: Request): Promise<Response> {
           if (action !== "reject" && voidIds.length) {
             await db.from("invoices").update({ voided_at: now, void_reason: String(body.edits?.void_reason ?? "duplicate") })
               .in("id", voidIds).eq("user_id", userId);
+            // A voided invoice takes its DTrack time out again.
+            for (const id of voidIds) await db.rpc("dt_unlink_invoice", { p_invoice: id });
+          }
+          if (action !== "reject" && item.item_id && !voidIds.includes(item.item_id)) {
+            // "Figures are correct": the invoice counts from now on, and its hours go into DTrack.
+            await db.from("invoices").update({ review_state: "confirmed" }).eq("id", item.item_id).eq("user_id", userId);
+            const { error: tErr } = await db.rpc("dt_backfill_invoice", { p_invoice: item.item_id });
+            if (tErr) throw new Error(`time from invoice: ${tErr.message}`);
           }
           break;
         }

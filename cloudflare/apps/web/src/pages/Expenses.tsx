@@ -12,7 +12,6 @@ const STATUS: Record<string, string> = {
 export function Expenses() {
   const [rows, setRows] = useState<ExpenseRecord[] | null>(null)
   const [params, setParams] = useState<Map<number, FiscalParams>>(new Map())
-  const [kind, setKind] = useState<'receipt' | 'sales_invoice'>('receipt')
   const [log, setLog] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [year, setYear] = useState(new Date().getFullYear())
@@ -32,7 +31,7 @@ export function Expenses() {
       try {
         say(`Uploading ${f.name}`)
         const path = await uploadDocument(f)
-        const r = await callNexus<{ status: string; metrics: Record<string, number> }>('expense-agent', { mode: 'upload', path, kind })
+        const r = await callNexus<{ status: string; metrics: Record<string, number> }>('expense-agent', { mode: 'upload', path, kind: 'receipt' })
         const m = r.metrics
         say(`${f.name}: ${m.route_book ? 'booked automatically' : m.route_review || m.needs_review ? 'waiting for your review' : m.invoices_ingested ? 'added to income' : m.duplicates ? 'already in the ledger' : r.status}`)
       } catch (e) { say(`${f.name}: ${(e as Error).message}`) }
@@ -75,12 +74,8 @@ export function Expenses() {
       </div>
 
       <Card>
-        <CardHeader title="Add documents" subtitle="PDF or photo. Receipts go to expenses; your own invoices go to income." />
+        <CardHeader title="Add receipts" subtitle="PDF or photo of receipts and supplier invoices. Invoices you sent are uploaded on Income & Tax or Time." />
         <div className="flex flex-wrap items-center gap-3">
-          <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className={input}>
-            <option value="receipt">A receipt or supplier invoice</option>
-            <option value="sales_invoice">My sales invoice</option>
-          </select>
           <label className={`rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2 flex items-center gap-2 cursor-pointer ${busy ? 'opacity-60 pointer-events-none' : ''}`}>
             <Upload size={14} /> Choose files
             <input type="file" multiple accept="application/pdf,image/*" className="hidden" onChange={(e) => onFiles(e.target.files)} />

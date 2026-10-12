@@ -6,6 +6,7 @@
 // POST { mode: "collect" }                 the signed-in user, all sources
 // POST { mode: "upload", path, kind }      one uploaded file in receipts/
 //        kind: "receipt" | "sales_invoice"
+// POST { mode: "backfill_time" }           DTrack time for every confirmed invoice of the caller
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { adminClient, authorize } from "../_shared/client.ts";
 import { loadConfig, need, type AppConfig } from "../_shared/config.ts";
@@ -344,7 +345,7 @@ function receiptGraph(ctx: Ctx, run: AgentRun, userId: string, doc: CollectedDoc
     let evidencePath = uploadedPath ?? null;
     if (!evidencePath && doc.file && hash) {
       evidencePath = `${userId}/${date.slice(0, 4)}/${hash}.${extOf(doc.file.mediaType)}`;
-      const up = await db.storage.from("receipts").upload(evidencePath, doc.file.bytes, { contentType: doc.file.mediaType, upsert: true });
+      const up = await db.storage.from(bucketName(cfg)).upload(evidencePath, doc.file.bytes, { contentType: doc.file.mediaType, upsert: true });
       if (up.error) throw new Error(`store evidence: ${up.error.message}`);
     }
 
@@ -420,14 +421,13 @@ function receiptGraph(ctx: Ctx, run: AgentRun, userId: string, doc: CollectedDoc
     .addEdge(START, "dedupe")
     .addConditionalEdges("dedupe", (st) => (st.done ? END : doc.source === "wise" && doc.hint ? "bank_payment" : "extract"), [END, "bank_payment", "extract"])
     .addEdge("bank_payment", END)
-    .addConditionalEdges("extract", (st) => (st.out || st.attempts >= EXTRACT_ATTEMPTS ? "classify" : "extract"), ["classify", "extract"])
+    .addConditionalEdges("extract", (st) => (st.out || st.attempts >= need(cfg, "expense_agent.extract_attempts") ? "classify" : "extract"), ["classify", "extract"])
     .addConditionalEdges("classify", (st) => (st.route === "discard" ? END : "persist"), [END, "persist"])
     .addEdge("persist", END)
     .compile();
 }
 
 /** One retry when the model's answer fails validation. */
-const EXTRACT_ATTEMPTS = 2;
 
 async function processReceipt(ctx: Ctx, run: AgentRun, userId: string, doc: CollectedDoc, uploadedPath?: string) {
   await receiptGraph(ctx, run, userId, doc, uploadedPath).invoke({});
@@ -441,10 +441,17 @@ interface SalesOut {
   unit_rate?: number | null; period_start?: string | null; period_end?: string | null; description?: string | null; confidence: number;
 }
 
+function bucketName(cfg: AppConfig): string {
+  const b = cfg["storage.documents_bucket"];
+  if (!b) throw new Error("app_config storage.documents_bucket is missing");
+  return b;
+}
+
 async function processSalesInvoice(ctx: Ctx, run: AgentRun, userId: string, doc: CollectedDoc, path: string) {
   const { db, cfg } = ctx;
-  const res = await run.step("extract:sales_invoice", () => callStructured<SalesOut>(ctx.llm,
-    "You read an invoice the owner issued. Return exactly what is printed; null when absent. Never infer hours or periods that are not on the document.",
+  const prompt = cfg["expense_agent.sales_invoice_prompt"];
+  if (!prompt) throw new Error("app_config expense_agent.sales_invoice_prompt is missing");
+  const res = await run.step("extract:sales_invoice", () => callStructured<SalesOut>(ctx.llm, prompt,
     [doc.file!.mediaType === "application/pdf"
       ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: toBase64(doc.file!.bytes) } }
       : { type: "image", source: { type: "base64", media_type: doc.file!.mediaType, data: toBase64(doc.file!.bytes) } }],
@@ -509,6 +516,12 @@ async function processSalesInvoice(ctx: Ctx, run: AgentRun, userId: string, doc:
     });
   }
   run.count("invoices_ingested");
+  if (!reasons.length) {
+    // Confirmed straight away: its hours go into DTrack now.
+    const { data: entries, error: tErr } = await db.rpc("dt_backfill_invoice", { p_invoice: inv.id });
+    if (tErr) throw new Error(`time from invoice: ${tErr.message}`);
+    run.count("time_entries_from_invoices", entries ?? 0);
+  }
 }
 
 // ------------------------------------------------------------- entrypoint ---
@@ -588,7 +601,7 @@ export async function handler(req: Request): Promise<Response> {
       if (!path.startsWith(`${owner}/`) || path.split("/").some((seg) => seg === ".." || seg === "")) {
         return json({ error: "path outside your folder" }, 403);
       }
-      const dl = await db.storage.from("receipts").download(path);
+      const dl = await db.storage.from(bucketName(ctx.cfg)).download(path);
       if (dl.error) return json({ error: dl.error.message }, 400);
       const bytes = new Uint8Array(await dl.data.arrayBuffer());
       const mediaType = dl.data.type || (path.endsWith(".pdf") ? "application/pdf" : "image/jpeg");
@@ -597,6 +610,15 @@ export async function handler(req: Request): Promise<Response> {
         ? (d: CollectedDoc, run: AgentRun) => processSalesInvoice(ctx, run, owner, d, path)
         : (d: CollectedDoc, run: AgentRun) => processReceipt(ctx, run, owner, d, path);
       return json(await runForUser(ctx, owner, "upload", async () => [doc], handler));
+    }
+
+    if (body.mode === "backfill_time") {
+      // Fill DTrack from every confirmed invoice of the caller (or a named user for the scheduler).
+      const owner = caller ?? (who.kind === "service" && typeof body.user_id === "string" ? body.user_id : null);
+      if (!owner) return json({ error: "sign in required" }, 401);
+      const { data, error } = await db.rpc("dt_backfill_invoices", { p_user: owner });
+      if (error) return json({ error: error.message }, 500);
+      return json({ time_entries_written: data ?? 0 });
     }
 
     const users = caller ? [caller] : [...new Set(((await db.from("integration_connections").select("user_id").eq("status", "active")).data ?? []).map((r) => r.user_id as string))];

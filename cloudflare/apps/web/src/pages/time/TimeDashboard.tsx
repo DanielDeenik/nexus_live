@@ -5,6 +5,8 @@ import { Card, CardHeader } from '../../components/ui/Card'
 import { SunburstZoomChart, type TreeNode } from '../../components/time/SunburstChart/SunburstZoomChart'
 import { MonthCalendar } from '../../components/time/MonthCalendar'
 import { PageHeader, Tile, btnIcon, input, th, td } from '../../components/time/ui'
+import { InvoiceUpload } from '../../components/InvoiceUpload'
+import { timeFromInvoices } from '../../lib/nexus'
 import { type Grain, type Period, periodOf, shift, today, workingDays } from '../../lib/period'
 import {
   AXES, type Axis, MAX_AXES, type Project, type ReconRow, type SummaryRow, type WorkCalendar,
@@ -62,6 +64,8 @@ export function TimeDashboard() {
   const [cal, setCal] = useState<WorkCalendar | null>(null)
   const [unmapped, setUnmapped] = useState<Project[]>([])
   const [error, setError] = useState('')
+  const [reload, setReload] = useState(0)
+  const [filling, setFilling] = useState('')
 
   useEffect(() => {
     loadWorkCalendar().then(setCal).catch((e) => setError((e as Error).message))
@@ -73,12 +77,12 @@ export function TimeDashboard() {
     Promise.all([summary(axes, period.from, period.to), summary(['billable', 'category'], period.from, period.to)])
       .then(([r, s]) => { setRows(r); setSplit(s) })
       .catch((e) => setError((e as Error).message))
-  }, [period, axes])
+  }, [period, axes, reload])
 
   const year = period.from.slice(0, 4)
   useEffect(() => {
     billableVsInvoiced(`${year}-01-01`, `${Number(year) + 1}-01-01`).then(setRecon).catch((e) => setError((e as Error).message))
-  }, [year])
+  }, [year, reload])
 
   const total = sum(split)
   const billable = sum(split, (r) => r.path[0] === 'Billable')
@@ -178,8 +182,26 @@ export function TimeDashboard() {
         </Card>
 
         <div className="xl:col-span-5 space-y-6 min-w-0">
+          <InvoiceUpload onDone={() => setReload((x) => x + 1)} />
           <Card className="p-4 sm:p-6">
-            <CardHeader title={`Billable logged vs invoiced, ${year}`} />
+            <CardHeader
+              title={`Billable logged vs invoiced, ${year}`}
+              action={
+                <button
+                  className="text-xs text-sky-300 underline disabled:opacity-60"
+                  disabled={filling === 'busy'}
+                  onClick={async () => {
+                    setFilling('busy')
+                    try {
+                      const n = await timeFromInvoices()
+                      setFilling(n ? `${n} days added from invoices` : 'Every confirmed invoice already has its time')
+                      setReload((x) => x + 1)
+                    } catch (e) { setFilling((e as Error).message) }
+                  }}
+                >{filling === 'busy' ? 'Adding time' : 'Fill from invoices'}</button>
+              }
+            />
+            {filling && filling !== 'busy' && <p className="mb-2 text-xs text-slate-400">{filling}</p>}
             <div className="relative overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-left text-slate-400 border-b border-slate-700/50">

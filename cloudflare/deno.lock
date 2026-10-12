@@ -65,6 +65,7 @@
           "dependencies": [
             "npm:@supabase/supabase-js@^2.45.0",
             "npm:@tailwindcss/forms@~0.5.7",
+            "npm:@types/d3@7.4.3",
             "npm:@types/node@^20.11.0",
             "npm:@types/react-dom@19",
             "npm:@types/react@19",
@@ -72,6 +73,7 @@
             "npm:@typescript-eslint/parser@^6.18.0",
             "npm:@vitejs/plugin-react@^4.2.1",
             "npm:autoprefixer@^10.4.17",
+            "npm:d3@7.9.0",
             "npm:eslint@^8.56.0",
             "npm:lucide-react@0.344",
             "npm:postcss@^8.4.33",
