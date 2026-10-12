@@ -3,11 +3,13 @@
 //   /functions/v1/nexus/tax-agent       VAT and income tax drafts
 //   /functions/v1/nexus/review-decide   human decisions on review items
 //   /functions/v1/nexus/integrations    Google and Wise connections (+ OAuth callback)
+//   /functions/v1/nexus/admin           service-only maintenance (scheduler secret)
 // Each module authenticates its own callers.
 import { handler as expenseAgent } from "../expense-agent/index.ts";
 import { handler as taxAgent } from "../tax-agent/index.ts";
 import { handler as reviewDecide } from "../review-decide/index.ts";
 import { handler as integrations } from "../integrations/index.ts";
+import { handler as admin } from "../admin/index.ts";
 import { json, preflight } from "../_shared/cors.ts";
 
 const routes: Record<string, (req: Request) => Promise<Response>> = {
@@ -15,6 +17,7 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
   "tax-agent": taxAgent,
   "review-decide": reviewDecide,
   "integrations": integrations,
+  "admin": admin,
 };
 
 Deno.serve((req) => {
