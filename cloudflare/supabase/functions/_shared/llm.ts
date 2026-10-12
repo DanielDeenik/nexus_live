@@ -89,8 +89,13 @@ async function callGemini(params: LlmParams, messages: ChatMessage[]): Promise<s
 // Structured output through LangChain (expense, tax and recruiter agents).
 // The provider table lives in app_config `llm.providers`, so a model swap
 // per agent is a row change in agent_configs, not a code change:
-//   { "<provider>": { "kind": "anthropic" | "openai", "key_env": "...", "base_url"?: "..." } }
+//   { "<provider>": { "kind": "anthropic" | "openai", "key_env": "...", "base_url"?: "...",
+//                     "omit_params"?: ["temperature"], "max_tokens_param"?: "max_completion_tokens",
+//                     "model_kwargs"?: {...}, "tool_choice"?: "required" } }
 // "openai" covers every OpenAI-compatible endpoint (Moonshot Kimi, DeepSeek).
+// omit_params drops settings a model fixes itself (Kimi K3 rejects a custom
+// temperature); tool_choice "required" is for endpoints that refuse a named
+// forced tool (thinking models), with the single tool's arguments read back.
 // The model must return arguments matching the JSON schema (forced tool call);
 // callers still validate the result deterministically.
 // ---------------------------------------------------------------------------
@@ -119,6 +124,10 @@ interface ProviderSpec {
   kind: "anthropic" | "openai";
   key_env: string;
   base_url?: string;
+  omit_params?: string[];
+  max_tokens_param?: string;
+  model_kwargs?: Record<string, unknown>;
+  tool_choice?: "required";
 }
 
 let providerCache: Record<string, ProviderSpec> | null = null;
@@ -140,11 +149,15 @@ export async function chatModel(params: LlmParams): Promise<BaseChatModel> {
   if (spec.kind === "anthropic") {
     return new ChatAnthropic({ model: params.model, apiKey, maxTokens: params.maxTokens, temperature: params.temperature });
   }
+  const omit = new Set(spec.omit_params ?? []);
+  const kwargs: Record<string, unknown> = { ...(spec.model_kwargs ?? {}) };
+  if (spec.max_tokens_param) kwargs[spec.max_tokens_param] = params.maxTokens;
   return new ChatOpenAI({
     model: params.model,
     apiKey,
-    maxTokens: params.maxTokens,
-    temperature: params.temperature,
+    maxTokens: spec.max_tokens_param ? undefined : params.maxTokens,
+    temperature: omit.has("temperature") ? undefined : params.temperature,
+    modelKwargs: Object.keys(kwargs).length ? kwargs : undefined,
     configuration: spec.base_url ? { baseURL: spec.base_url } : undefined,
   });
 }
@@ -167,14 +180,25 @@ export async function callStructured<T>(
   const spec = (await providers())[params.provider];
   if (!spec) throw new Error(`No provider '${params.provider}' in app_config llm.providers`);
   const model = await chatModel(params);
+  const messages = [
+    new SystemMessage(system),
+    new HumanMessage({ content: toMessageContent(spec.kind, content) as never }),
+  ];
+  if (spec.tool_choice === "required") {
+    // One tool, any call required: its arguments are the structured result.
+    const bound = (model as unknown as { bindTools: (t: unknown[], o: unknown) => { invoke: (m: unknown) => Promise<unknown> } })
+      .bindTools([{ type: "function", function: { name: tool.name, description: tool.description, parameters: tool.input_schema } }], { tool_choice: "required" });
+    const msg = await bound.invoke(messages) as { tool_calls?: { name: string; args: unknown }[]; usage_metadata?: { input_tokens?: number; output_tokens?: number } };
+    const call = msg.tool_calls?.find((c) => c.name === tool.name) ?? msg.tool_calls?.[0];
+    if (!call) throw new Error("Model returned no structured result");
+    const u = msg.usage_metadata ?? {};
+    return { value: call.args as T, usage: { input_tokens: u.input_tokens ?? 0, output_tokens: u.output_tokens ?? 0 } };
+  }
   const runnable = model.withStructuredOutput(
     { ...tool.input_schema, title: tool.name, description: tool.description } as Record<string, unknown>,
     { name: tool.name, method: "functionCalling", includeRaw: true },
   );
-  const out = await runnable.invoke([
-    new SystemMessage(system),
-    new HumanMessage({ content: toMessageContent(spec.kind, content) as never }),
-  ]);
+  const out = await runnable.invoke(messages);
   if (!out.parsed) throw new Error("Model returned no structured result");
   const u = (out.raw as { usage_metadata?: { input_tokens?: number; output_tokens?: number } }).usage_metadata ?? {};
   return { value: out.parsed as T, usage: { input_tokens: u.input_tokens ?? 0, output_tokens: u.output_tokens ?? 0 } };

@@ -16,6 +16,7 @@ import { handler as admin } from "../admin/index.ts";
 import { handler as dtrackIngest } from "../dtrack-ingest/index.ts";
 import { handler as recruiter } from "../recruiter/index.ts";
 import { handler as linkedin } from "../linkedin/index.ts";
+import { handler as models } from "../models/index.ts";
 import { json, preflight } from "../_shared/cors.ts";
 
 const routes: Record<string, (req: Request) => Promise<Response>> = {
@@ -27,6 +28,7 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
   "dtrack-ingest": dtrackIngest,
   "recruiter": recruiter,
   "linkedin": linkedin,
+  "models": models,
 };
 
 Deno.serve((req) => {

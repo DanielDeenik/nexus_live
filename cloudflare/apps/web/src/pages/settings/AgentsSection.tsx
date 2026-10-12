@@ -5,6 +5,7 @@ import { Card, CardHeader } from '../../components/ui/Card'
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 import { supabase } from '../../lib/supabase'
 import { type Profile, callNexus, loadProfile, loadRegions } from '../../lib/nexus'
+import { ModelsCard } from './ModelsCard'
 
 interface Connection { provider: 'google' | 'wise'; status: string; account_label: string | null; last_error: string | null; settings: Record<string, unknown>; connected_at: string }
 const input = 'rounded-lg bg-slate-900 border-slate-700 text-slate-100 text-sm'
@@ -87,6 +88,8 @@ export function AgentsSection() {
           <button onClick={saveProfile} className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2">Save</button>
         </div>
       </Card>
+
+      <ModelsCard />
 
       <Card>
         <CardHeader title="Google (Gmail and Drive)" subtitle="Read-only. Finds invoices and receipts in your inbox and one Drive folder." action={google ? <span className="text-xs text-success-400 flex items-center gap-1"><CheckCircle2 size={12} /> connected</span> : null} />

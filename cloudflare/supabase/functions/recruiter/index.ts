@@ -2,7 +2,7 @@
 //
 // POST { mode: "intake" }   scheduler or Dan: work the Gmail intake queue
 // POST { mode: "roles" }    scheduler or Dan: scan job sources
-// POST { mode: "assess", spec, role?, company? }   Dan: weigh a pasted spec (no drafts)
+// POST { mode: "assess", spec, role?, company?, dry_run? }   Dan: weigh a pasted spec (no drafts; dry_run keeps no report)
 // POST { mode: "role_status", role_id, status }    Dan: shortlist, dismiss or mark applied
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { adminClient, authorize, getEnv } from "../_shared/client.ts";
@@ -207,6 +207,11 @@ async function assess(db: SupabaseClient, cfg: AppConfig, userId: string, body: 
       structuredFor(params)<SpecReading>(`${system}\n\n${readingPrompt(k.profile)}`,
         [{ type: "text", text: `Role field: ${body.role ?? "(empty)"}\nCompany field: ${body.company ?? "(empty)"}\n\nSPEC:\n${spec}` }], readingTool(k.profile))))!;
     const fit = scoreSpec(res.value, k.profile, k.agent);
+    if (body.dry_run === true) {
+      // Try the reading and the score without keeping a fit report.
+      await run.finish();
+      return { dry_run: true, score: fit.score, is_match: fit.isMatch, verdict: fit.verdict, report: fit.report, reading: res.value, usage: res.usage };
+    }
     const { data, error } = await db.from("rec_fit_reports").insert({
       user_id: userId, role_title: res.value.role_title, company: res.value.company, score: fit.score, verdict: fit.verdict,
       is_match: fit.isMatch, centre_of_gravity: fit.centre.label, requirements: fit.requirements, gaps: fit.gaps, report: fit.report, agent_run_id: run.id,
