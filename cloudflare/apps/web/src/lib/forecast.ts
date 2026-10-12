@@ -218,7 +218,8 @@ export function seasonalFactors(preset: number[], weight: number): number[] {
   const w = Math.min(1, Math.max(0, weight))
   const m = mean(preset)
   if (m <= 0) return preset.map(() => 1)
-  return preset.map((v) => 1 + w * (v / m - 1))
+  // A zero month in a preset must not zero the factor (it is divided by later).
+  return preset.map((v) => Math.max(1 + w * (v / m - 1), Number.EPSILON))
 }
 
 /** Month indices (0 is January) of the n highest or lowest values. */

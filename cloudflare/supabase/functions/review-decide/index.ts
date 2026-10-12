@@ -141,16 +141,30 @@ export async function handler(req: Request): Promise<Response> {
         case "invoice_anomaly": {
           const voidIds: string[] = Array.isArray(body.edits?.void_invoice_ids) ? body.edits.void_invoice_ids : [];
           if (action !== "reject" && voidIds.length) {
-            await db.from("invoices").update({ voided_at: now, void_reason: String(body.edits?.void_reason ?? "duplicate") })
-              .in("id", voidIds).eq("user_id", userId);
-            // A voided invoice takes its DTrack time out again.
-            for (const id of voidIds) await db.rpc("dt_unlink_invoice", { p_invoice: id });
+            const { data: voided } = await db.from("invoices").update({ voided_at: now, void_reason: String(body.edits?.void_reason ?? "duplicate") })
+              .in("id", voidIds).eq("user_id", userId).select("id");
+            // A voided invoice takes its DTrack time out again (own invoices only).
+            for (const v of voided ?? []) {
+              const { error: uErr } = await db.rpc("dt_unlink_invoice", { p_invoice: v.id, p_user: userId });
+              if (uErr) throw new Error(`remove time of voided invoice: ${uErr.message}`);
+            }
           }
           if (action !== "reject" && item.item_id && !voidIds.includes(item.item_id)) {
             // "Figures are correct": the invoice counts from now on, and its hours go into DTrack.
-            await db.from("invoices").update({ review_state: "confirmed" }).eq("id", item.item_id).eq("user_id", userId);
-            const { error: tErr } = await db.rpc("dt_backfill_invoice", { p_invoice: item.item_id });
-            if (tErr) throw new Error(`time from invoice: ${tErr.message}`);
+            const { data: inv } = await db.from("invoices").select("review_state").eq("id", item.item_id).eq("user_id", userId).maybeSingle();
+            if (inv) {
+              await db.from("invoices").update({ review_state: "confirmed" }).eq("id", item.item_id).eq("user_id", userId);
+              const { error: tErr } = await db.rpc("dt_backfill_invoice", { p_invoice: item.item_id });
+              if (tErr) {
+                await db.from("invoices").update({ review_state: inv.review_state }).eq("id", item.item_id).eq("user_id", userId);
+                throw new Error(`hours could not go into Time: ${tErr.message}`);
+              }
+            }
+          }
+          if (action !== "reject" && voidIds.length) {
+            // Another invoice for the same period may count now; give it its time.
+            const { error: bErr } = await db.rpc("dt_backfill_invoices", { p_user: userId });
+            if (bErr) throw new Error(`time from invoices: ${bErr.message}`);
           }
           break;
         }

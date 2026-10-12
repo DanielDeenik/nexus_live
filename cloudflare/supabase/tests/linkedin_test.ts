@@ -71,7 +71,7 @@ Deno.test("csv parser handles quotes, doubled quotes and line breaks", () => {
 
 Deno.test("xlsx reader keeps positions with shared and inline strings", () => {
   const x = buildXlsx({ S: [["a", 1], [null, "b"]], I: [["c & d"]] }, { inline: ["I"], offset: { S: 1 } });
-  const s = readXlsx(x);
+  const s = readXlsx(x, cfg.limits);
   assertEquals(s.get("S"), [[], ["a", "1"], ["", "b"]]);
   assertEquals(s.get("I"), [["c & d"]]);
 });

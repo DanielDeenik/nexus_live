@@ -21,7 +21,11 @@ export interface LinkedInConfig {
   snippetMaxChars: number;
   dateOrder: "MDY" | "DMY";
   imageExtensions: string[];
+  limits: ArchiveLimits;
 }
+
+/** Caps that keep a hostile or broken file from exhausting memory. */
+export interface ArchiveLimits { maxEntryBytes: number; maxSheetRows: number; maxSheetCols: number }
 
 /** Builds the typed config from app_config rows; a missing key throws, so a
  *  broken seed is loud instead of silently parsing nothing. */
@@ -46,6 +50,7 @@ export function linkedinConfig(cfg: Record<string, string>): LinkedInConfig {
     snippetMaxChars: n,
     dateOrder: order,
     imageExtensions: j("linkedin.image_extensions"),
+    limits: j("linkedin.parse_limits"),
   };
 }
 
@@ -216,8 +221,12 @@ function colIndex(ref: string): number {
 /** Minimal xlsx reader: every sheet as a grid of strings, keyed by sheet
  *  name. Handles shared strings, inline strings, numbers and booleans, and
  *  keeps cell positions so offset header rows stay where they are. */
-export function readXlsx(bytes: Uint8Array): Map<string, Grid> {
-  const files = unzipSync(bytes, { filter: (f) => f.name.startsWith("xl/") && f.name.endsWith(".xml") || f.name.endsWith(".rels") });
+export function readXlsx(bytes: Uint8Array, limits: ArchiveLimits): Map<string, Grid> {
+  const files = unzipSync(bytes, { filter: (f) => {
+    if (!(f.name.startsWith("xl/") && f.name.endsWith(".xml") || f.name.endsWith(".rels"))) return false;
+    if (f.originalSize > limits.maxEntryBytes) throw new Error(`${f.name} unpacks to more than linkedin.parse_limits.maxEntryBytes`);
+    return true;
+  } });
   const get = (p: string) => (files[p] ? strFromU8(files[p]) : "");
   const shared = [...get("xl/sharedStrings.xml").matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => textOf(m[1]));
   const rels = new Map<string, string>();
@@ -235,11 +244,13 @@ export function readXlsx(bytes: Uint8Array): Map<string, Grid> {
     const grid: Grid = [];
     for (const row of get(path).matchAll(/<row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/row>)/g)) {
       const r = Number(attr(`<row${row[1]}>`, "r") ?? grid.length + 1) - 1;
+      if (!Number.isInteger(r) || r < 0 || r >= limits.maxSheetRows) throw new Error(`sheet ${name} has a row beyond linkedin.parse_limits.maxSheetRows`);
       const cells: Cell[] = [];
       for (const c of (row[2] ?? "").matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
         const head = `<c${c[1]}>`;
         const ref = attr(head, "r");
         const idx = ref ? colIndex(ref) : cells.length;
+        if (idx < 0 || idx >= limits.maxSheetCols) throw new Error(`sheet ${name} has a column beyond linkedin.parse_limits.maxSheetCols`);
         const t = attr(head, "t");
         const body = c[2] ?? "";
         const v = body.match(/<v>([\s\S]*?)<\/v>/)?.[1];
@@ -356,7 +367,7 @@ function labelled(grid: Grid, aliases: string[] | undefined, prefix = false): { 
 }
 
 export function parseContentExport(bytes: Uint8Array, cfg: LinkedInConfig): ContentExport {
-  const sheets = readXlsx(bytes);
+  const sheets = readXlsx(bytes, cfg.limits);
   const S = cfg.contentSheets;
   const C = cfg.contentColumns;
   const order = cfg.dateOrder;
@@ -575,7 +586,11 @@ export function snippetOf(text: string | null | undefined, max: number): string 
 
 export async function parseArchive(bytes: Uint8Array, cfg: LinkedInConfig): Promise<ArchiveImport> {
   const wanted = new Set(Object.values(cfg.archiveFiles).flat().map((f) => f.toLowerCase()));
-  const files = unzipSync(bytes, { filter: (f) => wanted.has(base(f.name).toLowerCase()) });
+  const files = unzipSync(bytes, { filter: (f) => {
+    if (!wanted.has(base(f.name).toLowerCase())) return false;
+    if (f.originalSize > cfg.limits.maxEntryBytes) throw new Error(`${f.name} unpacks to more than linkedin.parse_limits.maxEntryBytes`);
+    return true;
+  } });
   const F = cfg.archiveFiles;
   const A = cfg.archiveColumns;
   const warnings: string[] = [];

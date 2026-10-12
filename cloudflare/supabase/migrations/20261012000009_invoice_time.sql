@@ -89,6 +89,13 @@ begin
     return 0;
   end if;
 
+  -- This invoice counts for the period, so any other invoice's time for the
+  -- same client and period comes out first (no double counting).
+  perform public.dt_unlink_invoice(o.id, inv.user_id)
+     from public.invoices o
+    where o.user_id = inv.user_id and o.id <> inv.id and o.client = inv.client
+      and o.period_start = inv.period_start and o.period_end = inv.period_end;
+
   -- Already written and still active: nothing to do.
   if exists (
     select 1 from public.dt_time_entries
@@ -109,7 +116,12 @@ begin
     insert into public.dt_projects (user_id, aow_id, name, client, billable)
     values (inv.user_id, area, inv.client, inv.client, true)
     on conflict (user_id, name) do nothing;
-    select id into proj from public.dt_projects where user_id = inv.user_id and name = inv.client;
+    select id into proj from public.dt_projects
+     where user_id = inv.user_id and name = inv.client and billable and archived_at is null;
+    if proj is null then
+      raise exception 'project "%" exists but is archived or not billable; make it billable or set its client to match invoice %',
+        inv.client, inv.invoice_number;
+    end if;
   end if;
 
   -- Hours already logged for this project in the period from anything other than invoices.
@@ -152,13 +164,14 @@ begin
   return written;
 end $$;
 
--- A voided invoice takes its time out again.
-create or replace function public.dt_unlink_invoice(p_invoice uuid)
+-- A voided (or outranked) invoice takes its time out again. Scoped to the
+-- invoice's owner, so one user can never touch another user's time.
+create or replace function public.dt_unlink_invoice(p_invoice uuid, p_user uuid)
 returns integer language plpgsql security definer set search_path = public as $$
 declare n int;
 begin
   update public.dt_time_entries set removed_at = now(), updated_at = now()
-  where external_id like 'invoice:' || p_invoice || ':%' and removed_at is null;
+  where user_id = p_user and external_id like 'invoice:' || p_invoice || ':%' and removed_at is null;
   get diagnostics n = row_count;
   return n;
 end $$;
@@ -175,7 +188,43 @@ begin
   return total;
 end $$;
 
-revoke all on function public.dt_backfill_invoice(uuid), public.dt_unlink_invoice(uuid), public.dt_backfill_invoices(uuid)
+revoke all on function public.dt_backfill_invoice(uuid), public.dt_unlink_invoice(uuid, uuid), public.dt_backfill_invoices(uuid)
   from public, anon, authenticated;
-grant execute on function public.dt_backfill_invoice(uuid), public.dt_unlink_invoice(uuid), public.dt_backfill_invoices(uuid)
+grant execute on function public.dt_backfill_invoice(uuid), public.dt_unlink_invoice(uuid, uuid), public.dt_backfill_invoices(uuid)
   to service_role;
+
+-- ---------------------------------------------------------------------------
+-- 4. Logged against invoiced compares tracked time only
+-- ---------------------------------------------------------------------------
+-- Time written from invoices would always equal the invoiced hours, so the
+-- comparison leaves it out and shows what Relay and manual logging captured.
+create or replace function public.dt_billable_vs_invoiced(p_from date, p_to date)
+returns table (month date, logged_hours numeric, invoiced_hours numeric)
+language sql stable security invoker set search_path = public as $$
+  with months as (
+    select generate_series(date_trunc('month', p_from), date_trunc('month', p_to - 1), interval '1 month')::date as m
+  ),
+  logged as (
+    select date_trunc('month', e.entry_date)::date as m, sum(e.minutes) / 60.0 as h
+      from public.dt_time_entries e join public.dt_projects p on p.id = e.project_id
+     where e.user_id = auth.uid() and p.billable and e.removed_at is null
+       and e.source <> coalesce((select value::jsonb ->> 'source' from public.app_config where key = 'dtrack.invoice_backfill'), '')
+       and e.entry_date >= p_from and e.entry_date < p_to
+     group by 1
+  ),
+  periods as (
+    select distinct on (i.client, i.period_start, i.period_end)
+           date_trunc('month', coalesce(i.period_start, i.issued_date))::date as m, i.hours
+      from public.invoices i
+     where i.user_id = auth.uid() and i.voided_at is null and i.duplicate_of is null
+       and i.hours is not null
+       and coalesce(i.period_start, i.issued_date) >= p_from and coalesce(i.period_start, i.issued_date) < p_to
+     order by i.client, i.period_start, i.period_end, i.hours desc
+  ),
+  invoiced as (select m, sum(hours) as h from periods group by 1)
+  select months.m, round(coalesce(logged.h, 0), 2), round(coalesce(invoiced.h, 0), 2)
+    from months left join logged using (m) left join invoiced using (m)
+   order by 1;
+$$;
+revoke all on function public.dt_billable_vs_invoiced(date, date) from public, anon;
+grant execute on function public.dt_billable_vs_invoiced(date, date) to authenticated;

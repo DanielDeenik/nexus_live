@@ -18,6 +18,7 @@
 insert into public.app_config (key, value, description) values
 ('linkedin.bucket', 'receipts', 'Private bucket the LinkedIn uploads land in (the web uploads to {uid}/uploads/)'),
 ('linkedin.max_import_bytes', '104857600', 'Largest LinkedIn file one import reads'),
+('linkedin.parse_limits', '{"maxEntryBytes": 209715200, "maxSheetRows": 200000, "maxSheetCols": 300}', 'Largest single file unpacked from an export, and the most rows and columns read from one sheet'),
 ('linkedin.upsert_chunk', '500', 'Rows per upsert call during a LinkedIn import'),
 ('linkedin.date_order', 'MDY', 'Order of slashed dates in LinkedIn exports (MDY or DMY)'),
 ('linkedin.image_extensions', '["png", "jpg", "jpeg"]', 'File extensions treated as profile analytics screenshots'),

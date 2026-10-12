@@ -519,8 +519,17 @@ async function processSalesInvoice(ctx: Ctx, run: AgentRun, userId: string, doc:
   if (!reasons.length) {
     // Confirmed straight away: its hours go into DTrack now.
     const { data: entries, error: tErr } = await db.rpc("dt_backfill_invoice", { p_invoice: inv.id });
-    if (tErr) throw new Error(`time from invoice: ${tErr.message}`);
-    run.count("time_entries_from_invoices", entries ?? 0);
+    if (tErr) {
+      // The invoice is in income; its time is not. Ask instead of failing silently.
+      await openReview(db, {
+        user_id: userId, item_type: "invoice_anomaly", item_id: inv.id, reason_codes: ["time_not_added"],
+        summary: `${o.invoice_number}: added to income, but its hours could not go into Time (${tErr.message})`,
+        proposed: { invoice: o }, agent_run_id: run.id,
+      });
+      run.count("time_not_added");
+    } else {
+      run.count("time_entries_from_invoices", entries ?? 0);
+    }
   }
 }
 
