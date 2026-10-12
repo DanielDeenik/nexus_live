@@ -58,3 +58,8 @@ tsconfig.tsbuildinfo
 # Cloudflare Workers
 .wrangler/
 wrangler.toml.local
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+supabase/.env
