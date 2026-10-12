@@ -427,18 +427,22 @@ export async function handler(req: Request): Promise<Response> {
     const caller = who.kind === "user" ? who.id : null;
 
     if (body.mode === "upload") {
-      if (!caller) return json({ error: "sign in required" }, 401);
+      // A signed-in user uploads their own file; the scheduler identity may
+      // submit one on a named user's behalf (backfills). Either way the file
+      // must sit in that user's folder.
+      const owner = caller ?? (who.kind === "service" && typeof body.user_id === "string" ? body.user_id : null);
+      if (!owner) return json({ error: "sign in required" }, 401);
       const path = String(body.path ?? "");
-      if (!path.startsWith(`${caller}/`)) return json({ error: "path outside your folder" }, 403);
+      if (!path.startsWith(`${owner}/`)) return json({ error: "path outside your folder" }, 403);
       const dl = await db.storage.from("receipts").download(path);
       if (dl.error) return json({ error: dl.error.message }, 400);
       const bytes = new Uint8Array(await dl.data.arrayBuffer());
       const mediaType = dl.data.type || (path.endsWith(".pdf") ? "application/pdf" : "image/jpeg");
       const doc: CollectedDoc = { source: "upload", external_id: `upload:${path}`, received_at: new Date().toISOString(), title: path.split("/").pop()!, file: { bytes, mediaType, name: path } };
       const handler = body.kind === "sales_invoice"
-        ? (d: CollectedDoc, run: AgentRun) => processSalesInvoice(ctx, run, caller, d, path)
-        : (d: CollectedDoc, run: AgentRun) => processReceipt(ctx, run, caller, d, path);
-      return json(await runForUser(ctx, caller, "upload", async () => [doc], handler));
+        ? (d: CollectedDoc, run: AgentRun) => processSalesInvoice(ctx, run, owner, d, path)
+        : (d: CollectedDoc, run: AgentRun) => processReceipt(ctx, run, owner, d, path);
+      return json(await runForUser(ctx, owner, "upload", async () => [doc], handler));
     }
 
     const users = caller ? [caller] : [...new Set(((await db.from("integration_connections").select("user_id").eq("status", "active")).data ?? []).map((r) => r.user_id as string))];
