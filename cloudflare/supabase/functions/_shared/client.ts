@@ -41,10 +41,10 @@ export async function authorize(req: Request, supabase: SupabaseClient): Promise
   const auth = req.headers.get("Authorization") ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   if (!token) return null;
-  // The scheduler authenticates with NEXUS_CRON_SECRET (stored in Vault as
-  // edge_service_key), so the service-role key never has to leave Supabase.
-  for (const name of ["NEXUS_CRON_SECRET", "SUPABASE_SERVICE_ROLE_KEY"]) {
-    const s = Deno.env.get(name);
+  // The scheduler authenticates with the Vault secret edge_service_key,
+  // generated inside Postgres, so no key ever has to be copied around.
+  const candidates = [await internalSecret(supabase, "edge_service_key"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")];
+  for (const s of candidates) {
     if (s && s.length >= 32 && timingSafeEqual(token, s)) return { kind: "service" };
   }
   const id = await userIdFromRequest(req, supabase);
@@ -56,4 +56,16 @@ export function timingSafeEqual(a: string, b: string): boolean {
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+const secretCache = new Map<string, string | null>();
+
+/** Reads an internal secret (edge_service_key, oauth_state_secret) from Vault
+ *  through a service-role-only SQL function; cached per isolate. */
+export async function internalSecret(supabase: SupabaseClient, name: string): Promise<string | null> {
+  if (secretCache.has(name)) return secretCache.get(name)!;
+  const { data, error } = await supabase.rpc("nexus_internal_secret", { p_name: name });
+  const v = error ? null : ((data as string | null) ?? null);
+  if (v) secretCache.set(name, v);
+  return v;
 }

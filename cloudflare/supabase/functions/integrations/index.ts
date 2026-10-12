@@ -7,7 +7,7 @@
 // POST { action: "wise_connect", token, profile_id? } signed in
 // POST { action: "disconnect", provider }             signed in
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { adminClient, requireEnv, timingSafeEqual, userIdFromRequest } from "../_shared/client.ts";
+import { adminClient, internalSecret, requireEnv, timingSafeEqual, userIdFromRequest } from "../_shared/client.ts";
 import { loadConfig } from "../_shared/config.ts";
 import { json, preflight } from "../_shared/cors.ts";
 
@@ -15,7 +15,9 @@ const enc = new TextEncoder();
 const b64url = (b: ArrayBuffer | Uint8Array) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 async function hmac(data: string): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", enc.encode(requireEnv("OAUTH_STATE_SECRET")), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const secret = await internalSecret(adminClient(), "oauth_state_secret");
+  if (!secret) throw new Error("oauth_state_secret missing from Vault");
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return b64url(await crypto.subtle.sign("HMAC", key, enc.encode(data)));
 }
 
