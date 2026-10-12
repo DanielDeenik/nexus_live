@@ -169,7 +169,9 @@ alter table public.expenses
     check (status in ('proposed','needs_review','approved','rejected','booked')),
   add column if not exists treatment text
     check (treatment in ('fully_deductible','limited_deductible','asset','private','unknown')),
-  add column if not exists deductible_pct numeric(5,4),
+  add column if not exists business_use_pct numeric(5,4) not null default 1
+    check (business_use_pct >= 0 and business_use_pct <= 1),
+  add column if not exists category_detail text,
   add column if not exists vendor text,
   add column if not exists vendor_country text,
   add column if not exists amount_excl_vat numeric(14,2),

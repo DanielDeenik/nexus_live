@@ -1,0 +1,194 @@
+[
+ {
+  "year": 2026,
+  "key": "ib.brackets",
+  "value": [
+   {
+    "up_to": 38883,
+    "rate": 0.3575
+   },
+   {
+    "up_to": 78426,
+    "rate": 0.3756
+   },
+   {
+    "up_to": null,
+    "rate": 0.495
+   }
+  ],
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "ib.zelfstandigenaftrek",
+  "value": 1200,
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "ib.startersaftrek",
+  "value": 2123,
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "ib.urencriterium_hours",
+  "value": 1225,
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "ib.mkb_winstvrijstelling_rate",
+  "value": 0.127,
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "ib.algemene_heffingskorting",
+  "value": {
+   "max": 3115,
+   "phase_out_start": 29736,
+   "phase_out_rate": 0.06398
+  },
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "ib.arbeidskorting",
+  "value": [
+   {
+    "from": 0,
+    "to": 11965,
+    "base": 0,
+    "rate": 0.08324
+   },
+   {
+    "from": 11965,
+    "to": 25845,
+    "base": 996,
+    "rate": 0.31009
+   },
+   {
+    "from": 25845,
+    "to": 45592,
+    "base": 5300,
+    "rate": 0.0195
+   },
+   {
+    "from": 45592,
+    "to": 132920,
+    "base": 5685,
+    "rate": -0.0651
+   },
+   {
+    "from": 132920,
+    "to": null,
+    "base": 0,
+    "rate": 0
+   }
+  ],
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "zvw.self_employed",
+  "value": {
+   "rate": 0.0485,
+   "max_income": 79409
+  },
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "kia.bands",
+  "value": [
+   {
+    "from": 0,
+    "to": 2900,
+    "type": "none"
+   },
+   {
+    "from": 2901,
+    "to": 71683,
+    "type": "pct",
+    "rate": 0.28
+   },
+   {
+    "from": 71684,
+    "to": 132746,
+    "type": "fixed",
+    "amount": 20072
+   },
+   {
+    "from": 132747,
+    "to": 398236,
+    "type": "fixed_minus_pct",
+    "amount": 20072,
+    "rate": 0.0756,
+    "above": 132746
+   },
+   {
+    "from": 398237,
+    "to": null,
+    "type": "none"
+   }
+  ],
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "assets.capitalisation_threshold_excl_vat",
+  "value": 450,
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "assets.default_useful_life_years",
+  "value": {
+   "computer": 5,
+   "furniture": 5,
+   "phone": 3,
+   "other": 5
+  },
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "costs.limited_deductible",
+  "value": {
+   "method": "fixed_pct",
+   "deductible_pct": 0.8,
+   "threshold_alternative": 5700
+  },
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "costs.mileage_rate_per_km",
+  "value": 0.23,
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "vat.rates",
+  "value": {
+   "standard": 0.21,
+   "reduced": 0.09,
+   "zero": 0
+  },
+  "verified": true
+ },
+ {
+  "year": 2026,
+  "key": "vat.rubriek_map",
+  "value": {
+   "nl_standard": "1a",
+   "nl_reduced": "1b",
+   "eu_reverse_charge": "3b",
+   "export_outside_eu_services": "1e",
+   "purchases_services_outside_eu": "4a",
+   "purchases_eu": "4b"
+  },
+  "verified": false
+ }
+]
