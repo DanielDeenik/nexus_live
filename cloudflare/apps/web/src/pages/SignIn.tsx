@@ -28,11 +28,14 @@ export function SignIn() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       // Return to wherever the app is served, including a sub-path.
-      options: { emailRedirectTo: returnTo() },
+      // Existing accounts only: the email link never creates one.
+      options: { emailRedirectTo: returnTo(), shouldCreateUser: false },
     })
     if (error) {
       setState('error')
-      setMessage(error.message)
+      setMessage(/signups not allowed|not found|saving new user/i.test(error.message)
+        ? `There is no Nexus account for ${email}. Check the address for typos.`
+        : error.message)
     } else {
       setState('sent')
     }
