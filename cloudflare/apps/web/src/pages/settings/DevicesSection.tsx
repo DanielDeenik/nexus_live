@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Check, Copy, KeyRound } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
-import { ErrorNote, Field, PageHeader, btnGhost, btnPrimary, input, td, th } from '../../components/time/ui'
+import { ErrorNote, Field, btnGhost, btnPrimary, input, td, th } from '../../components/time/ui'
 import { type DeviceToken, createDeviceToken, ingestUrl, listDeviceTokens, revokeDeviceToken } from '../../lib/time'
 
 const when = (s: string | null) => (s ? new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-')
@@ -20,7 +20,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 // Relay pushes confirmed time with a device token. The token is shown once;
 // only its hash is stored.
-export function Devices() {
+export function DevicesSection() {
   const [rows, setRows] = useState<DeviceToken[] | null>(null)
   const [name, setName] = useState('')
   const [fresh, setFresh] = useState<string | null>(null)
@@ -46,8 +46,11 @@ export function Devices() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Devices" subtitle="Connect Relay so confirmed time lands here." />
+    <section id="devices" className="space-y-6 scroll-mt-20">
+      <div>
+        <h2 className="text-lg font-semibold text-slate-50">Devices</h2>
+        <p className="text-sm text-slate-400">Connect Relay so confirmed time lands here.</p>
+      </div>
 
       <Card className="p-4 sm:p-6">
         <CardHeader title="Connect Relay" />
@@ -105,6 +108,6 @@ export function Devices() {
           </table>
         </div>
       </Card>
-    </div>
+    </section>
   )
 }

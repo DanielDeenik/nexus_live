@@ -1,26 +1,23 @@
 import { useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Search, Bell, Settings, ChevronDown, LogOut, Menu } from 'lucide-react'
 
 const pageNames: Record<string, string> = {
-  '/': 'Dashboard',
+  '/': 'Income & Tax',
   '/forecast': 'Forecast',
-  '/budget': 'Budget Management',
-  '/scenarios': 'Scenario Planner',
-  '/treasury': 'Treasury',
-  '/invoices': 'Invoices',
-  '/market': 'Market Intelligence',
-  '/insights': 'AI Insights',
-  '/settings': 'Settings',
+  '/review': 'Review',
+  '/expenses': 'Expenses',
+  '/tax': 'Tax filings',
   '/time': 'Time',
   '/time/entries': 'Time entries',
   '/time/projects': 'Projects',
   '/time/flow': 'Flow blocks',
-  '/time/devices': 'Devices',
   '/recruiter': 'Recruiter',
   '/recruiter/fit': 'Fit reports',
   '/recruiter/applications': 'Applications',
   '/recruiter/roles': 'Roles',
+  '/linkedin': 'LinkedIn',
+  '/settings': 'Settings',
 }
 
 interface HeaderProps {
@@ -39,7 +36,7 @@ export function Header({
 }: HeaderProps) {
   const location = useLocation()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
-  const currentPage = pageNames[location.pathname] || 'Dashboard'
+  const currentPage = pageNames[location.pathname] || 'Nexus'
 
   return (
     <header className="h-16 border-b border-slate-700/50 glass-dark px-4 sm:px-6 flex items-center justify-between gap-2 sticky top-0 z-30">
@@ -72,9 +69,9 @@ export function Header({
         </button>
 
         {/* Settings */}
-        <button className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors">
+        <Link to="/settings" className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors" aria-label="Settings">
           <Settings size={18} className="text-slate-400 hover:text-slate-200" />
-        </button>
+        </Link>
 
         {/* User Menu */}
         <div className="relative">
@@ -95,10 +92,14 @@ export function Header({
           {/* Dropdown Menu */}
           {isUserMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 glass rounded-lg shadow-xl border border-slate-700/50 overflow-hidden animate-fade-in">
-              <button className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700/50 transition-colors flex items-center gap-2">
+              <Link
+                to="/settings"
+                onClick={() => setIsUserMenuOpen(false)}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700/50 transition-colors flex items-center gap-2"
+              >
                 <Settings size={16} />
-                Account Settings
-              </button>
+                Settings
+              </Link>
               <button
                 onClick={() => {
                   setIsUserMenuOpen(false)

@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Link2, AlertTriangle } from 'lucide-react'
-import { Card, CardHeader } from '../components/ui/Card'
-import { LoadingSpinner } from '../components/ui/LoadingSpinner'
-import { supabase } from '../lib/supabase'
-import { type Profile, callNexus, loadProfile, loadRegions } from '../lib/nexus'
+import { Card, CardHeader } from '../../components/ui/Card'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { supabase } from '../../lib/supabase'
+import { type Profile, callNexus, loadProfile, loadRegions } from '../../lib/nexus'
 
 interface Connection { provider: 'google' | 'wise'; status: string; account_label: string | null; last_error: string | null; settings: Record<string, unknown>; connected_at: string }
 const input = 'rounded-lg bg-slate-900 border-slate-700 text-slate-100 text-sm'
 
-export function AgentSettings() {
+/** Agents section of Settings: work calendar, Google and Wise. */
+export function AgentsSection() {
   const [params] = useSearchParams()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [regions, setRegions] = useState<string[]>([])
@@ -29,7 +30,7 @@ export function AgentSettings() {
     callNexus('integrations', { action: 'google_finish', code, state })
       .then(() => setMsg('Google connected.'))
       .catch((e) => setMsg((e as Error).message))
-      .finally(() => { navigate('/agent-settings', { replace: true }); load() })
+      .finally(() => { navigate('/settings', { replace: true }); load() })
   }, [params])
 
   const load = useCallback(async () => {
@@ -55,14 +56,14 @@ export function AgentSettings() {
     try { await fn(); setMsg(ok); load() } catch (e) { setMsg((e as Error).message) }
   }
 
-  if (!profile) return <div className="flex justify-center p-12"><LoadingSpinner /></div>
+  if (!profile) return <div id="agents" className="flex justify-center p-12"><LoadingSpinner /></div>
   const google = conns.find((c) => c.provider === 'google' && c.status === 'active')
   const wise = conns.find((c) => c.provider === 'wise' && c.status === 'active')
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <section id="agents" className="space-y-6 scroll-mt-20">
       <div>
-        <h1 className="text-2xl font-bold text-slate-50">Agent settings</h1>
+        <h2 className="text-lg font-semibold text-slate-50">Agents</h2>
         <p className="text-sm text-slate-400">Your calendar for capacity forecasts, and the sources the expense agent reads.</p>
       </div>
       {msg && <p className="text-sm text-slate-300">{msg}</p>}
@@ -115,6 +116,6 @@ export function AgentSettings() {
         </div>
         <p className="text-xs text-slate-500 mt-2">Tokens are stored encrypted in Supabase Vault and never returned to the browser.</p>
       </Card>
-    </div>
+    </section>
   )
 }

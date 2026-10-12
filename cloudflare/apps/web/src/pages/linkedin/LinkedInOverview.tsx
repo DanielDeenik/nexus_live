@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Info } from 'lucide-react'
 import { Card, CardHeader } from '../../components/ui/Card'
 import { ErrorNote, PageHeader, Tile, td, th } from '../../components/time/ui'
 import { TierChip } from '../../components/recruiter/bits'
-import { BarList, ImportCard, countedBars } from '../../components/linkedin/bits'
-import { DIMENSION_LABELS, type LinkedInSummary, type Snapshot, int, loadSummary, pct, shortDay } from '../../lib/linkedin'
+import { BarList, ImportCard, ImportChip, countedBars } from '../../components/linkedin/bits'
+import { DIMENSION_LABELS, type ImportRow, type LinkedInSummary, type Snapshot, countsText, int, listImports, loadSummary, pct, shortDay } from '../../lib/linkedin'
 import { addDays, iso, today } from '../../lib/period'
-import type { RoleTier } from '../../lib/recruiter'
+import { type RoleTier, when } from '../../lib/recruiter'
 
 // Series colours match the rest of Nexus: sky for the primary measure,
 // teal for the secondary one.
@@ -69,14 +69,21 @@ function SnapshotCard({ title, snap, lists, empty }: { title: string; snap: Snap
 export function LinkedInOverview() {
   const [range, setRange] = useState<RangeId>('365')
   const [data, setData] = useState<LinkedInSummary | null>(null)
+  const [imports, setImports] = useState<ImportRow[] | null>(null)
   const [error, setError] = useState('')
 
   const load = useCallback(() => {
     setError('')
     const r = rangeOf(range)
     loadSummary(r.from, r.to).then(setData).catch((e) => setError((e as Error).message))
+    listImports().then(setImports).catch((e) => setError((e as Error).message))
   }, [range])
   useEffect(() => { load() }, [load])
+  // The old imports address lands here with #import-history.
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (hash && imports) document.getElementById(hash.slice(1))?.scrollIntoView()
+  }, [hash, imports])
 
   const followerSeries = useMemo(() => {
     let run = 0
@@ -251,7 +258,36 @@ export function LinkedInOverview() {
       <Card className="p-4 sm:p-6">
         <div className="flex gap-2 text-sm text-slate-300">
           <Info size={16} className="mt-0.5 shrink-0 text-sky-400" />
-          <p>Recruiters are found by keywords in a position, subject or message (set in app config). Profile views and search appearances are read from your screenshots and show only what was visible. <Link to="/linkedin/imports" className="underline">Import history</Link>.</p>
+          <p>Recruiters are found by keywords in a position, subject or message (set in app config). Profile views and search appearances are read from your screenshots and show only what was visible. <a href="#import-history" className="underline">Import history</a>.</p>
+        </div>
+      </Card>
+
+      <Card className="p-4 sm:p-6">
+        <div id="import-history" className="scroll-mt-20" />
+        <CardHeader title="Import history" subtitle="Every file imported, newest first; a file imported again updates its row" />
+        <div className="relative overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left text-slate-400 border-b border-slate-700/50">
+              <tr><th className={th}>Imported</th><th className={th}>Kind</th><th className={th}>Status</th><th className={th}>Covers</th><th className={th}>File</th><th className={th}>Result</th></tr>
+            </thead>
+            <tbody className="text-slate-200">
+              {imports?.map((r) => (
+                <tr key={r.id} className="border-b border-slate-800/60">
+                  <td className={`${td} whitespace-nowrap tabular-nums`}>{when(r.imported_at)}</td>
+                  <td className={`${td} whitespace-nowrap`}>{r.kind}</td>
+                  <td className={td}><ImportChip status={r.status} /></td>
+                  <td className={`${td} whitespace-nowrap tabular-nums`}>{r.period_from || r.period_to ? `${shortDay(r.period_from)} to ${shortDay(r.period_to)}` : '-'}</td>
+                  <td className={`${td} max-w-[14rem] truncate`} title={r.path}>{r.path.split('/').pop()?.replace(/^\d+_/, '')}</td>
+                  <td className={`${td} min-w-[16rem] break-words text-slate-300`}>
+                    {r.error ? <span className="text-danger-300">{r.error}</span> : countsText(r.counts)}
+                    {(r.warnings ?? []).map((w) => <div key={w} className="text-xs text-warning-300">{w}</div>)}
+                  </td>
+                </tr>
+              ))}
+              {imports && imports.length === 0 && <tr><td className={`${td} text-slate-400`} colSpan={6}>Nothing imported yet.</td></tr>}
+              {!imports && !error && <tr><td className={`${td} text-slate-400`} colSpan={6}>Loading.</td></tr>}
+            </tbody>
+          </table>
         </div>
       </Card>
     </div>

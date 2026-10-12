@@ -70,7 +70,7 @@ export function RecruiterOverview() {
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           <p className="min-w-0 break-words">
             The last intake run failed ({when(run!.started_at)}): {run!.error_message ?? 'no message'}.{' '}
-            <Link to="/agent-settings" className="underline">Check agent settings</Link>.
+            <Link to="/settings#agents" className="underline">Check agent settings</Link>.
           </p>
         </div>
       )}
