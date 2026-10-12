@@ -48,7 +48,8 @@ Deno.serve(async (req) => {
 
   const { data: agents, error: aErr } = await supabase.from("agent_configs")
     .select("agent_id, system_prompt, llm_provider, llm_model, max_tokens, temperature, cache_ttl_seconds, rate_limit_per_day, enabled")
-    .eq("enabled", true);
+    .eq("enabled", true)
+    .eq("runner", "swarm");
   if (aErr) return json({ error: aErr.message }, 500);
 
   let uq = supabase.from("profiles").select("id");

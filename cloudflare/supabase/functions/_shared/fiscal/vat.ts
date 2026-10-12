@@ -6,7 +6,7 @@ import { type FiscalParams, round2 } from "./params.ts";
 export interface VatInvoice {
   id: string;
   issued_date: string;
-  status: string;
+  voided_at: string | null;
   amount: number;
   currency: string;
   amount_eur: number | null;
@@ -58,7 +58,7 @@ export function draftVat(
   const inPeriod = (d: string) => d >= periodStart && d <= periodEnd;
 
   for (const inv of invoices) {
-    if (inv.status === "void" || !inPeriod(inv.issued_date)) continue;
+    if (inv.voided_at || !inPeriod(inv.issued_date)) continue;
     const box = inv.vat_treatment ? p.rubriekMap[inv.vat_treatment] : undefined;
     const base = inv.currency === "EUR" ? inv.amount : inv.amount_eur;
     if (!box) { unplaced.push({ id: inv.id, reason: "no VAT treatment set" }); continue; }

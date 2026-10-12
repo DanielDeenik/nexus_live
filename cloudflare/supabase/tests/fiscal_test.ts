@@ -13,7 +13,7 @@ const p = paramsFromRows(rows as never, 2026);
 
 const inv = (n: string, issued: string, hours: number, start: string | null, end: string | null, client = "Alpha FM Consulting Canada Inc"): InvoiceRow => ({
   id: n, invoice_number: n, client, amount: hours * 185, currency: "CAD", amount_eur: null,
-  status: "pending", issued_date: issued, period_start: start, period_end: end, hours, unit_rate: 185, duplicate_of: null,
+  status: "pending", issued_date: issued, period_start: start, period_end: end, hours, unit_rate: 185, duplicate_of: null, voided_at: null,
 });
 const JPSB = "JPSB Consulting Limited";
 const invoices: InvoiceRow[] = [
@@ -47,7 +47,7 @@ Deno.test("ledger: flags the triple January invoice and the INV-011 gap", () => 
 });
 
 Deno.test("ledger: void invoices drop out", () => {
-  const voided = invoices.map((i) => (i.id === "INV-002" || i.id === "INV-003" ? { ...i, status: "void" } : i));
+  const voided = invoices.map((i) => (i.id === "INV-002" || i.id === "INV-003" ? { ...i, voided_at: "2026-10-12T00:00:00Z" } : i));
   const s = summarizeIncome(voided, [], 2026);
   assertEquals(s.billed_hours, 1502);
   assertEquals(s.anomalies.some((a) => a.code === "duplicate_period"), false);
@@ -122,7 +122,7 @@ Deno.test("costs: Mac mini depreciation and no KIA", () => {
 
 Deno.test("vat: Q3 draft places Canadian invoices in 1e and reclaims hardware VAT", () => {
   const q = quarterBounds(2026, 3);
-  const vInv = invoices.map((i) => ({ id: i.id, issued_date: i.issued_date, status: i.status, amount: i.amount, currency: i.currency, amount_eur: round(i.amount * 0.6), vat_amount: 0, vat_treatment: "export_outside_eu_services" }));
+  const vInv = invoices.map((i) => ({ id: i.id, issued_date: i.issued_date, voided_at: i.voided_at, amount: i.amount, currency: i.currency, amount_eur: round(i.amount * 0.6), vat_amount: 0, vat_treatment: "export_outside_eu_services" }));
   const vExp = receipts.map((e) => ({ ...e, vendor_country: "NL" }));
   const d = draftVat(vInv, vExp, q.start, q.end, p);
   assertEquals(d.boxes["1e"].items, 3);

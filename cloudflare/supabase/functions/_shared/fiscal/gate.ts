@@ -31,7 +31,8 @@ export type ReasonCode =
   | "missing_total" | "missing_date" | "missing_vendor" | "missing_currency"
   | "vat_arithmetic" | "missing_fx"
   | "asset_threshold" | "limited_deductible" | "private_or_mixed" | "review_category"
-  | "low_confidence" | "above_auto_book_amount" | "unknown_treatment" | "duplicate";
+  | "low_confidence" | "above_auto_book_amount" | "unknown_treatment" | "duplicate"
+  | "missing_evidence" | "missing_parameters" | "extraction_failed" | "invoice_duplicate_period";
 
 export interface GateDecision { route: "book" | "review" | "discard"; reasons: ReasonCode[] }
 
@@ -90,4 +91,8 @@ export const REASON_TEXT: Record<ReasonCode, string> = {
   above_auto_book_amount: "Above the auto-book amount limit",
   unknown_treatment: "Could not determine the tax treatment",
   duplicate: "Already in the ledger",
+  missing_evidence: "Bank payment without a receipt or invoice: add the document",
+  missing_parameters: "No fiscal parameters loaded for this year",
+  extraction_failed: "Could not read the document reliably",
+  invoice_duplicate_period: "Another invoice already bills this period",
 };

@@ -70,13 +70,7 @@ insert into public.tax_parameters (year, key, value, description, source_url, ve
   '{"nl_standard":"1a","nl_reduced":"1b","eu_reverse_charge":"3b","export_outside_eu_services":"1e","purchases_services_outside_eu":"4a","purchases_eu":"4b"}',
   'Mapping of transaction treatments to VAT return boxes. Non-EU services mapping awaits confirmation.',
   'https://www.zzp-nederland.nl/kennisbank/btw-naar-buitenland', false)
-on conflict (year, key) do update set value = excluded.value, source_url = excluded.source_url,
-  verified = excluded.verified, description = excluded.description, updated_at = now();
-
--- Correct the stale foundation seed (2025 value seeded as 2026).
-update public.app_config set value = '1200',
-  description = 'Superseded by tax_parameters(2026, ib.zelfstandigenaftrek)', updated_at = now()
-where key = 'tax.nl.zelfstandigenaftrek';
+on conflict (year, key) do nothing;
 
 -- ============================================================================
 -- 2. PUBLIC HOLIDAYS (work calendar for remaining-day forecasts)
@@ -117,13 +111,9 @@ alter table public.profiles
 -- 3. INVOICES: hours, period, VAT treatment, FX, anomaly links
 -- ============================================================================
 
-alter table public.invoices drop constraint if exists invoices_status_check;
-alter table public.invoices add constraint invoices_status_check
-  check (status in ('pending', 'paid', 'overdue', 'void'));
-alter table public.invoices drop constraint if exists invoices_source_check;
-alter table public.invoices add constraint invoices_source_check
-  check (source in ('manual', 'moneybird', 'notion', 'api', 'upload'));
-
+-- Voiding is its own column (orthogonal to payment status) and the intake
+-- channel is separate from the legacy source field, so no foundation
+-- constraint has to be dropped.
 alter table public.invoices
   add column if not exists invoice_number text,
   add column if not exists description text,
@@ -140,6 +130,10 @@ alter table public.invoices
   add column if not exists fx_rate_date date,
   add column if not exists amount_eur numeric(14,2),
   add column if not exists duplicate_of uuid references public.invoices(id) on delete set null,
+  add column if not exists voided_at timestamptz,
+  add column if not exists void_reason text,
+  add column if not exists ingest_channel text not null default 'manual'
+    check (ingest_channel in ('manual','upload','agent','import')),
   add column if not exists document_path text,
   add column if not exists notes text;
 create unique index if not exists idx_invoices_user_number
@@ -213,7 +207,6 @@ create table if not exists public.fixed_assets (
   created_at timestamptz not null default now()
 );
 create index if not exists idx_fixed_assets_user on public.fixed_assets(user_id);
-alter table public.expenses drop constraint if exists expenses_asset_fk;
 alter table public.expenses add constraint expenses_asset_fk
   foreign key (asset_id) references public.fixed_assets(id) on delete set null;
 
@@ -235,7 +228,6 @@ create table if not exists public.agent_runs (
   error_message text
 );
 create index if not exists idx_agent_runs_user on public.agent_runs(user_id, started_at desc);
-alter table public.expenses drop constraint if exists expenses_agent_run_fk;
 alter table public.expenses add constraint expenses_agent_run_fk
   foreign key (agent_run_id) references public.agent_runs(id) on delete set null;
 
@@ -391,15 +383,36 @@ insert into public.app_config (key, value, description) values
 ('integrations.drive_api_base', 'https://www.googleapis.com/drive/v3', 'Drive API base'),
 ('integrations.wise_api_base', 'https://api.wise.com', 'Wise API base'),
 ('integrations.fx_api_base', 'https://api.frankfurter.app', 'ECB reference rates API used to convert to EUR')
-on conflict (key) do update set value = excluded.value, description = excluded.description, updated_at = now();
+on conflict (key) do nothing;
 
-insert into public.agent_configs (id, agent_id, display_name, system_prompt, llm_provider, llm_model, max_tokens, temperature, cache_ttl_seconds, rate_limit_per_day, enabled)
+-- Dedicated agents have their own Edge Function; the generic swarm
+-- (run-agents) only loops over runner = 'swarm'.
+alter table public.agent_configs add column if not exists runner text not null default 'swarm'
+  check (runner in ('swarm','dedicated'));
+
+insert into public.agent_configs (id, agent_id, display_name, system_prompt, llm_provider, llm_model, max_tokens, temperature, cache_ttl_seconds, rate_limit_per_day, enabled, runner)
 values
 ('agent_expense_001', 'expense', 'Expense Agent',
 'You extract and classify business expenses for a Dutch IB-ondernemer (eenmanszaak). You receive one document (email, PDF text, or bank transaction) plus the fiscal parameters and the vendor rules the owner has confirmed before. Return only JSON matching the schema in the user message. Never invent numbers: if a figure is not on the document, return null and lower your confidence. Treat these as needing a human, never as fully deductible: club or society memberships, meals and drinks, gifts, clothing, travel with a private element, anything for the home. Purchases at or above the capitalisation threshold in the parameters are assets. Explain your classification in one sentence of plain language in the rationale field.',
-'anthropic', 'claude-sonnet-5-5', 2048, 0.0, 0, 2000, true),
+'anthropic', 'claude-sonnet-5-5', 2048, 0.0, 0, 2000, true, 'dedicated'),
 ('agent_taxdraft_001', 'tax_drafter', 'Tax Filing Drafter',
 'You review a deterministic tax computation for a Dutch IB-ondernemer and write plain-language warnings for the owner. You never change numbers. Flag: missing evidence, unverified parameters, invoice anomalies, assets awaiting review, expenses awaiting review, and anything that would change the result materially. Return JSON {"warnings":[{"code":string,"severity":"info"|"warn"|"block","message":string}]}.',
-'anthropic', 'claude-opus-5-5', 2048, 0.0, 0, 200, true)
-on conflict (agent_id) do update set system_prompt = excluded.system_prompt, llm_model = excluded.llm_model,
-  max_tokens = excluded.max_tokens, temperature = excluded.temperature, updated_at = now();
+'anthropic', 'claude-opus-5-5', 2048, 0.0, 0, 200, true, 'dedicated')
+on conflict (agent_id) do nothing;
+
+-- ============================================================================
+-- 14. HARDENING AND CORRECTIONS TO THE FOUNDATION
+-- ============================================================================
+
+-- Security-definer helpers were callable by anon/authenticated through RPC.
+revoke all on function public.cache_get(text) from public, anon, authenticated;
+revoke all on function public.cache_set(text, jsonb, integer) from public, anon, authenticated;
+revoke all on function public.rate_limit_check(text, uuid, integer) from public, anon, authenticated;
+grant execute on function public.cache_get(text) to service_role;
+grant execute on function public.cache_set(text, jsonb, integer) to service_role;
+grant execute on function public.rate_limit_check(text, uuid, integer) to service_role;
+-- invoke_edge calls functions with the service key; schedule_from_config edits cron.
+revoke all on function public.invoke_edge(text, jsonb) from public, anon, authenticated;
+revoke all on function public.schedule_from_config(text, text, text) from public, anon, authenticated;
+-- Trigger-only function; never needs to be callable over the API.
+revoke all on function public.handle_new_user() from public, anon, authenticated;

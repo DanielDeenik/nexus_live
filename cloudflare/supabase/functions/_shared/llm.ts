@@ -80,3 +80,50 @@ async function callGemini(params: LlmParams, messages: ChatMessage[]): Promise<s
   const data = await res.json();
   return (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");
 }
+
+// ---------------------------------------------------------------------------
+// Structured output with documents (expense and tax agents).
+// Uses a forced tool call so the model must return arguments matching the
+// JSON schema; the caller still validates the result deterministically.
+// ---------------------------------------------------------------------------
+
+export type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "document"; source: { type: "base64"; media_type: "application/pdf"; data: string } }
+  | { type: "image"; source: { type: "base64"; media_type: string; data: string } };
+
+export interface StructuredResult<T> {
+  value: T;
+  usage: { input_tokens: number; output_tokens: number };
+}
+
+export async function callStructured<T>(
+  params: LlmParams,
+  system: string,
+  content: ContentBlock[],
+  tool: { name: string; description: string; input_schema: Record<string, unknown> },
+): Promise<StructuredResult<T>> {
+  if (params.provider !== "anthropic") {
+    throw new Error(`Structured document calls need provider 'anthropic' (got ${params.provider})`);
+  }
+  const apiKey = getEnv("ANTHROPIC_API_KEY");
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model: params.model,
+      max_tokens: params.maxTokens,
+      temperature: params.temperature,
+      system,
+      tools: [tool],
+      tool_choice: { type: "tool", name: tool.name },
+      messages: [{ role: "user", content }],
+    }),
+  });
+  if (!res.ok) throw new Error(`Anthropic call failed: ${res.status} ${(await res.text()).slice(0, 500)}`);
+  const data = await res.json();
+  const block = (data.content ?? []).find((b: { type: string; name?: string }) => b.type === "tool_use" && b.name === tool.name);
+  if (!block) throw new Error("Model returned no structured result");
+  return { value: block.input as T, usage: data.usage ?? { input_tokens: 0, output_tokens: 0 } };
+}
