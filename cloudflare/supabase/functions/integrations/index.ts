@@ -7,7 +7,7 @@
 // POST { action: "wise_connect", token, profile_id? } signed in
 // POST { action: "disconnect", provider }             signed in
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { adminClient, requireEnv, userIdFromRequest } from "../_shared/client.ts";
+import { adminClient, requireEnv, timingSafeEqual, userIdFromRequest } from "../_shared/client.ts";
 import { loadConfig } from "../_shared/config.ts";
 import { json, preflight } from "../_shared/cors.ts";
 
@@ -25,10 +25,14 @@ async function signState(userId: string): Promise<string> {
 }
 
 async function verifyState(state: string): Promise<string | null> {
-  const [payload, sig] = state.split(".");
-  if (!payload || !sig || (await hmac(payload)) !== sig) return null;
-  const o = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-  return o.exp > Date.now() ? (o.u as string) : null;
+  try {
+    const [payload, sig] = state.split(".");
+    if (!payload || !sig || !timingSafeEqual(await hmac(payload), sig)) return null;
+    const o = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof o.u === "string" && o.exp > Date.now() ? o.u : null;
+  } catch {
+    return null;
+  }
 }
 
 const redirectUri = () => `${requireEnv("SUPABASE_URL")}/functions/v1/${Deno.env.get("INTEGRATIONS_PATH") ?? "nexus/integrations"}`;
@@ -51,8 +55,9 @@ export async function handler(req: Request): Promise<Response> {
 
   // OAuth redirect from Google: authenticated by the signed state, not a JWT.
   if (req.method === "GET") {
+    if (!web) return json({ error: "WEB_ORIGIN is not configured" }, 503);
     const url = new URL(req.url);
-    const back = (q: string) => Response.redirect(`${web}/settings?${q}`, 302);
+    const back = (q: string) => Response.redirect(`${web}/agent-settings?${q}`, 302);
     const userId = await verifyState(url.searchParams.get("state") ?? "");
     if (!userId) return back("integration_error=invalid_state");
     if (url.searchParams.get("error")) return back(`integration_error=${encodeURIComponent(url.searchParams.get("error")!)}`);

@@ -9,7 +9,6 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "outDir": "./dist",
-    "rootDir": "./src",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
@@ -17,8 +16,10 @@
     "noEmit": true,
     "declaration": false,
     "sourceMap": true,
+    "baseUrl": ".",
     "paths": {
       "@nexus-live/shared": ["../../packages/shared/src/index.ts"],
+      "@fiscal": ["../../supabase/functions/_shared/fiscal/index.ts"],
       "@nexus-live/shared/*": ["../../packages/shared/src/*"]
     }
   },

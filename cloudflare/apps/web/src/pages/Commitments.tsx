@@ -156,21 +156,21 @@ export function Commitments() {
       {metrics && (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Card>
-            <CardHeader>Total</CardHeader>
+            <CardHeader title="Total" />
             <CardContent>
               <div className="text-2xl font-bold text-slate-50">{metrics.totalCommitments}</div>
               <div className="text-xs text-slate-400">commitments tracked</div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader>Weighted Revenue</CardHeader>
+            <CardHeader title="Weighted Revenue" />
             <CardContent>
               <div className="text-2xl font-bold text-cyan-400">{formatCurrency(metrics.weightedRevenue, 'EUR')}</div>
               <div className="text-xs text-slate-400">stage-confidence weighted</div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader>Hard Commit Ratio</CardHeader>
+            <CardHeader title="Hard Commit Ratio" />
             <CardContent>
               <div className={`text-2xl font-bold ${metrics.hardCommitPctOfRevenue > 0.7 ? 'text-amber-400' : 'text-emerald-400'}`}>
                 {(metrics.hardCommitPctOfRevenue * 100).toFixed(0)}%
@@ -179,7 +179,7 @@ export function Commitments() {
             </CardContent>
           </Card>
           <Card>
-            <CardHeader>Velocity ({metrics.velocity.windowDays}d)</CardHeader>
+            <CardHeader title={`Velocity (${metrics.velocity.windowDays}d)`} />
             <CardContent>
               <div className="text-2xl font-bold text-slate-50">
                 <span className="text-emerald-400">{metrics.velocity.advancements}</span>
@@ -194,11 +194,10 @@ export function Commitments() {
 
       {metrics && metrics.staleAlerts.length > 0 && (
         <Card>
-          <CardHeader>
-            <span className="flex items-center gap-2 text-amber-400">
-              <AlertTriangle size={16} /> Stale Commitments
-            </span>
-          </CardHeader>
+          <CardHeader
+            title="Stale Commitments"
+            action={<AlertTriangle size={16} className="text-amber-400" />}
+          />
           <CardContent>
             <ul className="space-y-2 text-sm text-slate-300">
               {metrics.staleAlerts.map(a => (

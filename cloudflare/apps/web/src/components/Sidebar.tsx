@@ -13,6 +13,10 @@ import {
   Settings,
   ChevronLeft,
   User,
+  Receipt,
+  ClipboardCheck,
+  Scale,
+  Bot,
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -22,7 +26,12 @@ interface SidebarItem {
 }
 
 const sidebarItems: SidebarItem[] = [
-  { label: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+  { label: 'Income & Tax', path: '/', icon: <LayoutDashboard size={20} /> },
+  { label: 'Review', path: '/review', icon: <ClipboardCheck size={20} /> },
+  { label: 'Expenses', path: '/expenses', icon: <Receipt size={20} /> },
+  { label: 'Tax filings', path: '/tax', icon: <Scale size={20} /> },
+  { label: 'Agent settings', path: '/agent-settings', icon: <Bot size={20} /> },
+  { label: 'Overview (legacy)', path: '/overview', icon: <LayoutDashboard size={20} /> },
   { label: 'Forecast', path: '/forecast', icon: <TrendingUp size={20} /> },
   { label: 'Budget', path: '/budget', icon: <PieChart size={20} /> },
   { label: 'Scenarios', path: '/scenarios', icon: <Zap size={20} /> },

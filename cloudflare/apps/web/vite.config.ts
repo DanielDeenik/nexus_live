@@ -9,6 +9,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, '../../packages/shared/src'),
+      // The fiscal engine runs identically in the browser and in Edge Functions.
+      '@fiscal': path.resolve(__dirname, '../../supabase/functions/_shared/fiscal/index.ts'),
     },
   },
 
@@ -28,12 +30,7 @@ export default defineConfig({
     target: 'ES2020',
     outDir: './dist',
     sourcemap: true,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: process.env.NODE_ENV === 'production',
-      },
-    },
+    minify: 'esbuild',
   },
 
   define: {

@@ -41,8 +41,19 @@ export async function authorize(req: Request, supabase: SupabaseClient): Promise
   const auth = req.headers.get("Authorization") ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   if (!token) return null;
-  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (service && token === service) return { kind: "service" };
+  // The scheduler authenticates with NEXUS_CRON_SECRET (stored in Vault as
+  // edge_service_key), so the service-role key never has to leave Supabase.
+  for (const name of ["NEXUS_CRON_SECRET", "SUPABASE_SERVICE_ROLE_KEY"]) {
+    const s = Deno.env.get(name);
+    if (s && s.length >= 32 && timingSafeEqual(token, s)) return { kind: "service" };
+  }
   const id = await userIdFromRequest(req, supabase);
   return id ? { kind: "user", id } : null;
+}
+
+export function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
