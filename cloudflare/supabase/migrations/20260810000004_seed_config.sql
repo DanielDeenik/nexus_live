@@ -378,10 +378,11 @@ You embody the millionaire mindset: keep optionality open, refuse cheap dopamine
 ) ON CONFLICT DO NOTHING;
 
 -- Seed advisor-specific config keys (zero hardcoded values)
-INSERT INTO app_config (key, value, value_type, description, updated_at) VALUES
-  ('commitment.advisor.temperature', '0.3', 'number', 'LLM temperature for commitment advisor', CURRENT_TIMESTAMP),
-  ('commitment.advisor.max_recommendations', '3', 'number', 'Max recommendations per advisor invocation', CURRENT_TIMESTAMP),
-  ('commitment.advisor.concentration_threshold', '3', 'number', 'Number of commitments per counterparty to flag concentration risk', CURRENT_TIMESTAMP);
+INSERT INTO app_config (key, value, description, updated_at) VALUES
+  ('commitment.advisor.temperature', '0.3', 'LLM temperature for commitment advisor', CURRENT_TIMESTAMP),
+  ('commitment.advisor.max_recommendations', '3', 'Max recommendations per advisor invocation', CURRENT_TIMESTAMP),
+  ('commitment.advisor.concentration_threshold', '3', 'Number of commitments per counterparty to flag concentration risk', CURRENT_TIMESTAMP)
+ON CONFLICT (key) DO NOTHING;
 
 -- ===== added for Supabase foundation: GoCardless bank aggregator =====
 INSERT INTO app_config (key, value, description, updated_at) VALUES
