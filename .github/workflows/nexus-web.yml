@@ -1,7 +1,7 @@
 # Builds the Nexus web app and deploys it to Cloudflare Pages.
 # One-time setup in GitHub > Settings > Secrets and variables > Actions:
 #   secrets:   CLOUDFLARE_API_TOKEN (Pages: Edit), CLOUDFLARE_ACCOUNT_ID
-#   variables: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (publishable key; public by design)
+# Public Supabase settings come from cloudflare/apps/web/.env.production.
 name: nexus-web
 on:
   push:
@@ -9,13 +9,19 @@ on:
     paths: ["cloudflare/apps/web/**", "cloudflare/supabase/functions/_shared/fiscal/**", ".github/workflows/nexus-web.yml"]
   workflow_dispatch:
 
-concurrency: { group: nexus-web-${{ github.ref }}, cancel-in-progress: true }
+concurrency:
+  group: nexus-web-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions: { contents: read, deployments: write }
-    defaults: { run: { working-directory: cloudflare } }
+    permissions:
+      contents: read
+      deployments: write
+    defaults:
+      run:
+        working-directory: cloudflare
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -29,9 +35,6 @@ jobs:
         run: deno test --allow-read supabase/tests/fiscal_test.ts
       - name: Type-check and build
         working-directory: cloudflare/apps/web
-        env:
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
         run: npx tsc --noEmit && npx vite build
       - name: Ensure Pages project exists
         working-directory: cloudflare/apps/web
