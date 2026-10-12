@@ -2,7 +2,10 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+// VITE_BASE_PATH is the sub-path the app is served from ("/<repo>/" on
+// GitHub Pages); it defaults to the root for Cloudflare Pages and local runs.
 export default defineConfig({
+  base: process.env.VITE_BASE_PATH || '/',
   plugins: [react()],
 
   resolve: {

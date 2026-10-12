@@ -12,7 +12,8 @@ export function SignIn() {
     setState('sending')
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      // Return to wherever the app is served, including a sub-path.
+      options: { emailRedirectTo: new URL(import.meta.env.BASE_URL, window.location.origin).toString() },
     })
     if (error) {
       setState('error')
