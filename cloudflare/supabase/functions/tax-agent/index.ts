@@ -12,6 +12,7 @@ import { json, preflight } from "../_shared/cors.ts";
 import { eurRate } from "../_shared/fx.ts";
 import { callStructured } from "../_shared/llm.ts";
 import { AgentRun, openReview, sha256Hex, type Trigger } from "../_shared/harness.ts";
+import { Annotation, END, START, StateGraph } from "npm:@langchain/langgraph@1.4.17";
 import {
   type AssetRow, type ExpenseRow, type FiscalParams, type InvoiceRow, type ParamRow, type VatExpense,
   COUNTABLE, deductibleEur, depreciationForYear, draftVat, estimateIncomeTax, kiaForYear, paramsFromRows,
@@ -195,29 +196,59 @@ async function incomeTaxDraft(db: SupabaseClient, cfg: AppConfig, run: AgentRun,
   await saveDraft(db, run, userId, "income_tax_year", String(year), start, end, figures, warnings);
 }
 
+type Target = { kind: string; year: number; q?: 1 | 2 | 3 | 4 };
+
+/** Which drafts a run prepares: one asked-for period, or the previous and
+ *  current VAT quarter plus the current income tax year. */
+export function targetsFor(now: Date, only?: { kind: string; period: string }): Target[] {
+  if (only) {
+    const m = only.period.match(/^(\d{4})(?:-Q([1-4]))?$/);
+    if (!m) throw new Error("period must look like 2026 or 2026-Q3");
+    return [{ kind: only.kind, year: Number(m[1]), q: m[2] ? (Number(m[2]) as 1 | 2 | 3 | 4) : undefined }];
+  }
+  const y = now.getUTCFullYear();
+  const q = (Math.floor(now.getUTCMonth() / 3) + 1) as 1 | 2 | 3 | 4;
+  const prevQ = q === 1 ? { year: y - 1, q: 4 as const } : { year: y, q: (q - 1) as 1 | 2 | 3 };
+  return [{ kind: "vat_quarter", ...prevQ }, { kind: "vat_quarter", year: y, q }, { kind: "income_tax_year", year: y }];
+}
+
+// The tax run as a LangGraph state graph: backfill FX, load the books, then
+// one draft node per target. Figures are computed by the fiscal engine; the
+// only model call is the warnings writer inside each draft.
+const TaxState = Annotation.Root({
+  data: Annotation<Awaited<ReturnType<typeof load>> | null>({ reducer: (_a, b) => b, default: () => null }),
+  targets: Annotation<Target[]>({ reducer: (_a, b) => b, default: () => [] }),
+  next: Annotation<number>({ reducer: (_a, b) => b, default: () => 0 }),
+});
+
+function taxGraph(db: SupabaseClient, cfg: AppConfig, params: Map<number, FiscalParams>, run: AgentRun, userId: string, only?: { kind: string; period: string }) {
+  return new StateGraph(TaxState)
+    .addNode("fx_backfill", async () => {
+      await run.step("fx_backfill", () => backfillFx(db, cfg, userId, run));
+      return {};
+    })
+    .addNode("load", async () => ({ data: (await run.step("load", () => load(db, userId)))!, targets: targetsFor(new Date(), only) }))
+    .addNode("draft", async (st) => {
+      const t = st.targets[st.next];
+      const p = params.get(t.year);
+      if (!p) run.count("missing_parameters");
+      else {
+        await run.step(`${t.kind}:${t.year}${t.q ? `-Q${t.q}` : ""}`, () =>
+          t.kind === "vat_quarter" ? vatDraft(db, run, userId, t.year, t.q!, p, st.data!) : incomeTaxDraft(db, cfg, run, userId, t.year, p, st.data!), { tolerate: true });
+      }
+      return { next: st.next + 1 };
+    })
+    .addEdge(START, "fx_backfill")
+    .addEdge("fx_backfill", "load")
+    .addConditionalEdges("load", (st) => (st.targets.length ? "draft" : END), ["draft", END])
+    .addConditionalEdges("draft", (st) => (st.next < st.targets.length ? "draft" : END), ["draft", END])
+    .compile();
+}
+
 async function runForUser(db: SupabaseClient, cfg: AppConfig, params: Map<number, FiscalParams>, userId: string, trigger: Trigger, only?: { kind: string; period: string }) {
   const run = await AgentRun.start(db, userId, "tax_drafter", trigger, only ?? { scope: "default" });
   try {
-    await run.step("fx_backfill", () => backfillFx(db, cfg, userId, run));
-    const data = (await run.step("load", () => load(db, userId)))!;
-    const now = new Date();
-    const y = now.getUTCFullYear();
-    const q = (Math.floor(now.getUTCMonth() / 3) + 1) as 1 | 2 | 3 | 4;
-    const targets: { kind: string; year: number; q?: 1 | 2 | 3 | 4 }[] = [];
-    if (only) {
-      const m = only.period.match(/^(\d{4})(?:-Q([1-4]))?$/);
-      if (!m) throw new Error("period must look like 2026 or 2026-Q3");
-      targets.push({ kind: only.kind, year: Number(m[1]), q: m[2] ? (Number(m[2]) as 1 | 2 | 3 | 4) : undefined });
-    } else {
-      const prevQ = q === 1 ? { year: y - 1, q: 4 as const } : { year: y, q: (q - 1) as 1 | 2 | 3 };
-      targets.push({ kind: "vat_quarter", ...prevQ }, { kind: "vat_quarter", year: y, q }, { kind: "income_tax_year", year: y });
-    }
-    for (const t of targets) {
-      const p = params.get(t.year);
-      if (!p) { run.count("missing_parameters"); continue; }
-      await run.step(`${t.kind}:${t.year}${t.q ? `-Q${t.q}` : ""}`, () =>
-        t.kind === "vat_quarter" ? vatDraft(db, run, userId, t.year, t.q!, p, data) : incomeTaxDraft(db, cfg, run, userId, t.year, p, data), { tolerate: true });
-    }
+    await taxGraph(db, cfg, params, run, userId, only).invoke({});
     return { run_id: run.id, status: await run.finish(), metrics: run.metrics };
   } catch (e) {
     await run.finish(e);

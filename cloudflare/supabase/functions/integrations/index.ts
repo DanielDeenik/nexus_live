@@ -91,7 +91,7 @@ export async function handler(req: Request): Promise<Response> {
         const u = new URL(cfg["integrations.google_auth_url"]);
         u.search = new URLSearchParams({
           client_id: requireEnv("GOOGLE_CLIENT_ID"), redirect_uri: redirectUri(), response_type: "code",
-          scope: cfg["integrations.google_scopes"], access_type: "offline", prompt: "consent", state: await signState(db, userId),
+          scope: [cfg["integrations.google_scopes"], cfg["integrations.google_scopes_extra"]].filter(Boolean).join(" "), access_type: "offline", prompt: "consent", state: await signState(db, userId),
         }).toString();
         return json({ url: u.toString() });
       }

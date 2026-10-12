@@ -1,8 +1,12 @@
-// HTTP LLM client. Replaces the Cloudflare Workers AI binding
-// (env.AI.run('@cf/meta/llama-2-7b-chat-int8', ...)) used by base-agent.
+// LLM access. Agents call models through LangChain (structured calls below);
+// callLLM is the plain chat path kept for the legacy swarm runner.
 // Provider, model, temperature and max_tokens come from the agent's row in
 // agent_configs; API keys come from function secrets. Nothing is hardcoded.
 import { getEnv } from "./client.ts";
+import { ChatAnthropic } from "npm:@langchain/anthropic@1.5.11";
+import { ChatOpenAI } from "npm:@langchain/openai@1.5.13";
+import type { BaseChatModel } from "npm:@langchain/core@1.2.12/language_models/chat_models";
+import { HumanMessage, SystemMessage } from "npm:@langchain/core@1.2.12/messages";
 
 export interface LlmParams {
   provider: string; // 'anthropic' | 'gemini'
@@ -82,9 +86,13 @@ async function callGemini(params: LlmParams, messages: ChatMessage[]): Promise<s
 }
 
 // ---------------------------------------------------------------------------
-// Structured output with documents (expense and tax agents).
-// Uses a forced tool call so the model must return arguments matching the
-// JSON schema; the caller still validates the result deterministically.
+// Structured output through LangChain (expense, tax and recruiter agents).
+// The provider table lives in app_config `llm.providers`, so a model swap
+// per agent is a row change in agent_configs, not a code change:
+//   { "<provider>": { "kind": "anthropic" | "openai", "key_env": "...", "base_url"?: "..." } }
+// "openai" covers every OpenAI-compatible endpoint (Moonshot Kimi, DeepSeek).
+// The model must return arguments matching the JSON schema (forced tool call);
+// callers still validate the result deterministically.
 // ---------------------------------------------------------------------------
 
 export type ContentBlock =
@@ -97,33 +105,82 @@ export interface StructuredResult<T> {
   usage: { input_tokens: number; output_tokens: number };
 }
 
+export interface ToolSpec {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+}
+
+/** What an agent graph needs from a model: one structured call. Injected so
+ *  graphs can be tested with a scripted stand-in. */
+export type Structured = <T>(system: string, content: ContentBlock[], tool: ToolSpec) => Promise<StructuredResult<T>>;
+
+interface ProviderSpec {
+  kind: "anthropic" | "openai";
+  key_env: string;
+  base_url?: string;
+}
+
+let providerCache: Record<string, ProviderSpec> | null = null;
+
+async function providers(): Promise<Record<string, ProviderSpec>> {
+  if (providerCache) return providerCache;
+  const { adminClient } = await import("./client.ts");
+  const { data, error } = await adminClient().from("app_config").select("value").eq("key", "llm.providers").maybeSingle();
+  if (error || !data) throw new Error("app_config llm.providers is missing");
+  providerCache = JSON.parse(data.value as string) as Record<string, ProviderSpec>;
+  return providerCache;
+}
+
+export async function chatModel(params: LlmParams): Promise<BaseChatModel> {
+  const spec = (await providers())[params.provider];
+  if (!spec) throw new Error(`No provider '${params.provider}' in app_config llm.providers`);
+  const apiKey = getEnv(spec.key_env);
+  if (!apiKey) throw new Error(`${spec.key_env} not set`);
+  if (spec.kind === "anthropic") {
+    return new ChatAnthropic({ model: params.model, apiKey, maxTokens: params.maxTokens, temperature: params.temperature });
+  }
+  return new ChatOpenAI({
+    model: params.model,
+    apiKey,
+    maxTokens: params.maxTokens,
+    temperature: params.temperature,
+    configuration: spec.base_url ? { baseURL: spec.base_url } : undefined,
+  });
+}
+
+function toMessageContent(kind: ProviderSpec["kind"], content: ContentBlock[]) {
+  if (kind === "anthropic") return content as unknown as Record<string, unknown>[];
+  return content.map((b) => {
+    if (b.type === "text") return { type: "text", text: b.text };
+    if (b.type === "image") return { type: "image_url", image_url: { url: `data:${b.source.media_type};base64,${b.source.data}` } };
+    throw new Error("PDF documents need an Anthropic model; set this agent's provider to anthropic in agent_configs");
+  });
+}
+
 export async function callStructured<T>(
   params: LlmParams,
   system: string,
   content: ContentBlock[],
-  tool: { name: string; description: string; input_schema: Record<string, unknown> },
+  tool: ToolSpec,
 ): Promise<StructuredResult<T>> {
-  if (params.provider !== "anthropic") {
-    throw new Error(`Structured document calls need provider 'anthropic' (got ${params.provider})`);
-  }
-  const apiKey = getEnv("ANTHROPIC_API_KEY");
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({
-      model: params.model,
-      max_tokens: params.maxTokens,
-      temperature: params.temperature,
-      system,
-      tools: [tool],
-      tool_choice: { type: "tool", name: tool.name },
-      messages: [{ role: "user", content }],
-    }),
-  });
-  if (!res.ok) throw new Error(`Anthropic call failed: ${res.status} ${(await res.text()).slice(0, 500)}`);
-  const data = await res.json();
-  const block = (data.content ?? []).find((b: { type: string; name?: string }) => b.type === "tool_use" && b.name === tool.name);
-  if (!block) throw new Error("Model returned no structured result");
-  return { value: block.input as T, usage: data.usage ?? { input_tokens: 0, output_tokens: 0 } };
+  const spec = (await providers())[params.provider];
+  if (!spec) throw new Error(`No provider '${params.provider}' in app_config llm.providers`);
+  const model = await chatModel(params);
+  const runnable = model.withStructuredOutput(
+    { ...tool.input_schema, title: tool.name, description: tool.description } as Record<string, unknown>,
+    { name: tool.name, method: "functionCalling", includeRaw: true },
+  );
+  const out = await runnable.invoke([
+    new SystemMessage(system),
+    new HumanMessage({ content: toMessageContent(spec.kind, content) as never }),
+  ]);
+  if (!out.parsed) throw new Error("Model returned no structured result");
+  const u = (out.raw as { usage_metadata?: { input_tokens?: number; output_tokens?: number } }).usage_metadata ?? {};
+  return { value: out.parsed as T, usage: { input_tokens: u.input_tokens ?? 0, output_tokens: u.output_tokens ?? 0 } };
+}
+
+/** Binds one agent's model settings into the Structured shape graphs use. */
+export function structuredFor(params: LlmParams): Structured {
+  return <T>(system: string, content: ContentBlock[], tool: ToolSpec) => callStructured<T>(params, system, content, tool);
 }

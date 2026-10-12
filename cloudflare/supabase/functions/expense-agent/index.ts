@@ -13,6 +13,7 @@ import { json, preflight } from "../_shared/cors.ts";
 import { eurRate } from "../_shared/fx.ts";
 import { callStructured, type ContentBlock, type LlmParams } from "../_shared/llm.ts";
 import { AgentRun, openReview, sha256Hex, toBase64, type Trigger } from "../_shared/harness.ts";
+import { Annotation, END, START, StateGraph } from "npm:@langchain/langgraph@1.4.17";
 import {
   type CollectedDoc, type Connection, collectDrive, collectGmail, collectWise, googleAccessToken,
 } from "../_shared/collectors.ts";
@@ -187,16 +188,47 @@ async function possibleDuplicate(db: SupabaseClient, userId: string, o: ReceiptO
 
 // --------------------------------------------------------- receipt flow ----
 
-async function processReceipt(ctx: Ctx, run: AgentRun, userId: string, doc: CollectedDoc, uploadedPath?: string) {
-  const { db, cfg } = ctx;
-  const hash = doc.file ? await sha256Hex(doc.file.bytes) : doc.text ? await sha256Hex(new TextEncoder().encode(doc.text)) : null;
+// The receipt pipeline as a LangGraph state graph:
+//   dedupe, then either the bank payment branch or extract (one retry),
+//   classify (vendor rules, FX, deterministic gate), then persist or discard.
+// The model only fills the extraction; every decision after it is code.
+const ReceiptState = Annotation.Root({
+  hash: Annotation<string | null>({ reducer: (_a, b) => b, default: () => null }),
+  done: Annotation<boolean>({ reducer: (_a, b) => b, default: () => false }),
+  attempts: Annotation<number>({ reducer: (_a, b) => b, default: () => 0 }),
+  out: Annotation<ReceiptOut | null>({ reducer: (_a, b) => b, default: () => null }),
+  extractionFailed: Annotation<boolean>({ reducer: (_a, b) => b, default: () => false }),
+  ruleApplied: Annotation<boolean>({ reducer: (_a, b) => b, default: () => false }),
+  date: Annotation<string>({ reducer: (_a, b) => b, default: () => "" }),
+  currency: Annotation<string>({ reducer: (_a, b) => b, default: () => "EUR" }),
+  rate: Annotation<number | null>({ reducer: (_a, b) => b, default: () => null }),
+  amountEur: Annotation<number | null>({ reducer: (_a, b) => b, default: () => null }),
+  domestic: Annotation<boolean>({ reducer: (_a, b) => b, default: () => false }),
+  foreign: Annotation<boolean>({ reducer: (_a, b) => b, default: () => false }),
+  vatShown: Annotation<boolean>({ reducer: (_a, b) => b, default: () => false }),
+  route: Annotation<"book" | "review" | "discard">({ reducer: (_a, b) => b, default: () => "review" }),
+  reasons: Annotation<string[]>({ reducer: (_a, b) => b, default: () => [] }),
+});
+type RState = typeof ReceiptState.State;
 
-  if (await alreadyHave(db, userId, hash, doc.external_id)) { run.count("duplicates"); return; }
+function receiptGraph(ctx: Ctx, run: AgentRun, userId: string, doc: CollectedDoc, uploadedPath?: string) {
+  const { db, cfg } = ctx;
+  let rules = new Map<string, VendorRule>();
+  let p: FiscalParams | undefined;
+
+  const dedupe = async (): Promise<Partial<RState>> => {
+    const hash = doc.file ? await sha256Hex(doc.file.bytes) : doc.text ? await sha256Hex(new TextEncoder().encode(doc.text)) : null;
+    if (await alreadyHave(db, userId, hash, doc.external_id)) {
+      run.count("duplicates");
+      return { hash, done: true };
+    }
+    return { hash };
+  };
 
   // Bank payments without a document: link to an existing receipt if one
   // matches, otherwise ask the owner for the evidence.
-  if (doc.source === "wise" && doc.hint) {
-    const h = doc.hint;
+  const bankPayment = async (): Promise<Partial<RState>> => {
+    const h = doc.hint!;
     const window = need(cfg, "expense_agent.bank_match_window_days");
     const { data: match } = await db.from("expenses").select("id").eq("user_id", userId).eq("currency", h.currency)
       .gte("date", addDays(h.date, -window)).lte("date", addDays(h.date, window)).gte("amount", h.amount - 0.01).lte("amount", h.amount + 0.01)
@@ -204,7 +236,7 @@ async function processReceipt(ctx: Ctx, run: AgentRun, userId: string, doc: Coll
     if (match?.length) {
       await db.from("expenses").update({ bank_txn_id: doc.external_id, updated_at: new Date().toISOString() }).eq("id", match[0].id);
       run.count("bank_matched");
-      return;
+      return { done: true };
     }
     const rate = await eurRate(db, cfg["integrations.fx_api_base"], h.currency, h.date);
     const { data: ins, error } = await db.from("expenses").insert({
@@ -220,33 +252,31 @@ async function processReceipt(ctx: Ctx, run: AgentRun, userId: string, doc: Coll
       proposed: { treatment: "unknown" }, agent_run_id: run.id,
     });
     run.count("needs_review");
-    return;
-  }
+    return { done: true };
+  };
 
-  const rules = await vendorRules(db, userId);
-  const year = Number((doc.received_at ?? "").slice(0, 4)) || new Date().getUTCFullYear();
-  const p = ctx.params.get(year) ?? ctx.params.get(Math.max(...ctx.params.keys()));
-  if (!p) throw new Error("no fiscal parameters loaded");
-
-  const content: ContentBlock[] = [];
-  if (doc.file?.mediaType === "application/pdf") {
-    content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: toBase64(doc.file.bytes) } });
-  } else if (doc.file) {
-    content.push({ type: "image", source: { type: "base64", media_type: doc.file.mediaType, data: toBase64(doc.file.bytes) } });
-  }
-  content.push({
-    type: "text",
-    text: JSON.stringify({
-      source: doc.source, title: doc.title, email_text: doc.text ?? null,
-      fiscal_parameters: { year: p.year, capitalisation_threshold_excl_vat: p.capitalisationThreshold, limited_deductible: p.limitedDeductible },
-      owner_vendor_rules: Object.fromEntries(rules),
-    }),
-  });
-
-  let out: ReceiptOut | null = null;
-  let extractionFailed = false;
-  for (let attempt = 0; attempt < 2 && !out; attempt++) {
-    const res = await run.step(`extract:${doc.external_id}:${attempt}`, () =>
+  const extract = async (st: RState): Promise<Partial<RState>> => {
+    if (st.attempts === 0) {
+      rules = await vendorRules(db, userId);
+      const year = Number((doc.received_at ?? "").slice(0, 4)) || new Date().getUTCFullYear();
+      p = ctx.params.get(year) ?? ctx.params.get(Math.max(...ctx.params.keys()));
+      if (!p) throw new Error("no fiscal parameters loaded");
+    }
+    const content: ContentBlock[] = [];
+    if (doc.file?.mediaType === "application/pdf") {
+      content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: toBase64(doc.file.bytes) } });
+    } else if (doc.file) {
+      content.push({ type: "image", source: { type: "base64", media_type: doc.file.mediaType, data: toBase64(doc.file.bytes) } });
+    }
+    content.push({
+      type: "text",
+      text: JSON.stringify({
+        source: doc.source, title: doc.title, email_text: doc.text ?? null,
+        fiscal_parameters: { year: p!.year, capitalisation_threshold_excl_vat: p!.capitalisationThreshold, limited_deductible: p!.limitedDeductible },
+        owner_vendor_rules: Object.fromEntries(rules),
+      }),
+    });
+    const res = await run.step(`extract:${doc.external_id}:${st.attempts}`, () =>
       callStructured<ReceiptOut>(ctx.llm, ctx.system, content, receiptTool(ctx.categories)), {
       tolerate: true,
       summarize: (r) => ({ tokens: r.usage }),
@@ -254,117 +284,153 @@ async function processReceipt(ctx: Ctx, run: AgentRun, userId: string, doc: Coll
     if (res) {
       run.count("input_tokens", res.usage.input_tokens);
       run.count("output_tokens", res.usage.output_tokens);
-      if (validReceipt(res.value, ctx.categories)) out = res.value;
+      if (validReceipt(res.value, ctx.categories)) return { attempts: st.attempts + 1, out: res.value };
     }
-  }
-  if (!out) {
-    extractionFailed = true;
-    out = { is_business_document: true, vendor: null, date: null, currency: null, total: null, category: "uncategorised",
-      treatment: "unknown", business_use_pct: 1, confidence: 0, rationale: "The document could not be read reliably." };
-  }
-
-  // Owner-confirmed vendor rule overrides the model's judgement.
-  const key = vendorKey(out.vendor);
-  const rule = !extractionFailed && key ? rules.get(key) : undefined;
-  if (rule) { out.treatment = rule.treatment; out.category = rule.category; out.business_use_pct = rule.business_use_pct; }
-
-  const date = out.date ?? doc.received_at.slice(0, 10);
-  const currency = out.currency ?? "EUR";
-  const rate = out.total != null ? await eurRate(db, cfg["integrations.fx_api_base"], currency, date) : null;
-  const amountEur = out.total != null && rate ? round2(out.total * rate.rate) : null;
-  const domestic = (out.vendor_country ?? "").toUpperCase() === (cfg["locale.primary_region"] ?? "").toUpperCase();
-  const foreign = !!out.vendor_country && !domestic;
-  const vatShown = out.vat_shown_on_document === true && (out.vat_amount ?? 0) > 0;
-
-  const proposal: ExpenseProposal = {
-    vendor: out.vendor, date: out.date, currency: out.currency, total: out.total,
-    amount_excl_vat: out.amount_excl_vat ?? null, vat_amount: out.vat_amount ?? null,
-    treatment: out.treatment, category: out.category, business_use_pct: out.business_use_pct,
-    confidence: out.confidence, is_business_document: out.is_business_document, vendor_rule_applied: !!rule,
+    return { attempts: st.attempts + 1 };
   };
-  const yearP = ctx.params.get(Number(date.slice(0, 4)));
-  const maybeDup = !extractionFailed && await possibleDuplicate(db, userId, out);
-  const decision = yearP
-    ? gate(proposal, amountEur, ctx.gateCfg, yearP, false, maybeDup)
-    : { route: "review" as const, reasons: ["missing_parameters" as const] };
-  // Something the owner uploaded themselves is never silently dropped.
-  if (doc.source === "upload" && decision.route === "discard") {
-    (decision as { route: string }).route = "review";
-  }
-  if (extractionFailed && !decision.reasons.includes("extraction_failed" as never)) decision.reasons.push("extraction_failed" as never);
-  if (extractionFailed) (decision as { route: string }).route = "review";
 
-  run.count(`route_${decision.route}`);
-  if (decision.route === "discard") return;
-
-  // Keep the evidence. Uploaded files are already in the bucket.
-  let evidencePath = uploadedPath ?? null;
-  if (!evidencePath && doc.file && hash) {
-    evidencePath = `${userId}/${date.slice(0, 4)}/${hash}.${extOf(doc.file.mediaType)}`;
-    const up = await db.storage.from("receipts").upload(evidencePath, doc.file.bytes, { contentType: doc.file.mediaType, upsert: true });
-    if (up.error) throw new Error(`store evidence: ${up.error.message}`);
-  }
-
-  const isAsset = decision.reasons.includes("asset_threshold");
-  const treatment: Treatment = isAsset ? "asset" : out.treatment;
-  const status = decision.route === "book" ? "booked" : "needs_review";
-
-  // If this receipt belongs to a bank payment already waiting for evidence,
-  // complete that row instead of creating a second cost.
-  let bankTxnId: string | null = null;
-  if (out.total != null && !extractionFailed) {
-    const window = need(cfg, "expense_agent.bank_match_window_days");
-    const { data: waiting } = await db.from("expenses").select("id, bank_txn_id").eq("user_id", userId)
-      .eq("source", "wise").eq("status", "needs_review").is("evidence_path", null).eq("currency", currency)
-      .gte("date", addDays(date, -window)).lte("date", addDays(date, window))
-      .gte("amount", out.total - 0.01).lte("amount", out.total + 0.01).limit(1);
-    if (waiting?.length) {
-      bankTxnId = waiting[0].bank_txn_id;
-      await db.from("review_items").update({ status: "rejected", decision: { action: "superseded_by_receipt" }, decided_at: new Date().toISOString() })
-        .eq("user_id", userId).eq("item_id", waiting[0].id).eq("status", "open");
-      await db.from("expenses").delete().eq("id", waiting[0].id).eq("user_id", userId).is("evidence_path", null);
-      run.count("bank_payment_completed");
+  const classify = async (st: RState): Promise<Partial<RState>> => {
+    let out = st.out;
+    let extractionFailed = false;
+    if (!out) {
+      extractionFailed = true;
+      out = { is_business_document: true, vendor: null, date: null, currency: null, total: null, category: "uncategorised",
+        treatment: "unknown", business_use_pct: 1, confidence: 0, rationale: "The document could not be read reliably." };
+    } else {
+      out = { ...out };
     }
-  }
 
-  const { data: exp, error } = await db.from("expenses").insert({
-    user_id: userId, amount: out.total ?? 0, currency, category: out.category, description: out.description ?? doc.title,
-    date, source: doc.source, external_txn_id: doc.external_id, bank_txn_id: bankTxnId, status, treatment,
-    business_use_pct: out.business_use_pct, vendor: out.vendor, vendor_country: out.vendor_country ?? null,
-    amount_excl_vat: out.amount_excl_vat ?? null, vat_amount: out.vat_amount ?? null, vat_rate: out.vat_rate ?? null,
-    vat_reclaimable: vatShown && domestic, vat_reverse_charge: foreign && !vatShown && treatment !== "private",
-    fx_rate_eur: rate?.rate ?? null, amount_eur: amountEur, invoice_number: out.invoice_number ?? null,
-    evidence_path: evidencePath, evidence_hash: hash, confidence: out.confidence, rationale: out.rationale, agent_run_id: run.id,
-  }).select("id").single();
-  if (error) throw new Error(`insert expense: ${error.message}`);
+    // Owner-confirmed vendor rule overrides the model's judgement.
+    const key = vendorKey(out.vendor);
+    const rule = !extractionFailed && key ? rules.get(key) : undefined;
+    if (rule) { out.treatment = rule.treatment; out.category = rule.category; out.business_use_pct = rule.business_use_pct; }
 
-  let assetId: string | null = null;
-  if (isAsset && yearP && rate) {
-    const cls = out.asset_class ?? "other";
-    const excl = out.amount_excl_vat ?? out.total ?? 0;
-    const { data: asset, error: aErr } = await db.from("fixed_assets").insert({
-      user_id: userId, description: out.description ?? out.vendor ?? "Asset", asset_class: cls, acquired_date: date,
-      cost_excl_vat: round2(excl * rate.rate), useful_life_years: yearP.usefulLife[cls] ?? yearP.usefulLife.other,
-      status: "needs_review",
+    const date = out.date ?? doc.received_at.slice(0, 10);
+    const currency = out.currency ?? "EUR";
+    const rate = out.total != null ? await eurRate(db, cfg["integrations.fx_api_base"], currency, date) : null;
+    const amountEur = out.total != null && rate ? round2(out.total * rate.rate) : null;
+    const domestic = (out.vendor_country ?? "").toUpperCase() === (cfg["locale.primary_region"] ?? "").toUpperCase();
+    const foreign = !!out.vendor_country && !domestic;
+    const vatShown = out.vat_shown_on_document === true && (out.vat_amount ?? 0) > 0;
+
+    const proposal: ExpenseProposal = {
+      vendor: out.vendor, date: out.date, currency: out.currency, total: out.total,
+      amount_excl_vat: out.amount_excl_vat ?? null, vat_amount: out.vat_amount ?? null,
+      treatment: out.treatment, category: out.category, business_use_pct: out.business_use_pct,
+      confidence: out.confidence, is_business_document: out.is_business_document, vendor_rule_applied: !!rule,
+    };
+    const yearP = ctx.params.get(Number(date.slice(0, 4)));
+    const maybeDup = !extractionFailed && await possibleDuplicate(db, userId, out);
+    const decision = yearP
+      ? gate(proposal, amountEur, ctx.gateCfg, yearP, false, maybeDup)
+      : { route: "review" as const, reasons: ["missing_parameters" as const] };
+    let route: RState["route"] = decision.route;
+    const reasons: string[] = [...decision.reasons];
+    // Something the owner uploaded themselves is never silently dropped.
+    if (doc.source === "upload" && route === "discard") route = "review";
+    if (extractionFailed && !reasons.includes("extraction_failed")) reasons.push("extraction_failed");
+    if (extractionFailed) route = "review";
+
+    run.count(`route_${route}`);
+    return { out, extractionFailed, ruleApplied: !!rule, date, currency, rate: rate?.rate ?? null, amountEur, domestic, foreign, vatShown, route, reasons };
+  };
+
+  const persist = async (st: RState): Promise<Partial<RState>> => {
+    const out = st.out!;
+    const { date, currency, hash } = st;
+    const yearP = ctx.params.get(Number(date.slice(0, 4)));
+
+    // Keep the evidence. Uploaded files are already in the bucket.
+    let evidencePath = uploadedPath ?? null;
+    if (!evidencePath && doc.file && hash) {
+      evidencePath = `${userId}/${date.slice(0, 4)}/${hash}.${extOf(doc.file.mediaType)}`;
+      const up = await db.storage.from("receipts").upload(evidencePath, doc.file.bytes, { contentType: doc.file.mediaType, upsert: true });
+      if (up.error) throw new Error(`store evidence: ${up.error.message}`);
+    }
+
+    const isAsset = st.reasons.includes("asset_threshold");
+    const treatment: Treatment = isAsset ? "asset" : out.treatment;
+    const status = st.route === "book" ? "booked" : "needs_review";
+
+    // If this receipt belongs to a bank payment already waiting for evidence,
+    // complete that row instead of creating a second cost.
+    let bankTxnId: string | null = null;
+    if (out.total != null && !st.extractionFailed) {
+      const window = need(cfg, "expense_agent.bank_match_window_days");
+      const { data: waiting } = await db.from("expenses").select("id, bank_txn_id").eq("user_id", userId)
+        .eq("source", "wise").eq("status", "needs_review").is("evidence_path", null).eq("currency", currency)
+        .gte("date", addDays(date, -window)).lte("date", addDays(date, window))
+        .gte("amount", out.total - 0.01).lte("amount", out.total + 0.01).limit(1);
+      if (waiting?.length) {
+        bankTxnId = waiting[0].bank_txn_id;
+        await db.from("review_items").update({ status: "rejected", decision: { action: "superseded_by_receipt" }, decided_at: new Date().toISOString() })
+          .eq("user_id", userId).eq("item_id", waiting[0].id).eq("status", "open");
+        await db.from("expenses").delete().eq("id", waiting[0].id).eq("user_id", userId).is("evidence_path", null);
+        run.count("bank_payment_completed");
+      }
+    }
+
+    const { data: exp, error } = await db.from("expenses").insert({
+      user_id: userId, amount: out.total ?? 0, currency, category: out.category, description: out.description ?? doc.title,
+      date, source: doc.source, external_txn_id: doc.external_id, bank_txn_id: bankTxnId, status, treatment,
+      business_use_pct: out.business_use_pct, vendor: out.vendor, vendor_country: out.vendor_country ?? null,
+      amount_excl_vat: out.amount_excl_vat ?? null, vat_amount: out.vat_amount ?? null, vat_rate: out.vat_rate ?? null,
+      vat_reclaimable: st.vatShown && st.domestic, vat_reverse_charge: st.foreign && !st.vatShown && treatment !== "private",
+      fx_rate_eur: st.rate, amount_eur: st.amountEur, invoice_number: out.invoice_number ?? null,
+      evidence_path: evidencePath, evidence_hash: hash, confidence: out.confidence, rationale: out.rationale, agent_run_id: run.id,
     }).select("id").single();
-    if (aErr) throw new Error(`insert asset: ${aErr.message}`);
-    assetId = asset.id;
-    await db.from("expenses").update({ asset_id: assetId }).eq("id", exp.id);
-  }
+    if (error) throw new Error(`insert expense: ${error.message}`);
 
-  if (status === "needs_review") {
-    await openReview(db, {
-      user_id: userId, item_type: assetId ? "asset" : "expense", item_id: assetId ?? exp.id,
-      reason_codes: decision.reasons,
-      summary: `${out.vendor ?? "Unknown vendor"}: ${(out.total ?? 0).toFixed(2)} ${currency}${out.description ? ` (${out.description})` : ""}`,
-      proposed: {
-        expense_id: exp.id, treatment, category: out.category, business_use_pct: out.business_use_pct,
-        useful_life_years: isAsset && yearP ? yearP.usefulLife[out.asset_class ?? "other"] ?? yearP.usefulLife.other : null,
-        rationale: out.rationale, reasons_text: decision.reasons.map((r) => REASON_TEXT[r]),
-      },
-      agent_run_id: run.id,
-    });
-  }
+    let assetId: string | null = null;
+    if (isAsset && yearP && st.rate) {
+      const cls = out.asset_class ?? "other";
+      const excl = out.amount_excl_vat ?? out.total ?? 0;
+      const { data: asset, error: aErr } = await db.from("fixed_assets").insert({
+        user_id: userId, description: out.description ?? out.vendor ?? "Asset", asset_class: cls, acquired_date: date,
+        cost_excl_vat: round2(excl * st.rate), useful_life_years: yearP.usefulLife[cls] ?? yearP.usefulLife.other,
+        status: "needs_review",
+      }).select("id").single();
+      if (aErr) throw new Error(`insert asset: ${aErr.message}`);
+      assetId = asset.id;
+      await db.from("expenses").update({ asset_id: assetId }).eq("id", exp.id);
+    }
+
+    if (status === "needs_review") {
+      await openReview(db, {
+        user_id: userId, item_type: assetId ? "asset" : "expense", item_id: assetId ?? exp.id,
+        reason_codes: st.reasons,
+        summary: `${out.vendor ?? "Unknown vendor"}: ${(out.total ?? 0).toFixed(2)} ${currency}${out.description ? ` (${out.description})` : ""}`,
+        proposed: {
+          expense_id: exp.id, treatment, category: out.category, business_use_pct: out.business_use_pct,
+          useful_life_years: isAsset && yearP ? yearP.usefulLife[out.asset_class ?? "other"] ?? yearP.usefulLife.other : null,
+          rationale: out.rationale, reasons_text: st.reasons.map((r) => REASON_TEXT[r as keyof typeof REASON_TEXT]),
+        },
+        agent_run_id: run.id,
+      });
+    }
+    return { done: true };
+  };
+
+  return new StateGraph(ReceiptState)
+    .addNode("dedupe", dedupe)
+    .addNode("bank_payment", bankPayment)
+    .addNode("extract", extract)
+    .addNode("classify", classify)
+    .addNode("persist", persist)
+    .addEdge(START, "dedupe")
+    .addConditionalEdges("dedupe", (st) => (st.done ? END : doc.source === "wise" && doc.hint ? "bank_payment" : "extract"), [END, "bank_payment", "extract"])
+    .addEdge("bank_payment", END)
+    .addConditionalEdges("extract", (st) => (st.out || st.attempts >= EXTRACT_ATTEMPTS ? "classify" : "extract"), ["classify", "extract"])
+    .addConditionalEdges("classify", (st) => (st.route === "discard" ? END : "persist"), [END, "persist"])
+    .addEdge("persist", END)
+    .compile();
+}
+
+/** One retry when the model's answer fails validation. */
+const EXTRACT_ATTEMPTS = 2;
+
+async function processReceipt(ctx: Ctx, run: AgentRun, userId: string, doc: CollectedDoc, uploadedPath?: string) {
+  await receiptGraph(ctx, run, userId, doc, uploadedPath).invoke({});
 }
 
 // ---------------------------------------------------- sales invoice flow ----

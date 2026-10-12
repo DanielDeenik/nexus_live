@@ -1,0 +1,610 @@
+{
+ "sources": [
+  {
+   "id": "hoofdkraan",
+   "name": "Hoofdkraan freelance opdrachten NL",
+   "authority": 1.0,
+   "jurisdiction": "NL",
+   "kind": "rss",
+   "url": "https://www.hoofdkraan.nl/opdrachten/rss"
+  },
+  {
+   "id": "arbeitnow",
+   "name": "Arbeitnow EU job board",
+   "authority": 0.7,
+   "jurisdiction": "INTL",
+   "kind": "json",
+   "url": "https://www.arbeitnow.com/api/job-board-api",
+   "map": {
+    "list": "data",
+    "title": "title",
+    "company": "company_name",
+    "link": "url",
+    "date": "created_at",
+    "snippet": "description"
+   }
+  },
+  {
+   "id": "jobicy-business",
+   "name": "Jobicy business and finance",
+   "authority": 0.8,
+   "jurisdiction": "REMOTE",
+   "kind": "json",
+   "url": "https://jobicy.com/api/v2/remote-jobs?count=50&industry=business",
+   "map": {
+    "list": "jobs",
+    "title": "jobTitle",
+    "company": "companyName",
+    "link": "url",
+    "date": "pubDate",
+    "snippet": "jobExcerpt"
+   }
+  },
+  {
+   "id": "remoteok-finance",
+   "name": "RemoteOK finance",
+   "authority": 0.7,
+   "jurisdiction": "REMOTE",
+   "kind": "json",
+   "url": "https://remoteok.com/api?tag=finance",
+   "map": {
+    "title": "position",
+    "company": "company",
+    "link": "url",
+    "date": "date",
+    "snippet": "description"
+   }
+  },
+  {
+   "id": "remotive-finance",
+   "name": "Remotive finance",
+   "authority": 0.8,
+   "jurisdiction": "REMOTE",
+   "kind": "json",
+   "url": "https://remotive.com/api/remote-jobs?search=finance&limit=50",
+   "map": {
+    "list": "jobs",
+    "title": "title",
+    "company": "company_name",
+    "link": "url",
+    "date": "publication_date",
+    "snippet": "description"
+   }
+  },
+  {
+   "id": "himalayas",
+   "name": "Himalayas remote roles",
+   "authority": 0.7,
+   "jurisdiction": "REMOTE",
+   "kind": "json",
+   "url": "https://himalayas.app/jobs/api?limit=50",
+   "map": {
+    "list": "jobs",
+    "title": "title",
+    "company": "companyName",
+    "link": "applicationLink",
+    "date": "pubDate",
+    "snippet": "excerpt"
+   }
+  },
+  {
+   "id": "adzuna-nl-simcorp",
+   "name": "Adzuna NL SimCorp",
+   "authority": 1.2,
+   "jurisdiction": "NL",
+   "kind": "json",
+   "needs": [
+    "adzuna_app_id",
+    "adzuna_app_key"
+   ],
+   "url": "https://api.adzuna.com/v1/api/jobs/nl/search/1?app_id={{adzuna_app_id}}&app_key={{adzuna_app_key}}&results_per_page=50&what=simcorp&content-type=application/json",
+   "map": {
+    "list": "results",
+    "title": "title",
+    "company": "company.display_name",
+    "link": "redirect_url",
+    "date": "created",
+    "snippet": "description"
+   }
+  },
+  {
+   "id": "adzuna-nl-fundops",
+   "name": "Adzuna NL fund operations and interim",
+   "authority": 1.2,
+   "jurisdiction": "NL",
+   "kind": "json",
+   "needs": [
+    "adzuna_app_id",
+    "adzuna_app_key"
+   ],
+   "url": "https://api.adzuna.com/v1/api/jobs/nl/search/1?app_id={{adzuna_app_id}}&app_key={{adzuna_app_key}}&results_per_page=50&what_or=fund%20operations%20interim%20consultant%20regulatory%20reporting&content-type=application/json",
+   "map": {
+    "list": "results",
+    "title": "title",
+    "company": "company.display_name",
+    "link": "redirect_url",
+    "date": "created",
+    "snippet": "description"
+   }
+  },
+  {
+   "id": "adzuna-gb-simcorp",
+   "name": "Adzuna UK SimCorp and fund ops",
+   "authority": 1.15,
+   "jurisdiction": "UK",
+   "kind": "json",
+   "needs": [
+    "adzuna_app_id",
+    "adzuna_app_key"
+   ],
+   "url": "https://api.adzuna.com/v1/api/jobs/gb/search/1?app_id={{adzuna_app_id}}&app_key={{adzuna_app_key}}&results_per_page=50&what_or=simcorp%20aladdin%20fund%20operations&content-type=application/json",
+   "map": {
+    "list": "results",
+    "title": "title",
+    "company": "company.display_name",
+    "link": "redirect_url",
+    "date": "created",
+    "snippet": "description"
+   }
+  },
+  {
+   "id": "adzuna-de-simcorp",
+   "name": "Adzuna DE SimCorp",
+   "authority": 1.0,
+   "jurisdiction": "INTL",
+   "kind": "json",
+   "needs": [
+    "adzuna_app_id",
+    "adzuna_app_key"
+   ],
+   "url": "https://api.adzuna.com/v1/api/jobs/de/search/1?app_id={{adzuna_app_id}}&app_key={{adzuna_app_key}}&results_per_page=50&what=simcorp&content-type=application/json",
+   "map": {
+    "list": "results",
+    "title": "title",
+    "company": "company.display_name",
+    "link": "redirect_url",
+    "date": "created",
+    "snippet": "description"
+   }
+  },
+  {
+   "id": "gh-alphafmc",
+   "name": "Alpha FMC careers page",
+   "authority": 1.3,
+   "jurisdiction": "NL",
+   "kind": "json",
+   "watchlist": true,
+   "minScore": 15,
+   "url": "https://boards-api.greenhouse.io/v1/boards/alphafmc/jobs?content=true",
+   "map": {
+    "list": "jobs",
+    "title": "title",
+    "company": "location.name",
+    "link": "absolute_url",
+    "date": "updated_at",
+    "snippet": "content"
+   },
+   "company": "Alpha FMC"
+  },
+  {
+   "id": "sr-synechron",
+   "name": "Synechron careers page",
+   "authority": 1.2,
+   "jurisdiction": "NL",
+   "kind": "json",
+   "watchlist": true,
+   "minScore": 15,
+   "url": "https://api.smartrecruiters.com/v1/companies/synechron/postings?limit=100",
+   "map": {
+    "list": "content",
+    "title": "name",
+    "company": "location.city",
+    "link": "ref",
+    "date": "releasedDate",
+    "snippet": "jobAd.sections.jobDescription.text"
+   },
+   "company": "Synechron"
+  },
+  {
+   "id": "rc-eraneos",
+   "name": "Eraneos careers page",
+   "authority": 1.15,
+   "jurisdiction": "NL",
+   "kind": "json",
+   "watchlist": true,
+   "minScore": 15,
+   "url": "https://eraneos.recruitee.com/api/offers/",
+   "map": {
+    "list": "offers",
+    "title": "title",
+    "company": "location",
+    "link": "careers_url",
+    "date": "published_at",
+    "snippet": "description"
+   },
+   "company": "Eraneos"
+  },
+  {
+   "id": "rc-quintop",
+   "name": "Quintop careers page",
+   "authority": 1.15,
+   "jurisdiction": "NL",
+   "kind": "json",
+   "watchlist": true,
+   "minScore": 15,
+   "url": "https://quintop.recruitee.com/api/offers/",
+   "map": {
+    "list": "offers",
+    "title": "title",
+    "company": "location",
+    "link": "careers_url",
+    "date": "published_at",
+    "snippet": "description"
+   },
+   "company": "Quintop"
+  },
+  {
+   "id": "rc-bluefield",
+   "name": "Bluefield careers page",
+   "authority": 1.1,
+   "jurisdiction": "NL",
+   "kind": "json",
+   "watchlist": true,
+   "minScore": 15,
+   "url": "https://bluefield.recruitee.com/api/offers/",
+   "map": {
+    "list": "offers",
+    "title": "title",
+    "company": "location",
+    "link": "careers_url",
+    "date": "published_at",
+    "snippet": "description"
+   },
+   "company": "Bluefield"
+  }
+ ],
+ "keywords": [
+  {
+   "re": "simcorp",
+   "flags": "i",
+   "pts": 25,
+   "tier": "core"
+  },
+  {
+   "re": "fund\\s+operations?",
+   "flags": "i",
+   "pts": 20,
+   "tier": "core"
+  },
+  {
+   "re": "transfer\\s+pricing",
+   "flags": "i",
+   "pts": 18,
+   "tier": "core"
+  },
+  {
+   "re": "regulatory\\s+report",
+   "flags": "i",
+   "pts": 18,
+   "tier": "core"
+  },
+  {
+   "re": "dora",
+   "flags": "i",
+   "pts": 15,
+   "tier": "regulatory"
+  },
+  {
+   "re": "sfdr",
+   "flags": "i",
+   "pts": 15,
+   "tier": "regulatory"
+  },
+  {
+   "re": "aifmd",
+   "flags": "i",
+   "pts": 15,
+   "tier": "regulatory"
+  },
+  {
+   "re": "mifid",
+   "flags": "i",
+   "pts": 15,
+   "tier": "regulatory"
+  },
+  {
+   "re": "emir",
+   "flags": "i",
+   "pts": 12,
+   "tier": "regulatory"
+  },
+  {
+   "re": "ucits",
+   "flags": "i",
+   "pts": 12,
+   "tier": "regulatory"
+  },
+  {
+   "re": "ifrs\\s*9",
+   "flags": "i",
+   "pts": 12,
+   "tier": "accounting"
+  },
+  {
+   "re": "hedg(e|ing)",
+   "flags": "i",
+   "pts": 10,
+   "tier": "finance"
+  },
+  {
+   "re": "fx\\s+(risk|report|ops)",
+   "flags": "i",
+   "pts": 12,
+   "tier": "core"
+  },
+  {
+   "re": "derivatives",
+   "flags": "i",
+   "pts": 10,
+   "tier": "finance"
+  },
+  {
+   "re": "asset\\s+manag",
+   "flags": "i",
+   "pts": 10,
+   "tier": "finance"
+  },
+  {
+   "re": "investment\\s+manag",
+   "flags": "i",
+   "pts": 8,
+   "tier": "finance"
+  },
+  {
+   "re": "treasury",
+   "flags": "i",
+   "pts": 8,
+   "tier": "finance"
+  },
+  {
+   "re": "financial\\s+operations?",
+   "flags": "i",
+   "pts": 8,
+   "tier": "finance"
+  },
+  {
+   "re": "middle\\s+office",
+   "flags": "i",
+   "pts": 10,
+   "tier": "core"
+  },
+  {
+   "re": "back\\s+office",
+   "flags": "i",
+   "pts": 7,
+   "tier": "finance"
+  },
+  {
+   "re": "reconciliation",
+   "flags": "i",
+   "pts": 8,
+   "tier": "core"
+  },
+  {
+   "re": "collateral\\s+manag",
+   "flags": "i",
+   "pts": 10,
+   "tier": "core"
+  },
+  {
+   "re": "securities\\s+(ops|lending)",
+   "flags": "i",
+   "pts": 10,
+   "tier": "finance"
+  },
+  {
+   "re": "risk\\s+(manag|model|officer)",
+   "flags": "i",
+   "pts": 10,
+   "tier": "finance"
+  },
+  {
+   "re": "compliance",
+   "flags": "i",
+   "pts": 7,
+   "tier": "regulatory"
+  },
+  {
+   "re": "controller",
+   "flags": "i",
+   "pts": 6,
+   "tier": "accounting"
+  },
+  {
+   "re": "senior",
+   "flags": "i",
+   "pts": 5,
+   "tier": "seniority"
+  },
+  {
+   "re": "lead",
+   "flags": "i",
+   "pts": 4,
+   "tier": "seniority"
+  },
+  {
+   "re": "principal",
+   "flags": "i",
+   "pts": 4,
+   "tier": "seniority"
+  },
+  {
+   "re": "freelan|interim|contract|zzp|consultant",
+   "flags": "i",
+   "pts": 8,
+   "tier": "engagement"
+  },
+  {
+   "re": "amsterdam|schiphol",
+   "flags": "i",
+   "pts": 5,
+   "tier": "location"
+  },
+  {
+   "re": "netherlands|nederland",
+   "flags": "i",
+   "pts": 3,
+   "tier": "location"
+  },
+  {
+   "re": "remote(\\s*first|\\s*friendly|\\s*ok)?",
+   "flags": "i",
+   "pts": 6,
+   "tier": "location"
+  },
+  {
+   "re": "hybrid",
+   "flags": "i",
+   "pts": 5,
+   "tier": "location"
+  },
+  {
+   "re": "work\\s+from\\s+(home|anywhere)",
+   "flags": "i",
+   "pts": 5,
+   "tier": "location"
+  },
+  {
+   "re": "location\\s+flexible|flexible\\s+location",
+   "flags": "i",
+   "pts": 4,
+   "tier": "location"
+  },
+  {
+   "re": "london|city\\s+of\\s+london",
+   "flags": "i",
+   "pts": 3,
+   "tier": "location"
+  },
+  {
+   "re": "luxembourg",
+   "flags": "i",
+   "pts": 4,
+   "tier": "location"
+  },
+  {
+   "re": "brussels|bruxelles",
+   "flags": "i",
+   "pts": 3,
+   "tier": "location"
+  },
+  {
+   "re": "dublin|ireland",
+   "flags": "i",
+   "pts": 3,
+   "tier": "location"
+  },
+  {
+   "re": "frankfurt|germany",
+   "flags": "i",
+   "pts": 2,
+   "tier": "location"
+  },
+  {
+   "re": "zurich|switzerland",
+   "flags": "i",
+   "pts": 2,
+   "tier": "location"
+  },
+  {
+   "re": "freelan|interim|contract|zzp|consultant",
+   "flags": "i",
+   "pts": 8,
+   "tier": "engagement"
+  },
+  {
+   "re": "day\\s*rate|dagtarief|dagvergoeding",
+   "flags": "i",
+   "pts": 6,
+   "tier": "engagement"
+  },
+  {
+   "re": "inside\\s*ir35|outside\\s*ir35",
+   "flags": "i",
+   "pts": 4,
+   "tier": "engagement"
+  },
+  {
+   "re": "junior|graduate|entry.level|trainee",
+   "flags": "i",
+   "pts": -10,
+   "tier": "negative"
+  },
+  {
+   "re": "internship|stage",
+   "flags": "i",
+   "pts": -20,
+   "tier": "negative"
+  },
+  {
+   "re": "python\\s+developer|software\\s+engineer",
+   "flags": "i",
+   "pts": -8,
+   "tier": "negative"
+  },
+  {
+   "re": "permanent\\s+only|perm\\s+only",
+   "flags": "i",
+   "pts": -5,
+   "tier": "negative"
+  },
+  {
+   "re": "fully\\s+on.?site|on.?site\\s+only|no\\s+remote",
+   "flags": "i",
+   "pts": -4,
+   "tier": "negative"
+  }
+ ],
+ "scoring": {
+  "recency": {
+   "noDate": 0.5,
+   "bands": [
+    {
+     "maxDays": 3,
+     "mult": 1
+    },
+    {
+     "maxDays": 7,
+     "mult": 0.85
+    },
+    {
+     "maxDays": 14,
+     "mult": 0.7
+    },
+    {
+     "maxDays": 30,
+     "mult": 0.5
+    }
+   ],
+   "older": 0.3
+  },
+  "tiers": [
+   {
+    "min": 80,
+    "tier": "HOT"
+   },
+   {
+    "min": 55,
+    "tier": "WARM"
+   },
+   {
+    "min": 30,
+    "tier": "MONITOR"
+   }
+  ],
+  "tierFloor": "COLD",
+  "dedupKeyLen": 60,
+  "scoreCap": 100,
+  "multiSourceBonus": 10
+ }
+}
