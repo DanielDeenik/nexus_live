@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Search, Bell, Settings, ChevronDown, LogOut } from 'lucide-react'
+import { Search, Bell, Settings, ChevronDown, LogOut, Menu } from 'lucide-react'
 
 const pageNames: Record<string, string> = {
   '/': 'Dashboard',
@@ -12,32 +12,47 @@ const pageNames: Record<string, string> = {
   '/market': 'Market Intelligence',
   '/insights': 'AI Insights',
   '/settings': 'Settings',
+  '/time': 'Time',
+  '/time/entries': 'Time entries',
+  '/time/projects': 'Projects',
+  '/time/flow': 'Flow blocks',
+  '/time/devices': 'Devices',
+  '/recruiter': 'Recruiter',
+  '/recruiter/fit': 'Fit reports',
+  '/recruiter/applications': 'Applications',
+  '/recruiter/roles': 'Roles',
 }
 
 interface HeaderProps {
   userName?: string
   onLogout?: () => void
   notificationCount?: number
+  /** Opens the menu on phone widths. */
+  onMenu?: () => void
 }
 
 export function Header({
   userName = 'User',
   onLogout,
   notificationCount = 0,
+  onMenu,
 }: HeaderProps) {
   const location = useLocation()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const currentPage = pageNames[location.pathname] || 'Dashboard'
 
   return (
-    <header className="h-16 border-b border-slate-700/50 glass-dark px-6 flex items-center justify-between sticky top-0 z-40">
+    <header className="h-16 border-b border-slate-700/50 glass-dark px-4 sm:px-6 flex items-center justify-between gap-2 sticky top-0 z-30">
       {/* Left: Page title and breadcrumb */}
-      <div className="flex items-center gap-4">
-        <h1 className="text-lg font-semibold text-slate-50">{currentPage}</h1>
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+        <button onClick={onMenu} className="md:hidden p-2 -ml-2 hover:bg-slate-700/50 rounded-lg" aria-label="Open menu">
+          <Menu size={20} className="text-slate-300" />
+        </button>
+        <h1 className="text-lg font-semibold text-slate-50 truncate">{currentPage}</h1>
       </div>
 
       {/* Right: Search, notifications, user menu */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-1 sm:gap-4 shrink-0">
         {/* Search */}
         <div className="hidden md:flex items-center gap-2 bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-1.5 w-64 transition-all focus-within:border-cyan-500/50">
           <Search size={16} className="text-slate-500" />

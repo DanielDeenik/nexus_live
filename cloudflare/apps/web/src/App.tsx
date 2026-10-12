@@ -16,6 +16,16 @@ import { Review } from './pages/Review'
 import { Expenses } from './pages/Expenses'
 import { TaxFilings } from './pages/TaxFilings'
 import { AgentSettings } from './pages/AgentSettings'
+import { TimeDashboard } from './pages/time/TimeDashboard'
+import { TimeEntries } from './pages/time/TimeEntries'
+import { TimeProjects } from './pages/time/TimeProjects'
+import { FlowBlocks } from './pages/time/FlowBlocks'
+import { Devices } from './pages/time/Devices'
+import { ensureBootstrap } from './lib/time'
+import { RecruiterOverview } from './pages/recruiter/RecruiterOverview'
+import { FitReports } from './pages/recruiter/FitReports'
+import { Applications } from './pages/recruiter/Applications'
+import { Roles } from './pages/recruiter/Roles'
 import { SignIn } from './pages/SignIn'
 import { LoadingSpinner } from './components/ui/LoadingSpinner'
 import { useAuthProvider } from './hooks/useAuth'
@@ -32,6 +42,13 @@ function App() {
       authProvider.getCurrentUser()
     }
   }, [])
+
+  // Time tracking: create the configured areas, projects and activities once
+  // per session after sign-in.
+  const userId = authProvider.user?.id
+  useEffect(() => {
+    if (userId) ensureBootstrap(userId).catch((e) => console.error('time bootstrap failed', e))
+  }, [userId])
 
   const handleLogout = () => {
     authProvider.logout()
@@ -53,6 +70,15 @@ function App() {
       >
         <Routes>
           <Route path="/" element={<IncomeTax />} />
+          <Route path="/time" element={<TimeDashboard />} />
+          <Route path="/time/entries" element={<TimeEntries />} />
+          <Route path="/time/projects" element={<TimeProjects />} />
+          <Route path="/time/flow" element={<FlowBlocks />} />
+          <Route path="/time/devices" element={<Devices />} />
+          <Route path="/recruiter" element={<RecruiterOverview />} />
+          <Route path="/recruiter/fit" element={<FitReports />} />
+          <Route path="/recruiter/applications" element={<Applications />} />
+          <Route path="/recruiter/roles" element={<Roles />} />
           <Route path="/review" element={<Review />} />
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/tax" element={<TaxFilings />} />

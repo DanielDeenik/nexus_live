@@ -17,17 +17,39 @@ import {
   ClipboardCheck,
   Scale,
   Bot,
+  Clock,
+  ListChecks,
+  FolderKanban,
+  Waves,
+  Smartphone,
+  Briefcase,
+  Gauge,
+  Send,
+  Radar,
 } from 'lucide-react'
 
 interface SidebarItem {
   label: string
   path: string
   icon: React.ReactNode
+  /** Starts a labelled group in the menu. */
+  group?: string
+  /** Draws a rule above the item to close the group before it. */
+  divider?: boolean
 }
 
 const sidebarItems: SidebarItem[] = [
   { label: 'Income & Tax', path: '/', icon: <LayoutDashboard size={20} /> },
-  { label: 'Review', path: '/review', icon: <ClipboardCheck size={20} /> },
+  { label: 'Time', path: '/time', icon: <Clock size={20} />, group: 'Time' },
+  { label: 'Time entries', path: '/time/entries', icon: <ListChecks size={20} /> },
+  { label: 'Projects', path: '/time/projects', icon: <FolderKanban size={20} /> },
+  { label: 'Flow blocks', path: '/time/flow', icon: <Waves size={20} /> },
+  { label: 'Devices', path: '/time/devices', icon: <Smartphone size={20} /> },
+  { label: 'Recruiter', path: '/recruiter', icon: <Briefcase size={20} />, group: 'Recruiter' },
+  { label: 'Fit reports', path: '/recruiter/fit', icon: <Gauge size={20} /> },
+  { label: 'Applications', path: '/recruiter/applications', icon: <Send size={20} /> },
+  { label: 'Roles', path: '/recruiter/roles', icon: <Radar size={20} /> },
+  { label: 'Review', path: '/review', icon: <ClipboardCheck size={20} />, divider: true },
   { label: 'Expenses', path: '/expenses', icon: <Receipt size={20} /> },
   { label: 'Tax filings', path: '/tax', icon: <Scale size={20} /> },
   { label: 'Agent settings', path: '/agent-settings', icon: <Bot size={20} /> },
@@ -46,6 +68,9 @@ const sidebarItems: SidebarItem[] = [
 interface SidebarProps {
   isCollapsed?: boolean
   onToggleCollapse?: (collapsed: boolean) => void
+  /** Phone widths: the menu slides in over the page. */
+  mobileOpen?: boolean
+  onNavigate?: () => void
   userName?: string
   userRole?: string
 }
@@ -55,6 +80,8 @@ export function Sidebar({
   onToggleCollapse,
   userName = 'User',
   userRole = 'Founder',
+  mobileOpen = false,
+  onNavigate,
 }: SidebarProps) {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(isCollapsed)
@@ -67,9 +94,9 @@ export function Sidebar({
 
   return (
     <div
-      className={`glass-dark flex flex-col h-screen border-r border-slate-700/50 transition-all duration-300 ${
-        collapsed ? 'w-20' : 'w-64'
-      }`}
+      className={`glass-dark flex flex-col h-screen border-r border-slate-700/50 transition-all duration-300 fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 md:bg-slate-900/50 md:static md:z-auto md:translate-x-0 ${
+        mobileOpen ? 'translate-x-0' : '-translate-x-full'
+      } ${collapsed ? 'md:w-20' : 'md:w-64'}`}
     >
       {/* Branding */}
       <div className="flex items-center justify-between p-4 border-b border-slate-700/50">
@@ -83,7 +110,7 @@ export function Sidebar({
         )}
         <button
           onClick={toggleCollapse}
-          className="p-1 hover:bg-slate-700/50 rounded-lg transition-colors"
+          className="hidden md:block p-1 hover:bg-slate-700/50 rounded-lg transition-colors"
         >
           <ChevronLeft
             size={18}
@@ -97,9 +124,14 @@ export function Sidebar({
         {sidebarItems.map((item) => {
           const isActive = location.pathname === item.path
           return (
+            <React.Fragment key={item.path}>
+            {item.divider && <div className="my-2 border-t border-slate-700/50" />}
+            {item.group && !collapsed && (
+              <p className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{item.group}</p>
+            )}
             <Link
-              key={item.path}
               to={item.path}
+              onClick={onNavigate}
               title={collapsed ? item.label : undefined}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                 isActive
@@ -110,6 +142,7 @@ export function Sidebar({
               <span className="flex-shrink-0">{item.icon}</span>
               {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
             </Link>
+            </React.Fragment>
           )
         })}
       </nav>
