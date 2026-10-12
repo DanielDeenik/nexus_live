@@ -23,3 +23,11 @@ export function num(cfg: AppConfig, key: string, fallback: number): number {
 export function str(cfg: AppConfig, key: string, fallback: string): string {
   return cfg[key] ?? fallback;
 }
+
+/** Strict numeric read for safety-relevant tunables: a missing or malformed
+ *  value throws instead of silently disabling a guardrail. */
+export function need(cfg: AppConfig, key: string): number {
+  const n = Number(cfg[key]);
+  if (cfg[key] === undefined || !Number.isFinite(n)) throw new Error(`app_config ${key} missing or not a number`);
+  return n;
+}

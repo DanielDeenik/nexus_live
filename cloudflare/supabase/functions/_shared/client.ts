@@ -32,3 +32,17 @@ export async function userIdFromRequest(
   if (error || !data.user) return null;
   return data.user.id;
 }
+
+export type Caller = { kind: "user"; id: string } | { kind: "service" };
+
+/** Agents run for one signed-in user, or for everyone when called by the
+ *  scheduler with the service key. Anything else is rejected. */
+export async function authorize(req: Request, supabase: SupabaseClient): Promise<Caller | null> {
+  const auth = req.headers.get("Authorization") ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token) return null;
+  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (service && token === service) return { kind: "service" };
+  const id = await userIdFromRequest(req, supabase);
+  return id ? { kind: "user", id } : null;
+}
