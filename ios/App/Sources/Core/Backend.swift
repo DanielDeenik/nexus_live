@@ -115,7 +115,7 @@ enum APIError: LocalizedError {
             }
             return "Server answered \(code)"
         case .badResponse: return "The server sent something unexpected."
-        case .faceIDFailed: return "Face ID did not unlock your saved sign in. Use your password once more."
+        case .faceIDFailed: return "Face ID could not renew your sign in. Sign in once with your password or an email code."
         }
     }
 }
@@ -157,21 +157,22 @@ final class Backend: ObservableObject {
                                   body: ["email": email, "password": password], authenticated: false)
         try store(data)
         locked = false
-        if let saved = try? JSONSerialization.data(withJSONObject: ["email": email, "password": password]),
-           Keychain.saveBiometric(saved, account: Keychain.credentialsAccount) {
-            hasFaceIDSignIn = true
-        }
     }
 
-    /// Reads the saved email and password behind Face ID and signs in with them.
+    /// Reads the last session behind Face ID and renews it. No password is ever stored.
     func signInWithFaceID() async throws {
         let data = await Task.detached {
             Keychain.loadBiometric(account: Keychain.credentialsAccount, prompt: "Sign in to Nexuslive")
         }.value
-        guard let data,
-              let saved = try? JSONSerialization.jsonObject(with: data) as? [String: String],
-              let email = saved["email"], let password = saved["password"] else { throw APIError.faceIDFailed }
-        try await signIn(email: email, password: password)
+        guard let data, let saved = try? decoder.decode(AuthSession.self, from: data) else { throw APIError.faceIDFailed }
+        do {
+            let fresh = try await send("POST", "auth/v1/token?grant_type=refresh_token",
+                                       body: ["refresh_token": saved.refresh_token], authenticated: false)
+            try store(fresh)
+            locked = false
+        } catch {
+            throw APIError.faceIDFailed
+        }
     }
 
     /// Face ID, falling back to the device passcode. A device without a passcode cannot be locked.
@@ -207,7 +208,10 @@ final class Backend: ObservableObject {
     private func store(_ data: Data) throws {
         let fresh = try decoder.decode(AuthSession.self, from: data)
         session = fresh
-        Keychain.save(try encoder.encode(fresh), account: Self.sessionAccount)
+        let encoded = try encoder.encode(fresh)
+        Keychain.save(encoded, account: Self.sessionAccount)
+        // A copy behind Face ID, so Face ID can sign back in after a sign out or an expired session.
+        if Keychain.saveBiometric(encoded, account: Keychain.credentialsAccount) { hasFaceIDSignIn = true }
     }
 
     private func refreshIfNeeded() async throws {

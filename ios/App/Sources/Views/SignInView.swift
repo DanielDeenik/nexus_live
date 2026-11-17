@@ -29,7 +29,7 @@ struct SignInView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
-                Section(footer: Text("After your first password sign in, Face ID signs you in from then on.")) {
+                Section(header: Text("Password"), footer: Text("Sign in once with your password or an email code. From then on Face ID unlocks the app and signs you back in.")) {
                     SecureField("Password", text: $password).textContentType(.password)
                     Button("Sign in") { run { try await backend.signIn(email: email, password: password) } }
                         .disabled(email.isEmpty || password.isEmpty || busy)
