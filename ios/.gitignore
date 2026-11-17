@@ -1,0 +1,3 @@
+Config/App.xcconfig
+*.xcodeproj
+build/

@@ -1,0 +1,7 @@
+// Copied to App.xcconfig by scripts/write-xcconfig.sh. Never commit App.xcconfig.
+IV_BUNDLE_ID = __IV_BUNDLE_ID__
+IV_TEAM_ID = __IV_TEAM_ID__
+IV_MARKETING_VERSION = __IV_MARKETING_VERSION__
+IV_BUILD_NUMBER = __IV_BUILD_NUMBER__
+IV_SUPABASE_URL = https:/$()/__IV_SUPABASE_HOST__
+IV_SUPABASE_ANON_KEY = __IV_SUPABASE_ANON_KEY__

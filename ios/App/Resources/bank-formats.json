@@ -1,0 +1,44 @@
+{
+  "formats": [
+    {
+      "name": "ING",
+      "requires": ["Datum", "Naam / Omschrijving", "Af Bij", "Bedrag (EUR)"],
+      "date": "Datum",
+      "date_formats": ["yyyyMMdd", "yyyy-MM-dd", "dd-MM-yyyy"],
+      "amount": "Bedrag (EUR)",
+      "direction": "Af Bij",
+      "outgoing": ["Af"],
+      "currency_fixed": "EUR",
+      "counterparty": "Naam / Omschrijving",
+      "description": "Mededelingen"
+    },
+    {
+      "name": "Rabobank",
+      "requires": ["Datum", "Bedrag", "Naam tegenpartij"],
+      "date": "Datum",
+      "date_formats": ["yyyy-MM-dd", "dd-MM-yyyy"],
+      "amount": "Bedrag",
+      "currency": "Munt",
+      "counterparty": "Naam tegenpartij",
+      "description": "Omschrijving-1"
+    },
+    {
+      "name": "bunq",
+      "requires": ["Date", "Amount", "Name", "Description"],
+      "date": "Date",
+      "date_formats": ["yyyy-MM-dd", "dd-MM-yyyy"],
+      "amount": "Amount",
+      "counterparty": "Name",
+      "description": "Description"
+    },
+    {
+      "name": "ABN AMRO",
+      "headerless_columns": 8,
+      "date_index": 2,
+      "date_formats": ["yyyyMMdd"],
+      "amount_index": 6,
+      "currency_index": 1,
+      "description_index": 7
+    }
+  ]
+}
