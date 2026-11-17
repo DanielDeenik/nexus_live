@@ -102,6 +102,7 @@ enum APIError: LocalizedError {
     case http(Int, String)
     case badResponse
     case faceIDFailed
+    case badLink
 
     var errorDescription: String? {
         switch self {
@@ -115,7 +116,8 @@ enum APIError: LocalizedError {
             }
             return "Server answered \(code)"
         case .badResponse: return "The server sent something unexpected."
-        case .faceIDFailed: return "Face ID could not renew your sign in. Sign in once with your password or an email code."
+        case .badLink: return "That is not a sign in link. In the email, press and hold Sign in, tap Copy Link, then try again."
+        case .faceIDFailed: return "Face ID could not renew your sign in. Sign in once with your password or the email link."
         }
     }
 }
@@ -155,6 +157,30 @@ final class Backend: ObservableObject {
     func signIn(email: String, password: String) async throws {
         let data = try await send("POST", "auth/v1/token?grant_type=password",
                                   body: ["email": email, "password": password], authenticated: false)
+        try store(data)
+        locked = false
+    }
+
+    /// Signs in with the "Sign in" link from the Supabase email, copied instead of tapped.
+    /// Reads a token_hash (or token) link, or a redirect link that already carries a refresh token.
+    func signInWithLink(_ text: String) async throws {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: trimmed) else { throw APIError.badLink }
+        var values: [String: String] = [:]
+        for item in components.queryItems ?? [] { values[item.name] = item.value }
+        if let fragment = components.fragment, let parsed = URLComponents(string: "?" + fragment) {
+            for item in parsed.queryItems ?? [] { values[item.name] = item.value }
+        }
+        let data: Data
+        if let refresh = values["refresh_token"] {
+            data = try await send("POST", "auth/v1/token?grant_type=refresh_token",
+                                  body: ["refresh_token": refresh], authenticated: false)
+        } else if let hash = values["token_hash"] ?? values["token"] {
+            data = try await send("POST", "auth/v1/verify",
+                                  body: ["type": values["type"] ?? "magiclink", "token_hash": hash], authenticated: false)
+        } else {
+            throw APIError.badLink
+        }
         try store(data)
         locked = false
     }

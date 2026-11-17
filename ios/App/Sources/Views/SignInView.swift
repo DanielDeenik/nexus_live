@@ -1,10 +1,10 @@
 import SwiftUI
+import UIKit
 
 struct SignInView: View {
     @EnvironmentObject private var backend: Backend
     @State private var email = ""
     @State private var password = ""
-    @State private var code = ""
     @State private var codeSent = false
     @State private var busy = false
     @State private var error: String?
@@ -29,26 +29,25 @@ struct SignInView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
-                Section(header: Text("Password"), footer: Text("Sign in once with your password or an email code. From then on Face ID unlocks the app and signs you back in.")) {
+                Section(header: Text("Password"), footer: Text("Sign in once with your password or the email link. From then on Face ID unlocks the app and signs you back in.")) {
                     SecureField("Password", text: $password).textContentType(.password)
                     Button("Sign in") { run { try await backend.signIn(email: email, password: password) } }
                         .disabled(email.isEmpty || password.isEmpty || busy)
                 }
-                Section("Or a one time code by email") {
-                    if codeSent {
-                        TextField("6 digit code", text: $code)
-                            .keyboardType(.numberPad)
-                            .textContentType(.oneTimeCode)
-                        Button("Verify code") { run { try await backend.verifyCode(email: email, code: code) } }
-                            .disabled(code.count < 6 || busy)
-                    }
-                    Button(codeSent ? "Send a new code" : "Email me a code") {
+                Section(header: Text("Or a sign in link by email"),
+                        footer: Text("Tap Email me a link. In the email, press and hold Sign in, tap Copy Link, then tap Paste sign in link here. Do not tap the link itself: it opens the website.")) {
+                    Button("Email me a link") {
                         run {
                             try await backend.sendCode(email: email)
                             codeSent = true
                         }
                     }
                     .disabled(email.isEmpty || busy)
+                    Button("Paste sign in link") {
+                        let copied = UIPasteboard.general.string ?? ""
+                        run { try await backend.signInWithLink(copied) }
+                    }
+                    .disabled(busy)
                 }
             }
             .navigationTitle("Nexuslive")
