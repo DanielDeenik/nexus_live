@@ -29,6 +29,7 @@ enum Theme {
 struct RootView: View {
     @EnvironmentObject private var backend: Backend
     @EnvironmentObject private var ledger: Ledger
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         if !backend.isConfigured {
@@ -36,6 +37,8 @@ struct RootView: View {
                                    description: Text("This build has no Supabase address."))
         } else if backend.session == nil {
             SignInView()
+        } else if backend.locked {
+            LockView()
         } else {
             TabView {
                 LogView().tabItem { Label("Log", systemImage: "plus.circle") }
@@ -43,6 +46,49 @@ struct RootView: View {
                 MoneyView().tabItem { Label("Money", systemImage: "chart.bar") }
             }
             .task { await ledger.reload() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { backend.locked = true }
+            }
+        }
+    }
+}
+
+/// Covers the app until Face ID (or the device passcode) unlocks it.
+struct LockView: View {
+    @EnvironmentObject private var backend: Backend
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var asking = false
+    @State private var autoTried = false
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            Image(systemName: "faceid").font(.system(size: 64)).foregroundStyle(Theme.accent)
+            Text("Nexuslive is locked").font(.title3.bold())
+            Button("Unlock with Face ID") { unlock() }
+                .buttonStyle(.borderedProminent)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .onAppear { if scenePhase == .active { autoUnlock() } }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { autoUnlock() }
+        }
+    }
+
+    /// Asks once by itself each time the lock screen appears; a cancelled prompt does not reopen in a loop.
+    private func autoUnlock() {
+        guard !autoTried else { return }
+        autoTried = true
+        unlock()
+    }
+
+    private func unlock() {
+        guard !asking else { return }
+        asking = true
+        Task {
+            await backend.unlock()
+            asking = false
         }
     }
 }

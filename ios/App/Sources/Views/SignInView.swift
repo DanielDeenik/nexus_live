@@ -12,6 +12,16 @@ struct SignInView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if backend.hasFaceIDSignIn {
+                    Section {
+                        Button {
+                            run { try await backend.signInWithFaceID() }
+                        } label: {
+                            Label("Sign in with Face ID", systemImage: "faceid").bold()
+                        }
+                        .disabled(busy)
+                    }
+                }
                 Section {
                     TextField("Email", text: $email)
                         .textContentType(.username)
@@ -19,7 +29,7 @@ struct SignInView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
-                Section("Password") {
+                Section(footer: Text("After your first password sign in, Face ID signs you in from then on.")) {
                     SecureField("Password", text: $password).textContentType(.password)
                     Button("Sign in") { run { try await backend.signIn(email: email, password: password) } }
                         .disabled(email.isEmpty || password.isEmpty || busy)
@@ -44,6 +54,9 @@ struct SignInView: View {
             .navigationTitle("Nexuslive")
             .overlay { if busy { ProgressView() } }
             .errorAlert($error)
+            .onAppear {
+                if backend.hasFaceIDSignIn && !busy { run { try await backend.signInWithFaceID() } }
+            }
         }
     }
 

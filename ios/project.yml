@@ -34,5 +34,6 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
+        NSFaceIDUsageDescription: Face ID unlocks Nexuslive and signs you in.
         NXSupabaseURL: $(IV_SUPABASE_URL)
         NXSupabaseAnonKey: $(IV_SUPABASE_ANON_KEY)

@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import LocalAuthentication
 
 /// Values baked into Info.plist at build time from Config/release.env.
 enum AppConfig {
@@ -43,6 +44,44 @@ enum Keychain {
     static func delete(account: String) {
         SecItemDelete(query(account) as CFDictionary)
     }
+
+    static let credentialsAccount = "credentials"
+
+    /// Stores an item that can only be read after Face ID (or Touch ID) on this device.
+    @discardableResult
+    static func saveBiometric(_ data: Data, account: String) -> Bool {
+        SecItemDelete(query(account) as CFDictionary)
+        var error: Unmanaged<CFError>?
+        guard let access = SecAccessControlCreateWithFlags(nil, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+                                                           .biometryCurrentSet, &error) else { return false }
+        var add = query(account)
+        add[kSecValueData as String] = data
+        add[kSecAttrAccessControl as String] = access
+        return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
+    }
+
+    /// Shows the Face ID prompt and returns the item. Blocks while the prompt is up: call off the main thread.
+    static func loadBiometric(account: String, prompt: String) -> Data? {
+        let context = LAContext()
+        context.localizedReason = prompt
+        var q = query(account)
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        q[kSecUseAuthenticationContext as String] = context
+        var out: AnyObject?
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess else { return nil }
+        return out as? Data
+    }
+
+    /// True when a Face ID protected item exists, without showing a prompt.
+    static func biometricItemExists(account: String) -> Bool {
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        var q = query(account)
+        q[kSecUseAuthenticationContext as String] = context
+        let status = SecItemCopyMatching(q as CFDictionary, nil)
+        return status == errSecSuccess || status == errSecInteractionNotAllowed
+    }
 }
 
 struct AuthUser: Codable {
@@ -62,6 +101,7 @@ enum APIError: LocalizedError {
     case notSignedIn
     case http(Int, String)
     case badResponse
+    case faceIDFailed
 
     var errorDescription: String? {
         switch self {
@@ -75,6 +115,7 @@ enum APIError: LocalizedError {
             }
             return "Server answered \(code)"
         case .badResponse: return "The server sent something unexpected."
+        case .faceIDFailed: return "Face ID did not unlock your saved sign in. Use your password once more."
         }
     }
 }
@@ -83,6 +124,9 @@ enum APIError: LocalizedError {
 @MainActor
 final class Backend: ObservableObject {
     @Published private(set) var session: AuthSession?
+    /// The app opens locked whenever a session exists; Face ID or the device passcode unlocks it.
+    @Published var locked: Bool
+    @Published private(set) var hasFaceIDSignIn: Bool
 
     private let base: URL?
     private let key: String
@@ -93,10 +137,13 @@ final class Backend: ObservableObject {
     init() {
         base = AppConfig.supabaseURL
         key = AppConfig.supabaseKey
-        if let data = Keychain.load(account: Self.sessionAccount),
-           let stored = try? decoder.decode(AuthSession.self, from: data) {
-            session = stored
+        var stored: AuthSession?
+        if let data = Keychain.load(account: Self.sessionAccount) {
+            stored = try? JSONDecoder().decode(AuthSession.self, from: data)
         }
+        session = stored
+        locked = stored != nil
+        hasFaceIDSignIn = Keychain.biometricItemExists(account: Keychain.credentialsAccount)
     }
 
     var isConfigured: Bool { base != nil && !key.isEmpty }
@@ -109,6 +156,35 @@ final class Backend: ObservableObject {
         let data = try await send("POST", "auth/v1/token?grant_type=password",
                                   body: ["email": email, "password": password], authenticated: false)
         try store(data)
+        locked = false
+        if let saved = try? JSONSerialization.data(withJSONObject: ["email": email, "password": password]),
+           Keychain.saveBiometric(saved, account: Keychain.credentialsAccount) {
+            hasFaceIDSignIn = true
+        }
+    }
+
+    /// Reads the saved email and password behind Face ID and signs in with them.
+    func signInWithFaceID() async throws {
+        let data = await Task.detached {
+            Keychain.loadBiometric(account: Keychain.credentialsAccount, prompt: "Sign in to Nexuslive")
+        }.value
+        guard let data,
+              let saved = try? JSONSerialization.jsonObject(with: data) as? [String: String],
+              let email = saved["email"], let password = saved["password"] else { throw APIError.faceIDFailed }
+        try await signIn(email: email, password: password)
+    }
+
+    /// Face ID, falling back to the device passcode. A device without a passcode cannot be locked.
+    func unlock() async {
+        let context = LAContext()
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            locked = false
+            return
+        }
+        if (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock Nexuslive")) == true {
+            locked = false
+        }
     }
 
     func sendCode(email: String) async throws {
@@ -120,6 +196,7 @@ final class Backend: ObservableObject {
         let data = try await send("POST", "auth/v1/verify",
                                   body: ["type": "email", "email": email, "token": code], authenticated: false)
         try store(data)
+        locked = false
     }
 
     func signOut() {
