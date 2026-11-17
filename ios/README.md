@@ -15,5 +15,5 @@ Direct client writes to `expenses` stay blocked by the restrictive policies; the
 Same pipeline as Ladon: GitHub Actions, XcodeGen, App Store Connect API key, TestFlight. Nothing is built on a Mac.
 
 - Start: Actions, Nexuslive iOS, Run workflow, or a commit to `ios/` whose message contains `[ios]`.
-- Secret: `ASC_KEY_P8_BASE64` in this repo, same value as in Ladon.
+- Secret: `ASC_KEY_P8_BASE64` in this repo, the NexusLive Admin key file.
 - Once: an App Store Connect app record for `nl.danieldeenik.nexuslive` (Apple does not allow creating it by API). The first job checks both on Linux before any Mac minutes are used.
