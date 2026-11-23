@@ -1,7 +1,21 @@
 {
   "formats": [
     {
+      "name": "Nexus ledger",
+      "source_column": "Source",
+      "requires": ["Source", "Account", "Date", "Amount", "Description"],
+      "date": "Date",
+      "date_formats": ["yyyy-MM-dd"],
+      "amount": "Amount",
+      "currency": "Currency",
+      "account": "Account",
+      "counterparty": "Payee",
+      "counterparty_iban": "Counterparty",
+      "description": "Description"
+    },
+    {
       "name": "ING",
+      "source": "ing",
       "requires": ["Datum", "Naam / Omschrijving", "Af Bij", "Bedrag (EUR)"],
       "date": "Datum",
       "date_formats": ["yyyyMMdd", "yyyy-MM-dd", "dd-MM-yyyy"],
@@ -9,31 +23,41 @@
       "direction": "Af Bij",
       "outgoing": ["Af"],
       "currency_fixed": "EUR",
+      "account": "Rekening",
       "counterparty": "Naam / Omschrijving",
+      "counterparty_iban": "Tegenrekening",
       "description": "Mededelingen"
     },
     {
       "name": "Rabobank",
+      "source": "rabobank",
       "requires": ["Datum", "Bedrag", "Naam tegenpartij"],
       "date": "Datum",
       "date_formats": ["yyyy-MM-dd", "dd-MM-yyyy"],
       "amount": "Bedrag",
       "currency": "Munt",
+      "account": "IBAN/BBAN",
       "counterparty": "Naam tegenpartij",
+      "counterparty_iban": "Tegenrekening IBAN/BBAN",
       "description": "Omschrijving-1"
     },
     {
       "name": "bunq",
+      "source": "bunq",
       "requires": ["Date", "Amount", "Name", "Description"],
       "date": "Date",
       "date_formats": ["yyyy-MM-dd", "dd-MM-yyyy"],
       "amount": "Amount",
+      "account": "Account",
       "counterparty": "Name",
+      "counterparty_iban": "Counterparty",
       "description": "Description"
     },
     {
       "name": "ABN AMRO",
+      "source": "abn",
       "headerless_columns": 8,
+      "account_index": 0,
       "date_index": 2,
       "date_formats": ["yyyyMMdd"],
       "amount_index": 6,
