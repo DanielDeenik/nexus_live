@@ -138,7 +138,8 @@ export async function loadForecastData(db: SupabaseClient, cfg: AppConfig, userI
     params,
     holidays: (holidays.data ?? []) as Holiday[],
     settings: {
-      hours_per_day: data.profile?.standard_hours_per_day != null ? Number(data.profile.standard_hours_per_day) : null,
+      // The app's Plan setting wins over the profile's standard day.
+      hours_per_day: setting("plan.hours_per_day") ?? (data.profile?.standard_hours_per_day != null ? Number(data.profile.standard_hours_per_day) : null),
       monthly_spending_eur: seen.size ? round2(spending) : null,
       invest_monthly_eur: setting("invest.monthly_target_eur"),
       dga_salary_eur: setting("bv.dga_salary_eur"),

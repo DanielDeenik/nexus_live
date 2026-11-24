@@ -3,7 +3,8 @@
 //   /functions/v1/nexus/tax-agent       VAT and income tax drafts
 //   /functions/v1/nexus/forecast        live tax, payments, investing and BV forecast
 //   /functions/v1/nexus/review-decide   human decisions on review items
-//   /functions/v1/nexus/integrations    Google and Wise connections (+ OAuth callback)
+//   /functions/v1/nexus/integrations    Google and Wise connections (+ every consent callback)
+//   /functions/v1/nexus/accounts        Accounts screen: balances, freshness, needs, bank/eToro/Wise sync
 //   /functions/v1/nexus/admin           service-only maintenance (scheduler secret)
 //   /functions/v1/nexus/dtrack-ingest   Relay pushes confirmed time into DTrack (device token)
 //   /functions/v1/nexus/recruiter       recruiter agent (LangGraph) and role monitor
@@ -14,6 +15,7 @@ import { handler as taxAgent } from "../tax-agent/index.ts";
 import { handler as forecast } from "../forecast/index.ts";
 import { handler as reviewDecide } from "../review-decide/index.ts";
 import { handler as integrations } from "../integrations/index.ts";
+import { handler as accounts } from "../accounts/index.ts";
 import { handler as admin } from "../admin/index.ts";
 import { handler as dtrackIngest } from "../dtrack-ingest/index.ts";
 import { handler as recruiter } from "../recruiter/index.ts";
@@ -27,6 +29,7 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
   "forecast": forecast,
   "review-decide": reviewDecide,
   "integrations": integrations,
+  "accounts": accounts,
   "admin": admin,
   "dtrack-ingest": dtrackIngest,
   "recruiter": recruiter,

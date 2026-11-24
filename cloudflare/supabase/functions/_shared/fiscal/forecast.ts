@@ -383,7 +383,10 @@ export function buildForecast(data: ForecastData, whatIf: WhatIf = {}): Forecast
     const nyCase: YearCase = { revenue: nyRevenues.reduce((s, r) => s + r, 0), costs: books.costs_eur, depreciation: 0, kia: 0, hours: nyHours, inputs: nyInputs };
     const np = nextChosen.params;
     const nyFigures = figures(nyCase, np);
-    const nyTax = taxIncrements(nyRevenues, { ...nyCase, revenue: 0 }, np);
+    // Next year is a plan, not a ledger: every month carries the year's average
+    // rate, so early months are not under-reserved by the bracket order.
+    const nyRate = nyCase.revenue > 0 ? Math.max(0, nyFigures.total_due) / nyCase.revenue : 0;
+    const nyTax = nyRevenues.map((r) => round2(r * nyRate));
     if (lag != null) {
       nyMonths.forEach((m, k) => months.push({
         month: m.month, working_days: m.working_days, days_off: m.days_off,

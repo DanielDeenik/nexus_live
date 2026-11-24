@@ -1,67 +1,17 @@
 // integrations: connect Google (Gmail + Drive, read-only) and Wise.
 // Secrets go to Vault; integration_connections keeps only metadata.
 //
-// POST { action: "google_start" }                    signed in; returns the consent URL
-// GET  ?code=...&state=...                            Google redirect: bounced to the SPA, no exchange here
+// POST { action: "google_start", return_to? }        signed in; returns the consent URL ("app" returns to the iPhone app)
+// GET  ?code=...&state=...                            every consent (Google, banks) lands here and is bounced
+//                                                     to the web app or the iPhone app; nothing is exchanged here
 // POST { action: "google_finish", code, state }       signed in; must be the user who started the flow
 // POST { action: "google_settings", drive_folder_id } signed in
 // POST { action: "wise_connect", token, profile_id? } signed in
 // POST { action: "disconnect", provider }             signed in
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { adminClient, internalSecret, requireEnv, timingSafeEqual, userIdFromRequest } from "../_shared/client.ts";
+import { adminClient, requireEnv, userIdFromRequest } from "../_shared/client.ts";
 import { loadConfig } from "../_shared/config.ts";
-import { cacheGet, cacheSet } from "../_shared/cache.ts";
 import { json, preflight } from "../_shared/cors.ts";
-
-const enc = new TextEncoder();
-const b64url = (b: ArrayBuffer | Uint8Array) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
-async function hmac(data: string): Promise<string> {
-  const secret = await internalSecret(adminClient(), "oauth_state_secret");
-  if (!secret) throw new Error("oauth_state_secret missing from Vault");
-  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  return b64url(await crypto.subtle.sign("HMAC", key, enc.encode(data)));
-}
-
-const STATE_TTL_S = 600;
-
-async function signState(db: SupabaseClient, userId: string): Promise<string> {
-  const nonce = crypto.randomUUID();
-  await cacheSet(db, `oauth_nonce:${nonce}`, { u: userId, used: false }, STATE_TTL_S);
-  const payload = b64url(enc.encode(JSON.stringify({ u: userId, exp: Date.now() + STATE_TTL_S * 1000, n: nonce })));
-  return `${payload}.${await hmac(payload)}`;
-}
-
-async function verifyState(state: string): Promise<{ u: string; n: string } | null> {
-  try {
-    const [payload, sig] = state.split(".");
-    if (!payload || !sig || !timingSafeEqual(await hmac(payload), sig)) return null;
-    const o = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-    return typeof o.u === "string" && typeof o.n === "string" && o.exp > Date.now() ? { u: o.u, n: o.n } : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Single use: the nonce must exist, belong to this user, and not be spent. */
-async function consumeNonce(db: SupabaseClient, nonce: string, userId: string): Promise<boolean> {
-  const hit = await cacheGet<{ u: string; used: boolean }>(db, `oauth_nonce:${nonce}`);
-  if (!hit || hit.used || hit.u !== userId) return false;
-  await cacheSet(db, `oauth_nonce:${nonce}`, { u: userId, used: true }, STATE_TTL_S);
-  return true;
-}
-
-const redirectUri = () => `${requireEnv("SUPABASE_URL")}/functions/v1/${Deno.env.get("INTEGRATIONS_PATH") ?? "nexus/integrations"}`;
-
-async function saveConnection(db: SupabaseClient, userId: string, provider: "google" | "wise", secret: string, meta: Record<string, unknown>) {
-  const { data: secretId, error } = await db.rpc("store_integration_secret", { p_user: userId, p_provider: provider, p_secret: secret });
-  if (error) throw new Error(`vault: ${error.message}`);
-  const { error: e2 } = await db.from("integration_connections").upsert(
-    { user_id: userId, provider, vault_secret_id: secretId, status: "active", last_error: null, connected_at: new Date().toISOString(), ...meta },
-    { onConflict: "user_id,provider" },
-  );
-  if (e2) throw new Error(e2.message);
-}
+import { claimState, peekState, redirectUri, saveConnection, signState } from "../_shared/connect.ts";
 
 export async function handler(req: Request): Promise<Response> {
   const pf = preflight(req);
@@ -69,12 +19,24 @@ export async function handler(req: Request): Promise<Response> {
   const db = adminClient();
   const web = Deno.env.get("WEB_ORIGIN") ?? "";
 
-  // OAuth redirect from Google. Nothing is exchanged here: the browser carries
-  // code and state back to the app, which finishes the flow in an
+  // Every consent lands here. Nothing is exchanged: the browser carries code
+  // and state back to the app that started it, which finishes the flow in an
   // authenticated request (binding the grant to the signed-in user).
   if (req.method === "GET") {
-    if (!web) return json({ error: "WEB_ORIGIN is not configured" }, 503);
     const url = new URL(req.url);
+    const hint = peekState(url.searchParams.get("state") ?? "");
+    if (hint?.r === "app") {
+      const cfg = await loadConfig(db);
+      const target = cfg["integrations.app_callback_url"];
+      if (!target) return json({ error: "app_config integrations.app_callback_url is missing" }, 503);
+      const q = new URLSearchParams({ flow: hint.p });
+      for (const k of ["code", "state", "error", "error_description"]) {
+        const v = url.searchParams.get(k);
+        if (v) q.set(k, v);
+      }
+      return Response.redirect(`${target}?${q}`, 302);
+    }
+    if (!web) return json({ error: "WEB_ORIGIN is not configured" }, 503);
     const q = new URLSearchParams();
     if (url.searchParams.get("error")) q.set("integration_error", url.searchParams.get("error")!);
     else { q.set("google_code", url.searchParams.get("code") ?? ""); q.set("google_state", url.searchParams.get("state") ?? ""); }
@@ -91,14 +53,14 @@ export async function handler(req: Request): Promise<Response> {
         const u = new URL(cfg["integrations.google_auth_url"]);
         u.search = new URLSearchParams({
           client_id: requireEnv("GOOGLE_CLIENT_ID"), redirect_uri: redirectUri(), response_type: "code",
-          scope: [cfg["integrations.google_scopes"], cfg["integrations.google_scopes_extra"]].filter(Boolean).join(" "), access_type: "offline", prompt: "consent", state: await signState(db, userId),
+          scope: [cfg["integrations.google_scopes"], cfg["integrations.google_scopes_extra"]].filter(Boolean).join(" "), access_type: "offline", prompt: "consent", state: await signState(db, userId, "google", body.return_to === "app" ? "app" : "web"),
         }).toString();
         return json({ url: u.toString() });
       }
       case "google_finish": {
-        const st = await verifyState(String(body.state ?? ""));
-        if (!st || st.u !== userId) return json({ error: "this connection link was not started by you" }, 403);
-        if (!(await consumeNonce(db, st.n, userId))) return json({ error: "link expired or already used; start again" }, 409);
+        if (!(await claimState(db, String(body.state ?? ""), userId, "google"))) {
+          return json({ error: "this link was not started by you, has expired or was already used; start again" }, 403);
+        }
         const cfg = await loadConfig(db);
         const res = await fetch(cfg["integrations.google_token_url"], {
           method: "POST",
