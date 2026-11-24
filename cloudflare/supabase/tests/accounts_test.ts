@@ -113,6 +113,18 @@ Deno.test("needs: stale and mismatched accounts, reviews and warnings first; dis
   assertEquals(reviewButtons("invoice_anomaly", []), null);
 });
 
+Deno.test("needs: one Enable Banking item covers the banks until it is set up; empty dormant accounts are not stale", () => {
+  const bank = (id: string, name: string, optional = false) => ({ item: { id, name, kind: "bank", via: "enable_banking" as const, optional }, status: "not_connected" as const, detail: null, valid_until: null });
+  const app = { item: { id: "enable_banking", name: "Enable Banking", kind: "service", via: "enable_banking_app" as const }, status: "not_connected" as const, detail: null, valid_until: null };
+  const before = buildNeeds(inputs({
+    services: [bank("abn", "ABN AMRO"), bank("bunq", "bunq"), bank("amex", "American Express", true), app],
+    accounts: [{ label: "Old pot", source: "bunq", account: "3422", kind: "pot", balance: 0, last_booked: "2026-05-01", bank_balance: null, bank_balance_date: null, feed: "file" }],
+  }));
+  assertEquals(before.map((n) => [n.code, n.title]), [["connect_enable_banking", "Set up Enable Banking to connect ABN AMRO and bunq"]]);
+  const after = buildNeeds(inputs({ services: [bank("abn", "ABN AMRO"), { ...app, status: "connected" as const }] }));
+  assertEquals(after.map((n) => n.code), ["connect_abn"]);
+});
+
 Deno.test("eToro: positions with profit, current rate and value from both payload spellings", () => {
   const schema = readEtoroPortfolio({ clientPortfolio: { credit: 120.5, unrealizedPnL: 15, positions: [
     { positionID: 1, instrumentID: 1001, units: 2, openRate: 100, amount: 200, unrealizedPnL: { pnL: 15, closeRate: 107.5 } },

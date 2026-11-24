@@ -178,8 +178,9 @@ export function buildNeeds(i: NeedInputs): Need[] {
         service_id: a.source,
       });
     }
+    // An empty account with no recent lines is dormant, not missing data.
     const age = a.last_booked ? dayNumber(i.today) - dayNumber(a.last_booked) : Infinity;
-    if (age > i.staleDays) {
+    if (age > i.staleDays && Math.abs(a.balance) > i.balanceTolerance) {
       add({
         code: `stale_${a.source}_${a.account}`, severity: "warn",
         title: a.last_booked ? `${a.label}: newest line ${a.last_booked}` : `${a.label}: no lines yet`,
@@ -188,7 +189,19 @@ export function buildNeeds(i: NeedInputs): Need[] {
       });
     }
   }
+  // Banks connect through Enable Banking: until it is set up, one item covers them all.
+  const bankApp = i.services.find((s) => s.item.via === "enable_banking_app");
+  const banksWaiting = !bankApp || bankApp.status !== "connected";
+  const waitingNames = i.services.filter((s) => s.item.via === "enable_banking" && !s.item.optional && s.status === "not_connected").map((s) => s.item.name);
   for (const s of i.services) {
+    if (banksWaiting && s.item.via === "enable_banking" && s.status === "not_connected") continue;
+    if (s.item.via === "enable_banking_app" && s.status === "not_connected" && waitingNames.length) {
+      add({
+        code: `connect_${s.item.id}`, severity: "info", title: `Set up ${s.item.name} to connect ${waitingNames.join(" and ")}`,
+        detail: s.item.help ?? "One setup, then each bank is a sign in.", action: "connect", service_id: s.item.id, dismissible: true,
+      });
+      continue;
+    }
     if (s.status === "error") {
       add({ code: `error_${s.item.id}`, severity: "warn", title: `${s.item.name}: the connection failed`, detail: s.detail ?? "Connect it again.", action: "connect", service_id: s.item.id });
     } else if (s.status === "connected" && s.valid_until) {
