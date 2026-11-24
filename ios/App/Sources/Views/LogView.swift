@@ -29,6 +29,10 @@ struct LogView: View {
                         .focused($amountFocused)
                     Text("Business expenses this month: \(Money.format(ledger.businessExpensesThisMonth, ledger.baseCurrency))")
                         .font(.footnote).foregroundStyle(.secondary)
+                    if let forecast = ledger.forecast, ledger.businessExpensesThisMonth > 0 {
+                        Text("They lower your income tax by about \(Money.format(ledger.businessExpensesThisMonth * forecast.marginal.cost, ledger.baseCurrency)).")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
                 Section("Category") {
                     if !ledger.expenseCategories.isEmpty {

@@ -43,6 +43,7 @@ struct RootView: View {
             TabView {
                 LogView().tabItem { Label("Log", systemImage: "plus.circle") }
                 DecideView().tabItem { Label("Decide", systemImage: "arrow.triangle.branch") }
+                PlanView().tabItem { Label("Plan", systemImage: "calendar") }
                 MoneyView().tabItem { Label("Money", systemImage: "chart.bar") }
             }
             .task { await ledger.reload() }

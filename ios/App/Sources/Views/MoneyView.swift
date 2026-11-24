@@ -45,23 +45,33 @@ struct MoneyView: View {
                 amountRow("Cash in your accounts", summary.cash)
                 amountRow(summary.tax_reserve_label, -summary.tax_reserve)
                 amountRow("Fixed costs still due this month", -summary.fixed_left)
-                DisclosureGroup("Accounts") {
-                    ForEach(summary.accounts) { account in
-                        HStack {
-                            Text(account.label)
-                            Spacer()
-                            Text(Money.format(account.balance, ledger.baseCurrency)).monospacedDigit().foregroundStyle(.secondary)
+                if let invest = ledger.investThisMonth {
+                    amountRow("You can invest this month", invest)
+                }
+                NavigationLink {
+                    AccountsView()
+                } label: {
+                    HStack {
+                        Text("Accounts and connections")
+                        Spacer()
+                        if warnings > 0 {
+                            Text(String(warnings)).font(.caption.bold()).foregroundStyle(.orange)
                         }
                     }
                 }
                 if let asOf = summary.as_of {
-                    Text("Bank lines up to \(asOf). Import new exports to keep this current.")
+                    Text("Bank lines up to \(asOf). Connect your banks in Accounts, or import new exports.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             } else {
                 Text("Import your bank exports to see safe to spend.").foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// Items in Accounts that need you (stale lines, failed syncs, drafts to decide).
+    private var warnings: Int {
+        ledger.overview?.needs.filter { $0.severity == "warn" }.count ?? 0
     }
 
     private func amountRow(_ label: String, _ value: Double) -> some View {
@@ -160,7 +170,7 @@ struct MoneyView: View {
     private var positionsSection: some View {
         Section("eToro positions") {
             if ledger.positions.isEmpty {
-                Text("eToro sync is not connected yet.").foregroundStyle(.secondary)
+                Text("Connect eToro in Accounts and connections.").foregroundStyle(.secondary)
             }
             ForEach(ledger.positions) { position in
                 HStack {

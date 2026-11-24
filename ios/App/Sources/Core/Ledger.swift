@@ -12,6 +12,14 @@ final class Ledger: ObservableObject {
     @Published var netWorth: [NetWorth] = []
     @Published var settings: [String: String] = [:]
     @Published var summary: MoneySummary?
+    @Published var forecast: Forecast?
+    @Published var reserves: [YearReserve] = []
+    @Published var whatIf: Forecast?
+    @Published var forecastError: String?
+    @Published var overview: AccountsOverview?
+    @Published var accountsError: String?
+    @Published var userSettings: [String: String] = [:]
+    @Published var yearInputs: [YearInput] = []
     @Published var baseCurrency: String = Locale.current.currency?.identifier ?? "EUR"
     @Published var error: String?
     @Published var loading = false
@@ -30,7 +38,7 @@ final class Ledger: ObservableObject {
             let profiles: [Profile] = try await backend.select("profiles", "select=id,base_currency&id=eq.\(uid)")
             if let currency = profiles.first?.base_currency, !currency.isEmpty { baseCurrency = currency }
             let config: [ConfigEntry] = try await backend.select("app_config",
-                "select=key,value&or=(key.like.purchase.*,key.like.budget.*)")
+                "select=key,value&or=(key.like.purchase.*,key.like.budget.*,key.eq.storage.documents_bucket)")
             settings = Dictionary(config.map { ($0.key, $0.value) }, uniquingKeysWith: { first, _ in first })
 
             let months = averageMonths ?? 0
@@ -48,9 +56,15 @@ final class Ledger: ObservableObject {
             budgets = try await backend.select("nx_budgets", "select=id,category,monthly_amount,currency,valid_from&order=category.asc,valid_from.desc")
             positions = try await backend.select("nx_positions", "select=id,source,symbol,units,value,currency,pnl,as_of&order=value.desc.nullslast")
             netWorth = try await backend.select("nx_net_worth_snapshots", "select=id,as_of,cash,investments,liabilities,total,currency&order=as_of.desc&limit=12")
+            let own: [ConfigEntry] = try await backend.select("nx_user_settings", "select=key,value")
+            userSettings = Dictionary(own.map { ($0.key, $0.value) }, uniquingKeysWith: { first, _ in first })
+            yearInputs = try await backend.select("nx_tax_year_inputs", "select=year,days_off&order=year.asc")
+            // The forecast stores this year's tax reserve, which safe to spend subtracts.
+            await refreshForecast()
             let raw = try await backend.rpc("nx_money_summary", [:])
             summary = try JSONDecoder().decode(MoneySummary.self, from: JSONSerialization.data(withJSONObject: raw))
             error = nil
+            Task { await self.refreshOverview() }
         } catch {
             self.error = error.localizedDescription
         }
@@ -204,6 +218,147 @@ final class Ledger: ObservableObject {
         default:
             return start
         }
+    }
+
+    // MARK: Plan
+
+    /// Recomputes the live forecast on the server; the reserve it stores feeds safe to spend.
+    func refreshForecast() async {
+        do {
+            let data = try await backend.function("forecast", [:])
+            let response = try JSONDecoder().decode(ForecastResponse.self, from: data)
+            forecast = response.forecast
+            reserves = response.reserves
+            forecastError = nil
+        } catch {
+            forecastError = error.localizedDescription
+        }
+    }
+
+    /// The same forecast with a what-if on top; the what-if is never stored.
+    func runWhatIf(_ values: [String: Double]) async {
+        do {
+            let data = try await backend.function("forecast", ["what_if": values])
+            let response = try JSONDecoder().decode(ForecastResponse.self, from: data)
+            forecast = response.forecast
+            reserves = response.reserves
+            whatIf = response.what_if
+            forecastError = nil
+        } catch {
+            forecastError = error.localizedDescription
+        }
+    }
+
+    func userNumber(_ key: String) -> Double? { userSettings[key].flatMap { Double($0) } }
+
+    var structure: Structure { Structure(rawValue: userSettings["plan.structure"] ?? "") ?? .eenmanszaak }
+
+    func daysOff(in year: Int) -> Double { yearInputs.first { $0.year == year }?.days_off ?? 0 }
+
+    func setSetting(_ key: String, _ value: String) async throws {
+        try await backend.upsert("nx_user_settings", ["key": key, "value": value], onConflict: "user_id,key")
+        userSettings[key] = value
+    }
+
+    /// Saves the plan settings, then recomputes the forecast and safe to spend.
+    func savePlan(hoursPerDay: Double?, daysOffThisYear: Double?, daysOffNextYear: Double?,
+                  investTarget: Double?, dgaSalary: Double?, bvCosts: Double?) async throws {
+        let pairs: [(String, Double?)] = [
+            ("plan.hours_per_day", hoursPerDay), ("invest.monthly_target_eur", investTarget),
+            ("bv.dga_salary_eur", dgaSalary), ("bv.annual_costs_eur", bvCosts)
+        ]
+        for (key, value) in pairs {
+            if let value { try await setSetting(key, String(value)) }
+        }
+        let year = Calendar.current.component(.year, from: Date())
+        if let daysOffThisYear {
+            try await backend.upsert("nx_tax_year_inputs", ["year": year, "days_off": daysOffThisYear], onConflict: "user_id,year")
+        }
+        if let daysOffNextYear {
+            try await backend.upsert("nx_tax_year_inputs", ["year": year + 1, "days_off": daysOffNextYear], onConflict: "user_id,year")
+        }
+        whatIf = nil
+        await reload()
+    }
+
+    /// Last month's budgets left unspent, over the categories that have a budget.
+    var underspendLastMonth: Double {
+        guard let months = averageMonths, months >= 1,
+              let start = Calendar.current.date(byAdding: .month, value: -1, to: Day.monthStart()) else { return 0 }
+        let from = Day.string(start)
+        let to = monthStartString
+        return currentBudgets.reduce(0) { total, budget in
+            let spent = transactions
+                .filter { $0.category == budget.category && $0.booked_on >= from && $0.booked_on < to && $0.currency == baseCurrency }
+                .reduce(0) { $0 + $1.outflow }
+            return total + max(0, budget.monthly_amount - spent)
+        }
+    }
+
+    /// What can go to the investment account now: the monthly target plus last month's
+    /// unspent budget, never more than safe to spend.
+    var investThisMonth: Double? {
+        guard let target = userNumber("invest.monthly_target_eur") else { return nil }
+        let wanted = target + underspendLastMonth
+        guard let safe = summary?.safe_to_spend else { return wanted }
+        return max(0, min(wanted, safe))
+    }
+
+    /// Reads a sales invoice (PDF or photo) into the ledger through the expense agent.
+    func importInvoice(_ url: URL) async throws -> String {
+        guard let uid = backend.userId else { throw APIError.notSignedIn }
+        guard let bucket = settings["storage.documents_bucket"], !bucket.isEmpty else {
+            throw BudgetError.missingSetting("storage.documents_bucket")
+        }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let data = try Data(contentsOf: url)
+        let ext = url.pathExtension.lowercased()
+        let type: String
+        switch ext {
+        case "png": type = "image/png"
+        case "jpg", "jpeg": type = "image/jpeg"
+        default: type = "application/pdf"
+        }
+        let base = String(url.deletingPathExtension().lastPathComponent.unicodeScalars.map { scalar -> Character in
+            scalar.isASCII && (CharacterSet.alphanumerics.contains(scalar) || scalar == "-" || scalar == "_") ? Character(scalar) : "-"
+        })
+        let path = "\(uid)/uploads/\(Int(Date().timeIntervalSince1970))-\(base.prefix(60)).\(ext.isEmpty ? "pdf" : ext)"
+        try await backend.upload(bucket: bucket, path: path, data: data, contentType: type)
+        let result = try await backend.function("expense-agent", ["mode": "upload", "path": path, "kind": "sales_invoice"])
+        let json = (try? JSONSerialization.jsonObject(with: result)) as? [String: Any]
+        let metrics = json?["metrics"] as? [String: Any] ?? [:]
+        let added = (metrics["invoices_ingested"] as? NSNumber)?.intValue ?? 0
+        let conflicts = (metrics["invoice_conflicts"] as? NSNumber)?.intValue ?? 0
+        await reload()
+        if added > 0 { return "Invoice read and added. The plan and the tax reserve are updated." }
+        if conflicts > 0 { return "That invoice number is already in your ledger, so nothing changed. It is in your review list." }
+        return "The invoice was read. If a figure was unclear it waits in your review list."
+    }
+
+    // MARK: Accounts
+
+    func refreshOverview() async {
+        do {
+            let data = try await backend.function("accounts", ["action": "overview"])
+            overview = try JSONDecoder().decode(AccountsOverview.self, from: data)
+            accountsError = nil
+        } catch {
+            accountsError = error.localizedDescription
+        }
+    }
+
+    /// Runs one action of an edge route (accounts, integrations) and returns its JSON.
+    @discardableResult
+    func call(_ route: String, _ body: [String: Any]) async throws -> [String: Any] {
+        let data = try await backend.function(route, body)
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+    }
+
+    /// Approve or reject a review item (for example a tax draft that changed after approval).
+    func decide(reviewItem id: String, approve: Bool) async throws {
+        _ = try await backend.function("review-decide", ["review_item_id": id, "action": approve ? "approve" : "reject"])
+        await reload()
     }
 
     // MARK: Writes

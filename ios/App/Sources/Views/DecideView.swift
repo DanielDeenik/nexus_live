@@ -329,6 +329,7 @@ struct PurchaseForm: View {
                         if tier != "small", let until = ledger.waitUntil(for: tier) {
                             LabeledContent("Wait until", value: until.formatted(date: .abbreviated, time: .shortened))
                         }
+                        taxLines(amount)
                     }
                 }
                 if needsAlternative {
@@ -357,6 +358,22 @@ struct PurchaseForm: View {
                 }
             }
             .errorAlert($error)
+        }
+    }
+
+    /// What the purchase means after tax: a business cost lowers income tax at the marginal rate;
+    /// a private purchase is paid from income that was taxed first, so it costs billable hours.
+    @ViewBuilder private func taxLines(_ amount: Double) -> some View {
+        if let forecast = ledger.forecast {
+            if business {
+                LabeledContent("Income tax it saves", value: Money.format(amount * forecast.marginal.cost, ledger.baseCurrency))
+                LabeledContent("Cost after tax", value: Money.format(amount * (1 - forecast.marginal.cost), ledger.baseCurrency))
+                Text("Before any VAT you reclaim.").font(.caption).foregroundStyle(.secondary)
+            } else if let rate = forecast.rate, rate.eur_per_hour * (1 - forecast.marginal.revenue) > 0 {
+                let perHour = rate.eur_per_hour * (1 - forecast.marginal.revenue)
+                LabeledContent("Billable hours it costs", value: (amount / perHour).formatted(.number.precision(.fractionLength(1))))
+                LabeledContent("You keep per billed hour", value: Money.format(perHour, ledger.baseCurrency))
+            }
         }
     }
 
