@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Record an expense in a few taps: amount, category, save.
+/// Record a business expense in a few taps: amount, category, save. Personal spending comes from the bank import.
 struct LogView: View {
     @EnvironmentObject private var ledger: Ledger
     @State private var amountText = ""
@@ -27,14 +27,18 @@ struct LogView: View {
                         .keyboardType(.decimalPad)
                         .font(.system(size: 44, weight: .semibold, design: .rounded))
                         .focused($amountFocused)
-                    Text("Spent this month: \(Money.format(ledger.spentThisMonth, ledger.baseCurrency))")
+                    Text("Business expenses this month: \(Money.format(ledger.businessExpensesThisMonth, ledger.baseCurrency))")
                         .font(.footnote).foregroundStyle(.secondary)
+                    if let forecast = ledger.forecast, ledger.businessExpensesThisMonth > 0 {
+                        Text("They lower your income tax by about \(Money.format(ledger.businessExpensesThisMonth * forecast.marginal.cost, ledger.baseCurrency)).")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
                 Section("Category") {
-                    if !ledger.categories.isEmpty {
+                    if !ledger.expenseCategories.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack {
-                                ForEach(ledger.categories, id: \.self) { item in
+                                ForEach(ledger.expenseCategories, id: \.self) { item in
                                     Button(item) { category = item; newCategory = "" }
                                         .buttonStyle(.bordered)
                                         .tint(item == category && newCategory.isEmpty ? Theme.accent : .secondary)
@@ -52,7 +56,7 @@ struct LogView: View {
                     Button {
                         save()
                     } label: {
-                        HStack { Spacer(); Text(saving ? "Saving" : "Save expense").bold(); Spacer() }
+                        HStack { Spacer(); Text(saving ? "Saving" : "Save business expense").bold(); Spacer() }
                     }
                     .disabled(saving || (amount ?? 0) <= 0 || chosenCategory.isEmpty)
                 }

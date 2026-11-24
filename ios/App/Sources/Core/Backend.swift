@@ -284,17 +284,38 @@ final class Backend: ObservableObject {
         return try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
     }
 
+    // MARK: Edge functions and storage
+
+    /// Calls a route of the nexus edge function as the signed-in user and returns its JSON.
+    /// Agent work (bank syncs, reading an invoice) can take a while, so the wait is longer.
+    func function(_ route: String, _ body: [String: Any]) async throws -> Data {
+        try await send("POST", "functions/v1/nexus/\(route)", body: body, timeout: 150)
+    }
+
+    /// Stores a file in a private bucket; the path must start with the signed-in user's id.
+    func upload(bucket: String, path: String, data: Data, contentType: String) async throws {
+        _ = try await transport("POST", "storage/v1/object/\(bucket)/\(path)", body: data, contentType: contentType, timeout: 150)
+    }
+
     // MARK: Transport
 
     private func send(_ method: String, _ path: String, body: Any? = nil,
-                      prefer: String? = nil, authenticated: Bool = true) async throws -> Data {
+                      prefer: String? = nil, authenticated: Bool = true, timeout: TimeInterval? = nil) async throws -> Data {
+        let data: Data? = try body.map { try JSONSerialization.data(withJSONObject: $0) }
+        return try await transport(method, path, body: data, contentType: "application/json",
+                                   prefer: prefer, authenticated: authenticated, timeout: timeout)
+    }
+
+    private func transport(_ method: String, _ path: String, body: Data?, contentType: String,
+                           prefer: String? = nil, authenticated: Bool = true, timeout: TimeInterval? = nil) async throws -> Data {
         guard let base, !key.isEmpty, let url = URL(string: base.absoluteString + "/" + path) else {
             throw APIError.notConfigured
         }
         var request = URLRequest(url: url)
         request.httpMethod = method
+        if let timeout { request.timeoutInterval = timeout }
         request.setValue(key, forHTTPHeaderField: "apikey")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         if let prefer { request.setValue(prefer, forHTTPHeaderField: "Prefer") }
         if authenticated {
             try await refreshIfNeeded()
@@ -303,7 +324,7 @@ final class Backend: ObservableObject {
         } else {
             request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         }
-        if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body) }
+        request.httpBody = body
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw APIError.badResponse }
