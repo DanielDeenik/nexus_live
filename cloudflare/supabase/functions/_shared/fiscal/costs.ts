@@ -28,6 +28,9 @@ export interface AssetRow {
   useful_life_years: number;
   kia_eligible: boolean;
   status: string;
+  /** Written off in full in the year of purchase (willekeurige afschrijving
+   *  for starters, allowed in a year with startersaftrek). */
+  full_write_off?: boolean;
 }
 
 /** Only human-approved or auto-booked expenses count toward a filing. */
@@ -77,9 +80,13 @@ export function reclaimableVatEur(e: ExpenseRow): number {
   return v == null ? 0 : round2(v * e.business_use_pct);
 }
 
-/** Straight-line, pro rata by month from the acquisition month. */
+/** Straight-line, pro rata by month from the acquisition month; an asset
+ *  marked for full write-off is written off entirely in its purchase year. */
 export function depreciationForYear(a: AssetRow, year: number): number {
   if (a.status !== "active") return 0;
+  if (a.full_write_off) {
+    return Number(a.acquired_date.slice(0, 4)) === year ? round2(a.cost_excl_vat - a.residual_value) : 0;
+  }
   const start = new Date(`${a.acquired_date}T00:00:00Z`);
   const totalMonths = Math.round(a.useful_life_years * 12);
   const monthly = (a.cost_excl_vat - a.residual_value) / totalMonths;

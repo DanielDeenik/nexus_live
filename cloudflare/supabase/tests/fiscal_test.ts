@@ -77,12 +77,17 @@ Deno.test("income tax: worked example at 100k profit", () => {
   assertEquals(r.zelfstandigenaftrek, 1200);
   assertAlmostEquals(r.mkb_winstvrijstelling, 12547.6, 0.01);
   assertAlmostEquals(r.taxable_profit, 86252.4, 0.01);
-  assertAlmostEquals(r.income_tax_before_credits, 32627.09, 0.02);
+  // Brackets 13,900.67 + 14,852.35 + 3,874.07
+  assertAlmostEquals(r.bracket_tax.reduce((s, b) => s + b.tax, 0), 32627.09, 0.02);
+  // All 13,747.60 of deductions sit in the top bracket: 11.94% of it comes back as tax.
+  assertAlmostEquals(r.tariefsaanpassing, 1641.46, 0.01);
+  assertAlmostEquals(r.income_tax_before_credits, 34268.55, 0.02);
   assertEquals(r.algemene_heffingskorting, 0);
   // Arbeidsinkomen = profit before ondernemersaftrek and MKB: 5,685 - 6.51% x (100,000 - 45,592)
   assertAlmostEquals(r.arbeidskorting, 2143.04, 0.02);
   assertAlmostEquals(r.zvw, 3851.34, 0.01);
-  assertAlmostEquals(r.total_due, 34335.39, 0.05);
+  assertAlmostEquals(r.total_due, 35976.85, 0.05);
+  assertAlmostEquals(r.to_pay, 35976.85, 0.05);
 });
 
 Deno.test("income tax: no zelfstandigenaftrek below the urencriterium", () => {

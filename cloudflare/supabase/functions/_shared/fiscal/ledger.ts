@@ -18,6 +18,8 @@ export interface InvoiceRow {
   duplicate_of: string | null;
   voided_at: string | null;
   review_state?: string | null;
+  due_date?: string | null;
+  paid_date?: string | null;
 }
 
 export interface TimeEntryRow { entry_date: string; hours: number; category: string }

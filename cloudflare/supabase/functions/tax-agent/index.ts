@@ -9,55 +9,23 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { adminClient, authorize } from "../_shared/client.ts";
 import { loadConfig, need, type AppConfig } from "../_shared/config.ts";
 import { json, preflight } from "../_shared/cors.ts";
-import { eurRate } from "../_shared/fx.ts";
 import { callStructured } from "../_shared/llm.ts";
 import { AgentRun, openReview, sha256Hex, type Trigger } from "../_shared/harness.ts";
 import { Annotation, END, START, StateGraph } from "npm:@langchain/langgraph@1.4.17";
+import { backfillInvoiceFx, loadForecastData, loadParams, loadTaxData, type TaxData } from "../_shared/taxData.ts";
 import {
-  type AssetRow, type ExpenseRow, type FiscalParams, type InvoiceRow, type ParamRow, type VatExpense,
-  COUNTABLE, deductibleEur, depreciationForYear, draftVat, estimateIncomeTax, kiaForYear, paramsFromRows,
-  quarterBounds, round2, summarizeIncome, workingCapacity,
+  type ExpenseRow, type FiscalParams, type InvoiceRow,
+  COUNTABLE, buildForecast, deductibleEur, depreciationForYear, draftVat, estimateIncomeTax, kiaForYear,
+  quarterBounds, round2, summarizeIncome,
 } from "../_shared/fiscal/index.ts";
 
 interface Warning { code: string; severity: "info" | "warn" | "block"; message: string }
 
-const INVOICE_COLS = "id, invoice_number, client, amount, currency, amount_eur, status, issued_date, period_start, period_end, hours, unit_rate, duplicate_of, voided_at, review_state, vat_amount, vat_treatment, fx_rate_eur, source, client_country, client_region";
-const EXPENSE_COLS = "id, date, status, treatment, amount, currency, amount_excl_vat, vat_amount, vat_reclaimable, vat_reverse_charge, business_use_pct, fx_rate_eur, category, vendor_country, evidence_path";
-
 async function backfillFx(db: SupabaseClient, cfg: AppConfig, userId: string, run: AgentRun) {
-  const { data } = await db.from("invoices").select("id, amount, currency, issued_date").eq("user_id", userId).is("amount_eur", null);
-  for (const inv of data ?? []) {
-    const r = await eurRate(db, cfg["integrations.fx_api_base"], inv.currency, inv.issued_date);
-    if (!r) continue;
-    await db.from("invoices").update({ fx_rate_eur: r.rate, fx_rate_date: r.date, amount_eur: round2(Number(inv.amount) * r.rate) }).eq("id", inv.id);
-    run.count("fx_backfilled");
-  }
+  run.count("fx_backfilled", await backfillInvoiceFx(db, cfg, userId));
 }
 
-async function load(db: SupabaseClient, userId: string) {
-  const [inv, exp, assets, time, profile, openReviews] = await Promise.all([
-    db.from("invoices").select(INVOICE_COLS).eq("user_id", userId),
-    db.from("expenses").select(EXPENSE_COLS).eq("user_id", userId),
-    db.from("fixed_assets").select("id, description, acquired_date, cost_excl_vat, residual_value, useful_life_years, kia_eligible, status").eq("user_id", userId),
-    db.from("time_entries").select("entry_date, hours, category").eq("user_id", userId),
-    db.from("profiles").select("work_calendar_region, standard_hours_per_day, startersaftrek_eligible").eq("id", userId).single(),
-    db.from("review_items").select("item_type", { count: "exact" }).eq("user_id", userId).eq("status", "open"),
-  ]);
-  for (const r of [inv, exp, assets, time]) if (r.error) throw new Error(r.error.message);
-  const n = (x: unknown) => (x == null ? null : Number(x));
-  return {
-    // Legacy Moneybird rows carry VAT-inclusive totals and no periods; the
-    // ledger only uses invoices ingested by the new pipeline or entered by hand.
-    invoices: (inv.data ?? []).filter((r) => r.source !== "moneybird").map((r) => ({ ...r, amount: Number(r.amount), amount_eur: n(r.amount_eur), hours: n(r.hours), unit_rate: n(r.unit_rate), vat_amount: Number(r.vat_amount), fx_rate_eur: n(r.fx_rate_eur) })),
-    expenses: (exp.data ?? []).map((r) => ({ ...r, amount: Number(r.amount), amount_excl_vat: n(r.amount_excl_vat), vat_amount: n(r.vat_amount), business_use_pct: Number(r.business_use_pct), fx_rate_eur: n(r.fx_rate_eur) })) as (VatExpense & { evidence_path: string | null })[],
-    assets: (assets.data ?? []).map((r) => ({ ...r, cost_excl_vat: Number(r.cost_excl_vat), residual_value: Number(r.residual_value), useful_life_years: Number(r.useful_life_years) })) as AssetRow[],
-    time: (time.data ?? []).map((r) => ({ ...r, hours: Number(r.hours) })),
-    profile: profile.data,
-    openReviews: openReviews.data ?? [],
-  };
-}
-
-function baseWarnings(p: FiscalParams, data: Awaited<ReturnType<typeof load>>, periodStart: string, periodEnd: string): Warning[] {
+function baseWarnings(p: FiscalParams, data: TaxData, periodStart: string, periodEnd: string): Warning[] {
   const w: Warning[] = [];
   for (const k of p.unverifiedKeys) {
     w.push({ code: "unverified_parameter", severity: k.startsWith("vat.") ? "block" : "warn", message: `Fiscal parameter ${k} is not yet verified against a primary source. Confirm it before filing.` });
@@ -139,7 +107,7 @@ async function saveDraft(db: SupabaseClient, run: AgentRun, userId: string, kind
   run.count("drafts_created");
 }
 
-async function vatDraft(db: SupabaseClient, run: AgentRun, userId: string, year: number, q: 1 | 2 | 3 | 4, p: FiscalParams, data: Awaited<ReturnType<typeof load>>) {
+async function vatDraft(db: SupabaseClient, run: AgentRun, userId: string, year: number, q: 1 | 2 | 3 | 4, p: FiscalParams, data: TaxData) {
   const b = quarterBounds(year, q);
   const d = draftVat(data.invoices, data.expenses, b.start, b.end, p);
   const warnings = baseWarnings(p, data, b.start, b.end);
@@ -149,7 +117,7 @@ async function vatDraft(db: SupabaseClient, run: AgentRun, userId: string, year:
   await saveDraft(db, run, userId, "vat_quarter", b.label, b.start, b.end, d as unknown as Record<string, unknown>, warnings);
 }
 
-async function incomeTaxDraft(db: SupabaseClient, cfg: AppConfig, run: AgentRun, userId: string, year: number, p: FiscalParams, data: Awaited<ReturnType<typeof load>>) {
+async function incomeTaxDraft(db: SupabaseClient, cfg: AppConfig, run: AgentRun, userId: string, year: number, p: FiscalParams, params: Map<number, FiscalParams>, data: TaxData) {
   const start = `${year}-01-01`, end = `${year}-12-31`;
   const ledger = summarizeIncome(data.invoices as InvoiceRow[], data.time, year);
   const yearExp = data.expenses.filter((e) => e.date.startsWith(String(year)));
@@ -157,41 +125,36 @@ async function incomeTaxDraft(db: SupabaseClient, cfg: AppConfig, run: AgentRun,
   const depreciation = round2(data.assets.reduce((s, a) => s + depreciationForYear(a, year), 0));
   const kia = kiaForYear(data.assets, year, p);
   const hours = ledger.billed_hours + ledger.non_billable_hours;
-  const starters = data.profile?.startersaftrek_eligible === true;
-  const ytd = estimateIncomeTax({ revenue_eur: ledger.revenue_eur, deductible_costs_eur: costs, depreciation_eur: depreciation, kia_eur: kia.kia, total_hours: hours, starters_eligible: starters }, p);
-
-  // Projection to year end at the latest billed rate on the client's calendar.
-  let projection = null;
-  // Same rule as the dashboard: the owner's setting, else the client region
-  // on the most recent invoice.
-  const lastWithRegion = [...data.invoices].filter((i) => !i.voided_at && (i as { client_country?: string }).client_country && (i as { client_region?: string }).client_region)
-    .sort((a, b) => b.issued_date.localeCompare(a.issued_date))[0] as { client_country?: string; client_region?: string } | undefined;
-  const region = data.profile?.work_calendar_region ?? (lastWithRegion ? `${lastWithRegion.client_country}-${lastWithRegion.client_region}` : null);
-  const perDay = data.profile?.standard_hours_per_day != null ? Number(data.profile.standard_hours_per_day) : null;
-  const latest = [...data.invoices].filter((i) => !i.voided_at && i.unit_rate && i.amount_eur).sort((a, b) => b.issued_date.localeCompare(a.issued_date))[0];
   const today = new Date().toISOString().slice(0, 10);
-  const lastBilled = ledger.months.at(-1)?.month;
-  if (region && perDay && latest && lastBilled && today <= end) {
-    const nextDay = new Date(Date.UTC(Number(lastBilled.slice(0, 4)), Number(lastBilled.slice(5, 7)), 1)).toISOString().slice(0, 10);
-    const from = nextDay > today ? nextDay : today;
-    const { data: hol } = await db.from("public_holidays").select("holiday_date, name").eq("region_code", region).gte("holiday_date", from).lte("holiday_date", end);
-    const cap = workingCapacity(from, end, hol ?? [], perDay);
-    const eurPerHour = Number(latest.amount_eur) / Number(latest.amount) * Number(latest.unit_rate);
-    const extraRev = round2(cap.hours * eurPerHour);
-    projection = {
-      from, capacity: cap, eur_per_hour: round2(eurPerHour),
-      revenue_eur: round2(ledger.revenue_eur + extraRev),
-      estimate: estimateIncomeTax({ revenue_eur: ledger.revenue_eur + extraRev, deductible_costs_eur: costs, depreciation_eur: depreciation, kia_eur: kia.kia, total_hours: hours + cap.hours, starters_eligible: starters }, p),
-    };
+
+  // The current year runs through the live forecast: billed income plus any
+  // wage, withheld tax and prepayments, projected from the day after the last
+  // billed period at the owner's hours. Other years are what is billed.
+  let ytd;
+  let projection = null;
+  const warnings = baseWarnings(p, data, start, end);
+  if (year === Number(today.slice(0, 4))) {
+    const f = buildForecast(await loadForecastData(db, cfg, userId, today, data, params));
+    ytd = f.to_date;
+    if (f.remaining && f.rate) {
+      projection = {
+        from: f.remaining.from,
+        capacity: { from: f.remaining.from, to: f.remaining.to, working_days: f.remaining.working_days, days_off: f.remaining.days_off, hours: f.remaining.hours },
+        eur_per_hour: f.rate.eur_per_hour,
+        revenue_eur: f.year_end.revenue_eur,
+        estimate: f.year_end,
+      };
+    }
+    for (const w of f.warnings) if (!warnings.some((x) => x.code === w.code)) warnings.push(w);
+  } else {
+    const starters = data.profile?.startersaftrek_eligible === true;
+    ytd = estimateIncomeTax({ revenue_eur: ledger.revenue_eur, deductible_costs_eur: costs, depreciation_eur: depreciation, kia_eur: kia.kia, total_hours: hours, starters_eligible: starters }, p);
+    for (const a of ledger.anomalies) warnings.push({ code: a.code, severity: a.code === "duplicate_period" || a.code === "missing_fx" ? "block" : "warn", message: a.message });
+    if (!ytd.urencriterium_met) warnings.push({ code: "urencriterium", severity: "warn", message: `${hours} of ${p.urencriteriumHours} hours logged; zelfstandigenaftrek is not applied yet.` });
   }
   const buffer = need(cfg, "tax_agent.reserve_buffer_pct");
   const target = projection?.estimate.total_due ?? ytd.total_due;
   const figures = { ledger: { billed_hours: ledger.billed_hours, non_billable_hours: ledger.non_billable_hours, revenue_eur: ledger.revenue_eur, revenue_by_currency: ledger.revenue_by_currency }, costs_eur: costs, depreciation_eur: depreciation, kia, ytd, projection, reserve_target_eur: round2(target * (1 + buffer)) };
-
-  const warnings = baseWarnings(p, data, start, end);
-  for (const a of ledger.anomalies) warnings.push({ code: a.code, severity: a.code === "duplicate_period" || a.code === "missing_fx" ? "block" : "warn", message: a.message });
-  if (!ytd.urencriterium_met) warnings.push({ code: "urencriterium", severity: "warn", message: `${hours} of ${p.urencriteriumHours} hours logged; zelfstandigenaftrek is not applied yet.` });
-  if (!region || !perDay) warnings.push({ code: "no_calendar", severity: "info", message: "Set your work calendar and standard hours in Settings to see a year-end projection." });
   warnings.push(...await modelWarnings(db, run, figures, warnings));
   await saveDraft(db, run, userId, "income_tax_year", String(year), start, end, figures, warnings);
 }
@@ -216,7 +179,7 @@ export function targetsFor(now: Date, only?: { kind: string; period: string }): 
 // one draft node per target. Figures are computed by the fiscal engine; the
 // only model call is the warnings writer inside each draft.
 const TaxState = Annotation.Root({
-  data: Annotation<Awaited<ReturnType<typeof load>> | null>({ reducer: (_a, b) => b, default: () => null }),
+  data: Annotation<TaxData | null>({ reducer: (_a, b) => b, default: () => null }),
   targets: Annotation<Target[]>({ reducer: (_a, b) => b, default: () => [] }),
   next: Annotation<number>({ reducer: (_a, b) => b, default: () => 0 }),
 });
@@ -227,14 +190,14 @@ function taxGraph(db: SupabaseClient, cfg: AppConfig, params: Map<number, Fiscal
       await run.step("fx_backfill", () => backfillFx(db, cfg, userId, run));
       return {};
     })
-    .addNode("load", async () => ({ data: (await run.step("load", () => load(db, userId)))!, targets: targetsFor(new Date(), only) }))
+    .addNode("load", async () => ({ data: (await run.step("load", () => loadTaxData(db, userId)))!, targets: targetsFor(new Date(), only) }))
     .addNode("draft", async (st) => {
       const t = st.targets[st.next];
       const p = params.get(t.year);
       if (!p) run.count("missing_parameters");
       else {
         await run.step(`${t.kind}:${t.year}${t.q ? `-Q${t.q}` : ""}`, () =>
-          t.kind === "vat_quarter" ? vatDraft(db, run, userId, t.year, t.q!, p, st.data!) : incomeTaxDraft(db, cfg, run, userId, t.year, p, st.data!), { tolerate: true });
+          t.kind === "vat_quarter" ? vatDraft(db, run, userId, t.year, t.q!, p, st.data!) : incomeTaxDraft(db, cfg, run, userId, t.year, p, params, st.data!), { tolerate: true });
       }
       return { next: st.next + 1 };
     })
@@ -266,9 +229,7 @@ export async function handler(req: Request): Promise<Response> {
     const caller = who.kind === "user" ? who.id : null;
     const body = await req.json().catch(() => ({}));
     const cfg = await loadConfig(db);
-    const { data: rows } = await db.from("tax_parameters").select("year, key, value, verified");
-    const params = new Map<number, FiscalParams>();
-    for (const y of new Set((rows ?? []).map((r) => r.year as number))) params.set(y, paramsFromRows(rows as ParamRow[], y));
+    const params = await loadParams(db);
     const only = body.kind && body.period ? { kind: String(body.kind), period: String(body.period) } : undefined;
     if (only && !["vat_quarter", "income_tax_year"].includes(only.kind)) return json({ error: "invalid kind" }, 400);
     const users = caller ? [caller] : ((await db.from("profiles").select("id")).data ?? []).map((r) => r.id as string);

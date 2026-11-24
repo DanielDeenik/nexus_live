@@ -224,12 +224,11 @@ export async function buildYearView(year: number, today: string): Promise<YearVi
     const from = today >= `${year}-01-01` ? today : `${year}-01-01`
     capacity = workingCapacity(from, end, await loadHolidays(region, from, end), perDay)
     const latest = [...invoices].filter((i) => !i.voided_at && i.unit_rate && i.amount_eur).sort((a, b) => b.issued_date.localeCompare(a.issued_date))[0]
-    // Capacity counts from today; months already billed are excluded so they
-    // are not counted twice.
+    // Capacity counts from today; the projection counts from the first
+    // unbilled day, including days already worked but not invoiced yet.
     const lastBilled = ledger.months.at(-1)?.month
     if (p && latest && lastBilled) {
-      const nextUnbilled = new Date(Date.UTC(Number(lastBilled.slice(0, 4)), Number(lastBilled.slice(5, 7)), 1)).toISOString().slice(0, 10)
-      const projFrom = nextUnbilled > from ? nextUnbilled : from
+      const projFrom = new Date(Date.UTC(Number(lastBilled.slice(0, 4)), Number(lastBilled.slice(5, 7)), 1)).toISOString().slice(0, 10)
       const cap = projFrom === from ? capacity : workingCapacity(projFrom, end, await loadHolidays(region, projFrom, end), perDay)
       const eurPerHour = (Number(latest.amount_eur) / Number(latest.amount)) * Number(latest.unit_rate)
       const revenue = ledger.revenue_eur + cap.hours * eurPerHour
