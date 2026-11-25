@@ -4,9 +4,13 @@ Money, spending control and if/then/else decisions on the phone, on the Supabase
 
 | Tab | What it does | Where the data goes |
 | --- | --- | --- |
-| Log | Record a business expense: amount, category, optional note | `expenses` via `nx_add_expense`, status proposed |
-| Decide | If/then/else rules; probability bets resolved as happened or did not, Brier scored; Buy checks that put a wait and, for major purchases and subscriptions, a usage bet in front of a purchase | `nx_decisions` |
-| Money | Safe to spend after the tax reserve and fixed costs, this month against budget next to your own average, unplanned purchases, net worth snapshots, eToro positions, bank export import | `nx_money_summary`, `nx_transactions` via `nx_import_transactions`, `nx_budgets`, `nx_net_worth_snapshots`, `nx_positions` |
+| Home | The Mallorca target (`target.*`) with business income and what your capital pays, three sliders (business growth, monthly invest, return), safe to spend, Skip and save, and at most three rows that need you (alerts, Sunday review, monthly close or the seven numbers). + opens a Buy check, a business cost or a receipt | `nx_money_summary`, the live forecast, `nx_user_settings` |
+| Spend | This month against the plan, spend against cap over `plan.chart_months` months, the five fullest budget lines, the purchase review with the cancel assist. + imports a bank file or a receipt | `nx_spend_lines` (a split line counts per part), `nx_budgets`, `nx_recurring`, `nx_cancel_routes` |
+| Decide | If/then/else rules, Brier-scored bets, Buy checks with purpose, urge, billed hours after tax, the ten-year value and the re-ask when the wait ends | `nx_decisions` |
+| Plan | Net worth forecast (on plan, as now, return band) with sliders; one tap down the Mallorca path, recurring charges and the tax year | live forecast, `nx_net_worth_snapshots` |
+| Settings | Every connection and key (banks through Enable Banking, Wise, eToro, Moneybird, Gmail), the target and assumptions, food staples, the stop list, cancel routes, Shortcuts and reminders | `nexus/accounts`, `spend`, `nx_user_settings` |
+
+The Buy check also opens from outside the app: a Shortcuts automation when a named shopping app opens (Open Buy check), the home-screen widget (`Widget/`, a deep link `nexuslive://buy?entry=widget`), Siri and the share sheet. Log card tap is the action for the Shortcuts Wallet automation; a notification then asks planned or impulse, or at a supermarket staples only or luxury too. Add receipt reads a receipt image shared from another app. Stop-list alerts arrive through a background refresh, at most `notifications.max_per_day` a day.
 
 Direct client writes to `expenses` stay blocked by the restrictive policies; `nx_add_expense` pins the row to the signed in user and lands it as proposed for the review pipeline. `nx_import_transactions` pins bank lines to the signed in user the same way. Bank layouts (the Nexus ledger CSV, ING, Rabobank, bunq, ABN AMRO) are data in `App/Resources/bank-formats.json`, so a new bank needs no code.
 
@@ -34,6 +38,10 @@ Every threshold lives in `app_config`, never in code:
 | `budget.hidden_classes` | Classes where the bank line hides the shop |
 | `budget.planned_classes` | Classes where a purchase from the small threshold needs a Buy check |
 | `budget.import_batch_rows` | Bank lines per import call |
+
+## Checks without Xcode
+
+`scripts/check-core.sh` compiles the UI-free core (`PlanMath`, `Deeplink`, `Models`, `SpendModels`) with plain `swiftc` on Linux or macOS and runs `Checks/`: the target and forecast arithmetic, the app links and the stop lists read from settings, on made-up figures.
 
 ## Build
 

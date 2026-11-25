@@ -177,17 +177,7 @@ struct AccountsView: View {
         guard let callback = ledger.overview.flatMap({ URL(string: $0.callback_url) }), let scheme = callback.scheme else {
             throw APIError.badResponse
         }
-        let returned = try await webAuthenticationSession.authenticate(using: url, callbackURLScheme: scheme,
-                                                                       preferredBrowserSession: .ephemeral)
-        let items = URLComponents(url: returned, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        let values = Dictionary(items.map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { first, _ in first })
-        if let refused = values["error"] {
-            throw ConnectError.refused(values["error_description"] ?? refused)
-        }
-        guard let code = values["code"], !code.isEmpty, let state = values["state"], !state.isEmpty else {
-            throw APIError.badResponse
-        }
-        return (code, state)
+        return try await Consent.run(webAuthenticationSession, url: url, callbackScheme: scheme)
     }
 
     private func syncNow() {

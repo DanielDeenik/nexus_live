@@ -1,14 +1,29 @@
 import SwiftUI
+import UIKit
+
+/// Registers what iOS needs before the first screen: notification answers and the background alert check.
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        NotificationService.shared.configure()
+        BackgroundRefresh.register()
+        return true
+    }
+}
 
 @main
 struct NexusliveApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var backend: Backend
     @StateObject private var ledger: Ledger
+    @StateObject private var router = AppRouter.shared
 
     init() {
         let backend = Backend()
+        let ledger = Ledger(backend: backend)
         _backend = StateObject(wrappedValue: backend)
-        _ledger = StateObject(wrappedValue: Ledger(backend: backend))
+        _ledger = StateObject(wrappedValue: ledger)
+        AppServices.ledger = ledger
     }
 
     var body: some Scene {
@@ -16,8 +31,10 @@ struct NexusliveApp: App {
             RootView()
                 .environmentObject(backend)
                 .environmentObject(ledger)
+                .environmentObject(router)
                 .tint(Theme.accent)
                 .preferredColorScheme(.dark)
+                .onOpenURL { router.handle($0) }
         }
     }
 }
@@ -29,6 +46,7 @@ enum Theme {
 struct RootView: View {
     @EnvironmentObject private var backend: Backend
     @EnvironmentObject private var ledger: Ledger
+    @EnvironmentObject private var router: AppRouter
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -40,15 +58,30 @@ struct RootView: View {
         } else if backend.locked {
             LockView()
         } else {
-            TabView {
-                LogView().tabItem { Label("Log", systemImage: "plus.circle") }
-                DecideView().tabItem { Label("Decide", systemImage: "arrow.triangle.branch") }
-                PlanView().tabItem { Label("Plan", systemImage: "calendar") }
-                MoneyView().tabItem { Label("Money", systemImage: "chart.bar") }
+            TabView(selection: $router.tab) {
+                HomeView().tabItem { Label("Home", systemImage: "house") }.tag(AppRouter.Tab.home)
+                SpendView().tabItem { Label("Spend", systemImage: "creditcard") }.tag(AppRouter.Tab.spend)
+                DecideView().tabItem { Label("Decide", systemImage: "arrow.triangle.branch") }.tag(AppRouter.Tab.decide)
+                PlanView().tabItem { Label("Plan", systemImage: "chart.line.uptrend.xyaxis") }.tag(AppRouter.Tab.plan)
+                SettingsView().tabItem { Label("Settings", systemImage: "gearshape") }.tag(AppRouter.Tab.settings)
             }
-            .task { await ledger.reload() }
+            .sheet(item: $router.buyDraft) { draft in PurchaseForm(draft: draft) }
+            .sheet(isPresented: $router.showReview) { NavigationStack { SundayReviewView() } }
+            .sheet(isPresented: $router.showClose) { NavigationStack { CloseView() } }
+            .sheet(isPresented: $router.showPurchases) { NavigationStack { PurchaseReviewView() } }
+            .task {
+                UsageClock.shared.start()
+                await ledger.reload()
+            }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .background { backend.locked = true }
+                switch phase {
+                case .active: UsageClock.shared.start()
+                case .background:
+                    UsageClock.shared.stop()
+                    BackgroundRefresh.schedule()
+                    backend.locked = true
+                default: break
+                }
             }
         }
     }

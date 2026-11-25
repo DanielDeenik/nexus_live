@@ -23,6 +23,19 @@ final class Ledger: ObservableObject {
     @Published var baseCurrency: String = Locale.current.currency?.identifier ?? "EUR"
     @Published var error: String?
     @Published var loading = false
+    // v2: receipts, recurring charges and their review, cancel routes, alerts, Wallet taps,
+    // month closes, the review queue, two of the seven numbers and the mailbox.
+    @Published var receipts: [Receipt] = []
+    @Published var recurring: [RecurringCharge] = []
+    @Published var routes: [CancelRoute] = []
+    @Published var alerts: [AlertItem] = []
+    @Published var taps: [WalletTap] = []
+    @Published var closes: [MonthClose] = []
+    @Published var reviewQueue: [ReviewLine] = []
+    @Published var measures: ServerMeasures?
+    @Published var mailbox: MailboxStatus?
+    @Published var spendError: String?
+    @Published var fxToEUR: [String: Double] = [:]
 
     let backend: Backend
 
@@ -38,16 +51,17 @@ final class Ledger: ObservableObject {
             let profiles: [Profile] = try await backend.select("profiles", "select=id,base_currency&id=eq.\(uid)")
             if let currency = profiles.first?.base_currency, !currency.isEmpty { baseCurrency = currency }
             let config: [ConfigEntry] = try await backend.select("app_config",
-                "select=key,value&or=(key.like.purchase.*,key.like.budget.*,key.eq.storage.documents_bucket)")
+                "select=key,value&or=(key.like.purchase.*,key.like.budget.*,key.eq.storage.documents_bucket,key.like.target.*,key.like.plan.*,key.like.food.*,key.like.stop.*,key.like.review.*,key.like.measures.*,key.like.notifications.*,key.eq.integrations.fx.api_base)")
             settings = Dictionary(config.map { ($0.key, $0.value) }, uniquingKeysWith: { first, _ in first })
 
-            let months = averageMonths ?? 0
+            // Enough months for the averages and for the spend chart; a split line comes in per part.
+            let months = max(averageMonths ?? 0, Int(number("plan.chart_months") ?? 0))
             let since = Day.string(Calendar.current.date(byAdding: .month, value: -months, to: Day.monthStart()) ?? Date())
             let classes = spendClasses.sorted().joined(separator: ",")
             if classes.isEmpty {
                 transactions = []
             } else {
-                transactions = try await selectAll("nx_transactions",
+                transactions = try await selectAll("nx_spend_lines",
                     "select=id,booked_on,amount,currency,merchant,category,class,rail,review_status,decision_id&booked_on=gte.\(since)&class=in.(\(classes))&order=booked_on.desc,created_at.desc,id.desc")
             }
             expenses = try await backend.select("expenses",
@@ -65,6 +79,7 @@ final class Ledger: ObservableObject {
             summary = try JSONDecoder().decode(MoneySummary.self, from: JSONSerialization.data(withJSONObject: raw))
             error = nil
             Task { await self.refreshOverview() }
+            await reloadSpend()
         } catch {
             self.error = error.localizedDescription
         }
@@ -98,10 +113,11 @@ final class Ledger: ObservableObject {
 
     // MARK: Budgets
 
-    /// The newest budget per category.
+    /// The newest budget per category that is valid today; a future-dated line waits for its date.
     var currentBudgets: [Budget] {
         var seen = Set<String>()
-        return budgets.filter { seen.insert($0.category).inserted }
+        let today = Day.string(Date())
+        return budgets.filter { $0.valid_from <= today && seen.insert($0.category).inserted }
     }
 
     /// Categories to budget: current budgets first, then anything spent on.
@@ -434,8 +450,10 @@ final class Ledger: ObservableObject {
 
     /// Logs a Buy check: the tier and the end of the wait come from app_config; a usage bet is added
     /// when `useProbability` is given (Major purchases and new subscriptions).
+    @discardableResult
     func addPurchaseCheck(item: String, amount: Double, category: String, business: Bool,
-                          alternative: String?, useProbability: Double?) async throws {
+                          alternative: String?, useProbability: Double?, purpose: String? = nil, urge: String? = nil,
+                          entry: String? = nil, appName: String? = nil) async throws -> Decision {
         guard let tier = tier(for: amount) else { throw BudgetError.missingSetting("purchase.small_below or purchase.major_from") }
         guard let wait = waitUntil(for: tier) else { throw BudgetError.missingSetting("purchase wait for \(tier)") }
         var row: [String: Any] = [
@@ -449,7 +467,11 @@ final class Ledger: ObservableObject {
             "tier": tier,
             "wait_until": ISO8601DateFormatter().string(from: wait),
             "purchase_status": "waiting",
-            "else_action": orNull(alternative)
+            "else_action": orNull(alternative),
+            "purpose": orNull(purpose),
+            "urge": orNull(urge),
+            "entry": orNull(entry),
+            "app_name": orNull(appName)
         ]
         if let useProbability {
             guard let days = number("purchase.use_bet_days"),
@@ -459,8 +481,9 @@ final class Ledger: ObservableObject {
             row["probability"] = useProbability
             row["resolve_by"] = Day.string(due)
         }
-        try await backend.insert("nx_decisions", row)
+        let check: Decision = try await backend.insertReturning("nx_decisions", row)
         await reload()
+        return check
     }
 
     func setPurchase(_ check: Decision, status: String) async throws {
@@ -480,12 +503,13 @@ final class Ledger: ObservableObject {
         await reload()
     }
 
+    /// A new cap applies from today (a line dated earlier this month would lose to a newer one).
     func setBudget(category: String, amount: Double) async throws {
         try await backend.upsert("nx_budgets", [
             "category": category,
             "monthly_amount": amount,
             "currency": baseCurrency,
-            "valid_from": Day.string(Day.monthStart())
+            "valid_from": Day.string(Date())
         ], onConflict: "user_id,category,valid_from")
         await reload()
     }

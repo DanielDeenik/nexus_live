@@ -108,14 +108,14 @@ struct DecideView: View {
                         Button("Bought") { act { try await ledger.setPurchase(check, status: "bought") } }.tint(.green)
                     }
                     .swipeActions(edge: .trailing) {
-                        Button("Dropped") { act { try await ledger.setPurchase(check, status: "dropped") } }.tint(.orange)
+                        Button("Skip and save") { act { try await ledger.setPurchase(check, status: "dropped") } }.tint(.teal)
                         Button("Delete", role: .destructive) { act { try await ledger.delete(check) } }
                     }
             }
         }
         Section("Kept this month") {
             HStack {
-                Text("Dropped after the wait")
+                Text("Skipped and saved")
                 Spacer()
                 Text(Money.format(ledger.keptThisMonth, ledger.baseCurrency)).monospacedDigit().foregroundStyle(Theme.accent)
             }
@@ -279,14 +279,24 @@ struct BetForm: View {
 struct PurchaseForm: View {
     @EnvironmentObject private var ledger: Ledger
     @Environment(\.dismiss) private var dismiss
-    @State private var item = ""
-    @State private var amountText = ""
+    let draft: BuyDraft
+    @State private var item: String
+    @State private var amountText: String
     @State private var category = ""
     @State private var business = false
     @State private var subscription = false
     @State private var alternative = ""
+    @State private var purpose = ""
+    @State private var urge = ""
     @State private var useProbability = 0.6
     @State private var error: String?
+
+    /// Opened from + in the app, or prefilled by a shopping app's Shortcut, the share sheet, the widget or Siri.
+    init(draft: BuyDraft = BuyDraft()) {
+        self.draft = draft
+        _item = State(initialValue: draft.item)
+        _amountText = State(initialValue: draft.amount.map { String($0) } ?? "")
+    }
 
     private var amount: Double? {
         guard let value = Money.parse(amountText), value > 0 else { return nil }
@@ -303,6 +313,9 @@ struct PurchaseForm: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let app = draft.appName {
+                    Section { Label("You opened \(app). First: is it planned?", systemImage: "hand.raised").font(.callout) }
+                }
                 Section {
                     TextField("What do you want to buy?", text: $item)
                     TextField("Amount (\(ledger.baseCurrency))", text: $amountText).keyboardType(.decimalPad)
@@ -312,6 +325,24 @@ struct PurchaseForm: View {
                     }
                     Toggle("For the business", isOn: $business)
                     Toggle("It's a subscription", isOn: $subscription)
+                }
+                if !ledger.purposeTags.isEmpty || !ledger.urgeTags.isEmpty {
+                    Section {
+                        if !ledger.purposeTags.isEmpty {
+                            Picker("It serves", selection: $purpose) {
+                                Text("Pick one").tag("")
+                                ForEach(ledger.purposeTags, id: \.self) { Text($0).tag($0) }
+                            }
+                        }
+                        if !ledger.urgeTags.isEmpty {
+                            Picker("The urge", selection: $urge) {
+                                Text("Pick one").tag("")
+                                ForEach(ledger.urgeTags, id: \.self) { Text($0.capitalized).tag($0) }
+                            }
+                        }
+                    } footer: {
+                        Text("Naming the urge makes the pattern visible; naming what the money serves is the if-then rule at work (Gollwitzer and Sheeran 2006).")
+                    }
                 }
                 if let amount, let tier {
                     Section("Check") {
@@ -330,6 +361,7 @@ struct PurchaseForm: View {
                             LabeledContent("Wait until", value: until.formatted(date: .abbreviated, time: .shortened))
                         }
                         taxLines(amount)
+                        valueLines(amount)
                     }
                 }
                 if needsAlternative {
@@ -377,14 +409,33 @@ struct PurchaseForm: View {
         }
     }
 
+    /// What else the money could do: its value after the forecast years at your return, and the days
+    /// of your monthly investing it takes (Frederick et al. 2009: naming the alternative cut purchases).
+    @ViewBuilder private func valueLines(_ amount: Double) -> some View {
+        if !business, let r = ledger.returnPct, let years = ledger.forecastYears {
+            LabeledContent("Worth in \(years) years", value: Money.format(PlanMath.futureValue(amount, yearlyPct: r, years: Double(years)), ledger.baseCurrency))
+        }
+        if !business, let invest = ledger.monthlyInvest, let days = PlanMath.daysOfInvesting(price: amount, monthlyInvest: invest) {
+            LabeledContent(ledger.goalName.isEmpty ? "Days of investing" : "Days of \(ledger.goalName) investing",
+                           value: days.formatted(.number.precision(.fractionLength(1))))
+        }
+    }
+
     private func save() {
         guard let value = amount else { return }
         let note = alternative.trimmingCharacters(in: .whitespacesAndNewlines)
         let probability: Double? = needsBet ? useProbability : nil
         Task {
             do {
-                try await ledger.addPurchaseCheck(item: item, amount: value, category: category, business: business,
-                                                  alternative: note.isEmpty ? nil : note, useProbability: probability)
+                let check = try await ledger.addPurchaseCheck(item: item, amount: value, category: category, business: business,
+                                                              alternative: note.isEmpty ? nil : note, useProbability: probability,
+                                                              purpose: purpose.isEmpty ? nil : purpose, urge: urge.isEmpty ? nil : urge,
+                                                              entry: draft.entry, appName: draft.appName)
+                if let end = Day.timestamp(check.wait_until), check.tier != "small" {
+                    if !(await NotificationService.shared.permissionGranted()) { await NotificationService.shared.requestPermission() }
+                    await NotificationService.shared.scheduleReask(checkId: check.id, item: item, amount: value,
+                                                                   currency: ledger.baseCurrency, at: end)
+                }
                 dismiss()
             } catch {
                 self.error = error.localizedDescription

@@ -292,6 +292,23 @@ final class Backend: ObservableObject {
         try await send("POST", "functions/v1/nexus/\(route)", body: body, timeout: 150)
     }
 
+    /// Calls the spend function (receipts, mailbox, review, close) as the signed-in user.
+    func spend(_ body: [String: Any]) async throws -> Data {
+        try await send("POST", "functions/v1/spend", body: body, timeout: 150)
+    }
+
+    /// Inserts one row and returns it as stored (with its id).
+    func insertReturning<T: Decodable>(_ table: String, _ row: [String: Any]) async throws -> T {
+        let data = try await send("POST", "rest/v1/\(table)", body: row, prefer: "return=representation")
+        guard let first = try decoder.decode([T].self, from: data).first else { throw APIError.badResponse }
+        return first
+    }
+
+    /// Updates every row matching a PostgREST filter, for example "id=in.(a,b)".
+    func updateWhere(_ table: String, _ filter: String, _ fields: [String: Any]) async throws {
+        _ = try await send("PATCH", "rest/v1/\(table)?\(filter)", body: fields, prefer: "return=minimal")
+    }
+
     /// Stores a file in a private bucket; the path must start with the signed-in user's id.
     func upload(bucket: String, path: String, data: Data, contentType: String) async throws {
         _ = try await transport("POST", "storage/v1/object/\(bucket)/\(path)", body: data, contentType: contentType, timeout: 150)

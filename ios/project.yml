@@ -37,3 +37,37 @@ targets:
         NSFaceIDUsageDescription: Face ID unlocks Nexuslive and signs you in.
         NXSupabaseURL: $(IV_SUPABASE_URL)
         NXSupabaseAnonKey: $(IV_SUPABASE_ANON_KEY)
+        NXURLScheme: nexuslive
+        CFBundleURLTypes:
+          - CFBundleURLName: $(PRODUCT_BUNDLE_IDENTIFIER)
+            CFBundleURLSchemes: [nexuslive]
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [$(PRODUCT_BUNDLE_IDENTIFIER).refresh]
+        NSCameraUsageDescription: Nexuslive reads a receipt you photograph to split staples from luxury.
+    dependencies:
+      - target: NexusliveWidget
+  NexusliveWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(IV_BUNDLE_ID).widget
+        DEVELOPMENT_TEAM: $(IV_TEAM_ID)
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.9"
+        MARKETING_VERSION: $(IV_MARKETING_VERSION)
+        CURRENT_PROJECT_VERSION: $(IV_BUILD_NUMBER)
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Widget/Info.plist
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Nexuslive
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NXURLScheme: nexuslive
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension

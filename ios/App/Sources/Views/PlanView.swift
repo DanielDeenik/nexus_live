@@ -2,9 +2,104 @@ import SwiftUI
 import Charts
 import UniformTypeIdentifiers
 
+/// Plan: net worth forecast as the one chart, with spending as now against on plan and the return
+/// band; the sliders that move it; and one tap down the Mallorca income path, the recurring charges
+/// with your cut list, and the tax year (bills, payments, reserve, structure).
+struct PlanView: View {
+    @EnvironmentObject private var ledger: Ledger
+    @State private var invest = 0.0
+    @State private var returnPct = 0.0
+    @State private var withdrawal = 0.0
+    @State private var loaded = false
+    @State private var recordingNetWorth = false
+
+    private var months: Int { (ledger.forecastYears ?? 0) * 12 }
+    private var start: Double { max(0, ledger.netWorthParts?.total ?? 0) }
+
+    private func dated(_ values: [Double]) -> [ChartPoint] {
+        let first = Day.monthStart()
+        return values.enumerated().compactMap { i, v in
+            Calendar.current.date(byAdding: .month, value: i, to: first).map { ChartPoint(date: $0, value: v) }
+        }
+    }
+
+    private var onPlan: [Double] { PlanMath.capitalPath(start: start, monthly: invest, yearlyPct: returnPct, months: months) }
+    private var asNow: [Double] { PlanMath.capitalPath(start: start, monthly: max(0, invest - ledger.planGap), yearlyPct: returnPct, months: months) }
+
+    private var band: [BandPoint] {
+        let low = PlanMath.capitalPath(start: start, monthly: invest, yearlyPct: max(0, returnPct - ledger.returnBand), months: months)
+        let high = PlanMath.capitalPath(start: start, monthly: invest, yearlyPct: returnPct + ledger.returnBand, months: months)
+        return zip(dated(low), high).map { BandPoint(date: $0.date, low: $0.value, high: $1) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    if let last = onPlan.last, let years = ledger.forecastYears {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(Money.format(last, ledger.baseCurrency))
+                                .font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                            Text("net worth in \(years) years on plan; \(Money.format(asNow.last ?? 0, ledger.baseCurrency)) if spending stays as now")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        ChartCard(title: "Net worth forecast", caption: "Band: return \(ledger.returnBand.formatted(.number.precision(.fractionLength(0...1)))) points either side. As now: your average spending above the plan comes out of the monthly invest. Starts from your accounts today.") {
+                            NetWorthChart(band: band, onPlan: dated(onPlan), asNow: dated(asNow), labelled: false)
+                        } large: {
+                            NetWorthChart(band: band, onPlan: dated(onPlan), asNow: dated(asNow))
+                        }
+                    }
+                }
+                if loaded {
+                    Section {
+                        if let step = ledger.effectiveNumber("plan.invest_step_eur") {
+                            SettingSlider(title: "Invest a month", value: $invest,
+                                          range: SliderRange(min: 0, max: ledger.investSliderMax, step: step),
+                                          format: { Money.format($0, ledger.baseCurrency) }) { v in
+                                Task { await ledger.setUserSetting("invest.monthly_target_eur", v) }
+                            }
+                        }
+                        if let range = ledger.range("plan.return_range") {
+                            SettingSlider(title: "Return after inflation", value: $returnPct, range: range,
+                                          format: { "\($0.formatted(.number.precision(.fractionLength(1))))% a year" }) { v in
+                                Task { await ledger.setUserSetting("plan.return_real_pct", v) }
+                            }
+                        }
+                        if let range = ledger.range("plan.withdrawal_range") {
+                            SettingSlider(title: "Withdrawal rate", value: $withdrawal, range: range,
+                                          format: { "\($0.formatted(.number.precision(.fractionLength(1))))% a year" }) { v in
+                                Task { await ledger.setUserSetting("plan.withdrawal_rate_pct", v) }
+                            }
+                        }
+                    } footer: {
+                        Text("Every forecast shows its assumption: personal projections changed what people saved (Goda, Manchester and Sojourner 2014).")
+                    }
+                }
+                Section {
+                    NavigationLink { PurchaseReviewView() } label: { Label("Recurring charges and your cuts", systemImage: "arrow.triangle.2.circlepath") }
+                    NavigationLink { TaxPlanView() } label: { Label("Tax year, payments and structure", systemImage: "building.columns") }
+                    Button { recordingNetWorth = true } label: { Label("Record today's net worth", systemImage: "square.and.pencil") }
+                }
+            }
+            .navigationTitle("Plan")
+            .refreshable { await ledger.reload() }
+            .sheet(isPresented: $recordingNetWorth) { NetWorthForm() }
+            .onAppear(perform: load)
+        }
+    }
+
+    private func load() {
+        guard let r = ledger.returnPct, let w = ledger.withdrawalPct else { return }
+        returnPct = r
+        withdrawal = w
+        invest = ledger.monthlyInvest ?? 0
+        loaded = true
+    }
+}
+
 /// The year ahead: days to bill, when each payment lands, the tax in it, what can be invested,
 /// eenmanszaak against a BV, and what-ifs. Every number comes from the live forecast (nexus/forecast).
-struct PlanView: View {
+struct TaxPlanView: View {
     @EnvironmentObject private var ledger: Ledger
     @State private var editing = false
     @State private var importing = false
@@ -13,7 +108,6 @@ struct PlanView: View {
     @State private var error: String?
 
     var body: some View {
-        NavigationStack {
             List {
                 if let forecast = ledger.forecast {
                     TaxYearSection(forecast: forecast, reserves: ledger.reserves)
@@ -34,11 +128,11 @@ struct PlanView: View {
                 }
                 invoicesSection
             }
-            .navigationTitle("Plan")
+            .navigationTitle("Tax year")
             .refreshable { await ledger.reload() }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Settings") { editing = true }
+                    Button("Edit") { editing = true }
                 }
             }
             .sheet(isPresented: $editing) { PlanSettingsForm() }
@@ -46,7 +140,6 @@ struct PlanView: View {
                 readInvoice(result)
             }
             .errorAlert($error)
-        }
     }
 
     private var invoicesSection: some View {

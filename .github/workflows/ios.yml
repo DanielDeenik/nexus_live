@@ -39,7 +39,7 @@ jobs:
             printf '%s' "$ASC_KEY_P8_BASE64" | tr -d ' \r\n' | base64 -d > "$key"
           fi
           scripts/check-asc-key.sh "$key" "$ASC_KEY_ID" "$ASC_ISSUER_ID"
-          scripts/ensure-bundle-ids.sh "$key" "$ASC_KEY_ID" "$ASC_ISSUER_ID" "$IV_BUNDLE_ID"
+          scripts/ensure-bundle-ids.sh "$key" "$ASC_KEY_ID" "$ASC_ISSUER_ID" "$IV_BUNDLE_ID" "$IV_BUNDLE_ID.widget"
           # TestFlight needs an app record for this bundle ID. Apple does not allow creating it by API.
           token=$(scripts/asc-token.sh "$key" "$ASC_KEY_ID" "$ASC_ISSUER_ID")
           found=$(curl -s --globoff -H "Authorization: Bearer $token" \

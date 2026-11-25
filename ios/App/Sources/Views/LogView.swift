@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Record a business expense in a few taps: amount, category, save. Personal spending comes from the bank import.
+/// Record a business expense in a few taps: amount, category, save. Opened from + on Home; personal spending comes from the bank.
 struct LogView: View {
     @EnvironmentObject private var ledger: Ledger
+    @Environment(\.dismiss) private var dismiss
     @State private var amountText = ""
     @State private var category = ""
     @State private var newCategory = ""
@@ -73,7 +74,8 @@ struct LogView: View {
                     }
                 }
             }
-            .navigationTitle("Log")
+            .navigationTitle("Business cost")
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
             .refreshable { await ledger.reload() }
             .sensoryFeedback(.success, trigger: saved)
             .errorAlert($error)
