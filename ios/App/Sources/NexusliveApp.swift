@@ -48,14 +48,32 @@ struct RootView: View {
     @EnvironmentObject private var ledger: Ledger
     @EnvironmentObject private var router: AppRouter
     @Environment(\.scenePhase) private var scenePhase
+    /// True once the tabs have opened. From then on the lock covers the app instead of replacing it,
+    /// so the page you were on, an open sheet and what you typed are still there after Face ID.
+    @State private var opened = false
+
+    private var covered: Bool { opened && backend.locked && backend.session != nil }
 
     var body: some View {
+        content
+            .onChange(of: covered) { _, covered in
+                if covered {
+                    LockCover.shared.show(backend)
+                } else {
+                    LockCover.shared.hide()
+                    // The tabs used to reload when Face ID rebuilt them; they now stay, so reload here.
+                    if backend.session != nil { Task { await ledger.reload() } }
+                }
+            }
+    }
+
+    @ViewBuilder private var content: some View {
         if !backend.isConfigured {
             ContentUnavailableView("Backend not connected", systemImage: "exclamationmark.triangle",
                                    description: Text("This build has no Supabase address."))
         } else if backend.session == nil {
             SignInView()
-        } else if backend.locked {
+        } else if backend.locked && !opened {
             LockView()
         } else {
             TabView(selection: $router.tab) {
@@ -69,6 +87,7 @@ struct RootView: View {
             .sheet(isPresented: $router.showReview) { NavigationStack { SundayReviewView() } }
             .sheet(isPresented: $router.showClose) { NavigationStack { CloseView() } }
             .sheet(isPresented: $router.showPurchases) { NavigationStack { PurchaseReviewView() } }
+            .onAppear { opened = true }
             .task {
                 UsageClock.shared.start()
                 await ledger.reload()
@@ -88,9 +107,9 @@ struct RootView: View {
 }
 
 /// Covers the app until Face ID (or the device passcode) unlocks it.
+/// Reads the app state from UIApplication, so it works inline and inside the cover window alike.
 struct LockView: View {
     @EnvironmentObject private var backend: Backend
-    @Environment(\.scenePhase) private var scenePhase
     @State private var asking = false
     @State private var autoTried = false
 
@@ -104,9 +123,9 @@ struct LockView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
-        .onAppear { if scenePhase == .active { autoUnlock() } }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { autoUnlock() }
+        .onAppear { if UIApplication.shared.applicationState == .active { autoUnlock() } }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            autoUnlock()
         }
     }
 
@@ -124,6 +143,38 @@ struct LockView: View {
             await backend.unlock()
             asking = false
         }
+    }
+}
+
+/// Shows the lock screen in its own window above every page, sheet and alert of the app.
+/// The app underneath is left as it was, so Face ID brings you back to the same place.
+@MainActor
+final class LockCover {
+    static let shared = LockCover()
+    private var window: UIWindow?
+    private weak var previousKey: UIWindow?
+
+    func show(_ backend: Backend) {
+        guard window == nil,
+              let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else { return }
+        // Closes the keyboard so it cannot sit above the lock; the text in the field stays.
+        _ = UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        let host = UIHostingController(rootView: LockView().environmentObject(backend).tint(Theme.accent))
+        host.view.backgroundColor = .systemBackground
+        let cover = UIWindow(windowScene: scene)
+        cover.overrideUserInterfaceStyle = .dark
+        cover.windowLevel = .alert + 1
+        cover.rootViewController = host
+        previousKey = scene.keyWindow
+        cover.makeKeyAndVisible()
+        window = cover
+    }
+
+    func hide() {
+        guard let cover = window else { return }
+        cover.isHidden = true
+        window = nil
+        previousKey?.makeKey()
     }
 }
 
