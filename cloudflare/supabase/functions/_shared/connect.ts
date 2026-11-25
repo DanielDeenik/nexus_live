@@ -5,7 +5,7 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { adminClient, internalSecret, requireEnv, timingSafeEqual } from "./client.ts";
 import { cacheGet, cacheSet } from "./cache.ts";
 
-export type Provider = "google" | "wise" | "etoro" | "enable_banking";
+export type Provider = "google" | "wise" | "etoro" | "enable_banking" | "moneybird";
 /** Where the browser goes after a consent: the web app or the iPhone app. */
 export type ReturnTo = "web" | "app";
 

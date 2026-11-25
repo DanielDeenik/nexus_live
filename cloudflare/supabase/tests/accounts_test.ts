@@ -125,6 +125,16 @@ Deno.test("needs: one Enable Banking item covers the banks until it is set up; e
   assertEquals(after.map((n) => n.code), ["connect_abn"]);
 });
 
+Deno.test("needs: with Moneybird connected, cost lines without an invoice show as one item", () => {
+  const mb = { item: { id: "moneybird", name: "Moneybird", kind: "books", via: "moneybird_token" as const }, status: "connected" as const, detail: null, valid_until: null };
+  const evidence = { missing: 12, missingEur: 345.6, since: "2025-07-01" };
+  const on = buildNeeds(inputs({ services: [mb], evidence }));
+  assertEquals(on.map((n) => [n.code, n.severity, n.title]), [["evidence_missing", "warn", "12 business costs since 2025-07-01 have no invoice in Moneybird (345.60)"]]);
+  assertEquals(buildNeeds(inputs({ services: [mb], evidence: { ...evidence, missing: 0, missingEur: 0 } })).length, 0);
+  const off = buildNeeds(inputs({ services: [{ ...mb, status: "not_connected" as const }], evidence }));
+  assertEquals(off.map((n) => n.code), ["connect_moneybird"]);
+});
+
 Deno.test("eToro: positions with profit, current rate and value from both payload spellings", () => {
   const schema = readEtoroPortfolio({ clientPortfolio: { credit: 120.5, unrealizedPnL: 15, positions: [
     { positionID: 1, instrumentID: 1001, units: 2, openRate: 100, amount: 200, unrealizedPnL: { pnL: 15, closeRate: 107.5 } },

@@ -5,6 +5,7 @@
 //   /functions/v1/nexus/review-decide   human decisions on review items
 //   /functions/v1/nexus/integrations    Google and Wise connections (+ every consent callback)
 //   /functions/v1/nexus/accounts        Accounts screen: balances, freshness, needs, bank/eToro/Wise sync
+//   /functions/v1/nexus/moneybird       the books: receipts prove cost lines, sales invoices pair with invoices
 //   /functions/v1/nexus/admin           service-only maintenance (scheduler secret)
 //   /functions/v1/nexus/dtrack-ingest   Relay pushes confirmed time into DTrack (device token)
 //   /functions/v1/nexus/recruiter       recruiter agent (LangGraph) and role monitor
@@ -21,6 +22,7 @@ import { handler as dtrackIngest } from "../dtrack-ingest/index.ts";
 import { handler as recruiter } from "../recruiter/index.ts";
 import { handler as linkedin } from "../linkedin/index.ts";
 import { handler as models } from "../models/index.ts";
+import { handler as moneybird } from "../moneybird/index.ts";
 import { json, preflight } from "../_shared/cors.ts";
 
 const routes: Record<string, (req: Request) => Promise<Response>> = {
@@ -35,6 +37,7 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
   "recruiter": recruiter,
   "linkedin": linkedin,
   "models": models,
+  "moneybird": moneybird,
 };
 
 Deno.serve((req) => {

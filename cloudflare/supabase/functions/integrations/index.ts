@@ -7,11 +7,13 @@
 // POST { action: "google_finish", code, state }       signed in; must be the user who started the flow
 // POST { action: "google_settings", drive_folder_id } signed in
 // POST { action: "wise_connect", token, profile_id? } signed in
+// POST { action: "moneybird_connect", token, administration_id? } signed in
 // POST { action: "disconnect", provider }             signed in
 import { adminClient, requireEnv, userIdFromRequest } from "../_shared/client.ts";
 import { loadConfig } from "../_shared/config.ts";
 import { json, preflight } from "../_shared/cors.ts";
 import { claimState, peekState, redirectUri, saveConnection, signState } from "../_shared/connect.ts";
+import { administrations, mbClient } from "../_shared/moneybird.ts";
 
 export async function handler(req: Request): Promise<Response> {
   const pf = preflight(req);
@@ -95,6 +97,25 @@ export async function handler(req: Request): Promise<Response> {
         if (!pick) return json({ error: "no Wise profile found" }, 400);
         await saveConnection(db, userId, "wise", token, { account_label: `${pick.type} ${pick.id}`, settings: { wise_profile_id: pick.id } });
         return json({ ok: true, profile: pick });
+      }
+      case "moneybird_connect": {
+        const token = String(body.token ?? "").trim();
+        if (!token) return json({ error: "token required" }, 400);
+        const cfg = await loadConfig(db);
+        const base = cfg["integrations.moneybird.api_base"];
+        if (!base) return json({ error: "app_config integrations.moneybird.api_base is missing" }, 503);
+        let admins: { id: string; name: string }[];
+        try {
+          admins = await administrations(mbClient(base, token, Number(cfg["api.moneybird_requests_per_minute"])));
+        } catch (e) {
+          return json({ error: `Moneybird rejected the token (${(e as Error).message})` }, 400);
+        }
+        const pick = body.administration_id ? admins.find((a) => a.id === String(body.administration_id)) : admins.length === 1 ? admins[0] : undefined;
+        if (!pick) {
+          return json({ error: admins.length ? "this token sees more than one administration; choose one" : "this token sees no administration", administrations: admins }, admins.length ? 409 : 400);
+        }
+        await saveConnection(db, userId, "moneybird", token, { account_label: pick.name, settings: { administration_id: pick.id } });
+        return json({ ok: true, administration: pick });
       }
       case "disconnect": {
         await db.from("integration_connections").update({ status: "revoked" }).eq("user_id", userId).eq("provider", body.provider);

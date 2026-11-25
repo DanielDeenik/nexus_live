@@ -309,7 +309,8 @@ async function overview(db: SupabaseClient, cfg: AppConfig, userId: string) {
   const now = today();
   const year = Number(now.slice(0, 4));
   const catalog = parseCatalog(cfg["integrations.catalog"]);
-  const [conns, links, known, all, wise, positions, forecast, reviews, inputs, settings] = await Promise.all([
+  const evidenceSince = cfg["moneybird.sync_from"] ?? null;
+  const [conns, links, known, all, wise, positions, forecast, reviews, inputs, settings, unproven] = await Promise.all([
     connections(db, userId),
     bankLinks(db, userId),
     nexusAccounts(db, userId),
@@ -320,8 +321,11 @@ async function overview(db: SupabaseClient, cfg: AppConfig, userId: string) {
     db.from("review_items").select("id, summary, item_type, reason_codes").eq("user_id", userId).eq("status", "open").order("created_at"),
     db.from("nx_tax_year_inputs").select("year").eq("user_id", userId).eq("year", year + 1),
     db.from("nx_user_settings").select("key, value").eq("user_id", userId).eq("key", "needs.dismissed"),
+    evidenceSince
+      ? db.from("expenses").select("amount").eq("user_id", userId).gte("date", evidenceSince).neq("status", "rejected").is("evidence_path", null)
+      : Promise.resolve({ data: [] as { amount: number }[], error: null }),
   ]);
-  for (const r of [wise, positions, forecast, reviews, inputs, settings]) if (r.error) throw new Error(r.error.message);
+  for (const r of [wise, positions, forecast, reviews, inputs, settings, unproven]) if (r.error) throw new Error(r.error.message);
 
   const fed = new Map<string, LinkAccount>();
   for (const l of links) if (l.status !== "revoked") for (const a of l.accounts) fed.set(`${a.source}|${a.account}`, a);
@@ -354,6 +358,7 @@ async function overview(db: SupabaseClient, cfg: AppConfig, userId: string) {
       }
       case "wise_token": return fromConn(conns.get("wise"));
       case "etoro_keys": return fromConn(conns.get("etoro"));
+      case "moneybird_token": return fromConn(conns.get("moneybird"));
       case "google_oauth": return googleReady ? fromConn(conns.get("google"))
         : { item, status: "unavailable", detail: "Google sign-in is not set up on the server yet (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET).", valid_until: null };
       default: return { item, status: "unavailable", detail: null, valid_until: null };
@@ -372,6 +377,9 @@ async function overview(db: SupabaseClient, cfg: AppConfig, userId: string) {
     reviews: (reviews.data ?? []).map((r) => ({ id: r.id as string, summary: r.summary as string, item_type: r.item_type as string, reason_codes: (r.reason_codes ?? []) as string[] })),
     nextYearPlanned: (inputs.data ?? []).length > 0, nextYear: year + 1,
     manual, dismissed, formatMoney: (x) => fmt.format(x),
+    evidence: evidenceSince
+      ? { missing: (unproven.data ?? []).length, missingEur: round2((unproven.data ?? []).reduce((s, r) => s + Math.abs(Number(r.amount)), 0)), since: evidenceSince }
+      : undefined,
   });
 
   const et = conns.get("etoro");

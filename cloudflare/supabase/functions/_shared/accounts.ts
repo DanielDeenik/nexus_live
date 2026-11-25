@@ -6,7 +6,7 @@ export interface CatalogItem {
   id: string;
   name: string;
   kind: string;
-  via: "enable_banking" | "enable_banking_app" | "wise_token" | "etoro_keys" | "google_oauth";
+  via: "enable_banking" | "enable_banking_app" | "wise_token" | "etoro_keys" | "google_oauth" | "moneybird_token";
   aspsp?: string;
   country?: string;
   source?: string;
@@ -143,6 +143,8 @@ export interface NeedInputs {
   manual: { code: string; title: string; detail: string; until?: string }[];
   dismissed: Set<string>;
   formatMoney: (x: number) => string;
+  /** Business cost lines since a date that no receipt proves yet (shown once the books are connected). */
+  evidence?: { missing: number; missingEur: number; since: string };
 }
 
 /** What approve and reject do for a review item, in words; null when the app cannot decide it. */
@@ -214,6 +216,14 @@ export function buildNeeds(i: NeedInputs): Need[] {
     } else if (s.status === "unavailable" && !s.item.optional) {
       add({ code: `unavailable_${s.item.id}`, severity: "info", title: `${s.item.name} cannot connect yet`, detail: s.detail ?? "Not set up on the server.", action: "none", service_id: s.item.id, dismissible: true });
     }
+  }
+  const books = i.services.find((s) => s.item.via === "moneybird_token");
+  if (books?.status === "connected" && i.evidence && i.evidence.missing > 0) {
+    add({
+      code: "evidence_missing", severity: "warn",
+      title: `${i.evidence.missing} business costs since ${i.evidence.since} have no invoice in ${books.item.name} (${i.formatMoney(i.evidence.missingEur)})`,
+      detail: "Forward each invoice to the Moneybird inbox address; Nexus links it the next morning.", action: "none", service_id: books.item.id,
+    });
   }
   if (!i.nextYearPlanned) {
     add({ code: `plan_${i.nextYear}`, severity: "info", title: `Plan your days off in ${i.nextYear}`, detail: "The next-year tax and the monthly set-aside assume you work every working day.", action: "plan", dismissible: true });
