@@ -145,6 +145,51 @@ export function matchEvidence(docs: MbDoc[], costs: CostLine[], o: MatchOptions)
   return out;
 }
 
+export interface InstalmentOptions {
+  toleranceEur: number; // rounding the insurer allows per debit
+  periodDays: number; // how long after its date the invoice keeps being collected
+  windowDays: number; // how early a debit may come before the invoice date
+  minLines: number; // debits it takes before an invoice counts as paid in instalments
+  linked?: Map<string, { count: number; sum: number }>; // per document: debits it already proves
+  taken?: Set<string>; // cost lines matched one to one in this run
+  aliases?: Record<string, string>;
+}
+
+/** An invoice for a period paid in parts (insurance billed for the year, debited monthly) proves
+ *  each debit of that shop in its period, earliest first, while together they stay within its
+ *  total. A document already matched to a single line stays out. */
+export function matchInstalments(docs: MbDoc[], costs: CostLine[], o: InstalmentOptions): Map<string, string> {
+  const out = new Map<string, string>();
+  const plans = docs
+    .filter((d) => d.kind === "purchase_invoice" && d.date && d.total_incl != null && d.total_incl > 0)
+    .sort((a, b) => a.date!.localeCompare(b.date!));
+  for (const d of plans) {
+    const had = o.linked?.get(d.id) ?? { count: 0, sum: 0 };
+    if (had.count === 1) continue;
+    const total = d.total_incl!;
+    const start = dayNumber(d.date!);
+    const fits = costs
+      .filter((c) =>
+        !c.evidence_path && !o.taken?.has(c.id) && !out.has(c.id) && c.currency === d.currency &&
+        Math.abs(c.amount) < total - o.toleranceEur &&
+        dayNumber(c.date) >= start - o.windowDays && dayNumber(c.date) <= start + o.periodDays &&
+        sameShop(d.contact, c.vendor ?? c.description, o.aliases)
+      )
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const pick: string[] = [];
+    let sum = had.sum;
+    for (const c of fits) {
+      const next = round2(sum + Math.abs(c.amount));
+      if (next > total + o.toleranceEur * (had.count + pick.length + 1)) break;
+      pick.push(c.id);
+      sum = next;
+    }
+    if (had.count + pick.length < o.minLines) continue;
+    for (const id of pick) out.set(id, d.id);
+  }
+  return out;
+}
+
 export interface NexusInvoice {
   id: string;
   invoice_number: string | null;

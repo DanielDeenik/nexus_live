@@ -1,7 +1,7 @@
 // Moneybird link rules on made-up documents and cost lines: how a Moneybird
 // document is read, which cost line it proves, and how sales invoices pair up.
 import { assertEquals } from "jsr:@std/assert@1";
-import { type CostLine, linkSalesInvoices, matchEvidence, type MbDoc, externalSalesInvoice, normalizeDoc, sameShop, toEuro } from "../functions/_shared/moneybird.ts";
+import { type CostLine, linkSalesInvoices, matchEvidence, matchInstalments, type MbDoc, externalSalesInvoice, normalizeDoc, sameShop, toEuro } from "../functions/_shared/moneybird.ts";
 
 const doc = (over: Partial<MbDoc>): MbDoc => ({
   id: "1", kind: "receipt", version: 1, date: "2026-06-09", reference: null, contact: "Anthropic, PBC",
@@ -118,4 +118,44 @@ Deno.test("external sales invoice: hours times rate when they add up, one line o
   const odd = externalSalesInvoice({ ...inv, hours: 100, due_date: null, description: "Consulting, October" }, { contact_id: "c1", tax_rate_id: null, ledger_account_id: null });
   assertEquals(odd.external_sales_invoice.details_attributes, [{ description: "Consulting, October", amount: "1", price: "32560" }]);
   assertEquals("due_date" in odd.external_sales_invoice, false);
+});
+
+// An insurer bills the year once and collects it monthly: a first instalment with the one-off
+// costs, then equal debits. Made-up figures in that shape.
+const yearly = (over: Partial<MbDoc> = {}): MbDoc =>
+  doc({ id: "y1", kind: "purchase_invoice", date: "2026-01-12", contact: "Insurer SA", total_incl: 1200, total_incl_eur: 1200, total_excl_eur: 1200, ...over });
+const debit = (id: string, date: string, amount: number, over: Partial<CostLine> = {}): CostLine =>
+  cost({ id, date, amount, vendor: "INSURER SA INSURER SA", ...over });
+const plan = [debit("feb", "2026-02-23", 200), debit("mar", "2026-03-20", 100), debit("apr", "2026-04-20", 100), debit("may", "2026-05-21", 100)];
+const inst = { toleranceEur: 0.05, periodDays: 366, windowDays: 10, minLines: 2 };
+
+Deno.test("instalments: an invoice for the year proves each debit of that shop in its period", () => {
+  const m = matchInstalments([yearly()], plan, inst);
+  assertEquals([...m.keys()].sort(), ["apr", "feb", "mar", "may"]);
+  assertEquals(new Set(m.values()), new Set(["y1"]));
+});
+
+Deno.test("instalments: one debit below the total proves nothing until a second one arrives", () => {
+  assertEquals(matchInstalments([yearly()], [plan[0]], inst).size, 0);
+});
+
+Deno.test("instalments: a later debit joins an invoice that already proves debits, while the total allows", () => {
+  const linked = new Map([["y1", { count: 4, sum: 500 }]]);
+  const later = [debit("jun", "2026-06-22", 100), debit("jul", "2026-07-20", 100)];
+  assertEquals([...matchInstalments([yearly({ total_incl: 600, total_incl_eur: 600 })], later, { ...inst, linked }).keys()], ["jun"]);
+});
+
+Deno.test("instalments: earliest debits first, and none past the total", () => {
+  const m = matchInstalments([yearly({ total_incl: 400, total_incl_eur: 400 })], plan, inst);
+  assertEquals([...m.keys()], ["feb", "mar", "apr"]);
+});
+
+Deno.test("instalments: other shops, dates outside the period, lines taken elsewhere and single matches stay out", () => {
+  const other = debit("other", "2026-03-27", 2.79, { vendor: "WEBSHOP BY PAYMENTS" });
+  const late = debit("late", "2027-02-22", 100);
+  assertEquals([...matchInstalments([yearly()], [...plan, other, late], { ...inst, taken: new Set(["feb"]) }).keys()].sort(), ["apr", "mar", "may"]);
+  assertEquals(matchInstalments([yearly()], plan, { ...inst, linked: new Map([["y1", { count: 1, sum: 1200 }]]) }).size, 0);
+  assertEquals(matchInstalments([yearly({ kind: "receipt" })], plan, inst).size, 0);
+  assertEquals(matchInstalments([yearly({ currency: "USD" })], plan, inst).size, 0);
+  assertEquals(matchInstalments([yearly({ total_incl: 0, total_incl_eur: 0, contact: null })], plan, inst).size, 0);
 });

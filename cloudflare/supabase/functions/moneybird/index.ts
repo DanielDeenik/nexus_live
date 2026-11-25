@@ -7,7 +7,8 @@
 //
 // Reads receipts, purchase invoices and sales invoices (only documents whose
 // version changed), keeps a mirror in nx_moneybird_documents, marks the cost
-// line each receipt proves (expenses.evidence_path = moneybird:<kind>:<id>)
+// line each receipt proves (expenses.evidence_path = moneybird:<kind>:<id>;
+// an invoice paid in instalments proves each debit of its period)
 // and pairs sales invoices with Nexus invoices by number. Read only towards
 // Moneybird. Tolerances, window, start date and pace come from app_config.
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -16,7 +17,7 @@ import { type AppConfig, loadConfig, need } from "../_shared/config.ts";
 import { type Connection, connections, markConnection, readSecret } from "../_shared/connect.ts";
 import { json, preflight } from "../_shared/cors.ts";
 import { eurRate } from "../_shared/fx.ts";
-import { changedDocs, type CostLine, externalSalesInvoice, linkSalesInvoices, matchEvidence, type MbDoc, type MbKind, mbClient, type SalesTemplate, toEuro } from "../_shared/moneybird.ts";
+import { changedDocs, type CostLine, externalSalesInvoice, linkSalesInvoices, matchEvidence, matchInstalments, type MbDoc, type MbKind, mbClient, type SalesTemplate, toEuro } from "../_shared/moneybird.ts";
 
 const KINDS: MbKind[] = ["receipt", "purchase_invoice", "sales_invoice"];
 const DOC_COLS = "id, kind, version, doc_date, reference, contact, currency, total_incl, total_incl_eur, total_excl_eur, state, paid_at, attachments, expense_id, invoice_id";
@@ -93,15 +94,34 @@ export async function syncUser(db: SupabaseClient, cfg: AppConfig, userId: strin
     linkedDocIds: new Set(docs.filter((d) => d.expense_id).map((d) => d.id)),
     aliases,
   });
+  // An invoice paid in instalments (insurance billed for the year, debited monthly) proves each
+  // debit of that shop in its period; what it already proves counts against its total.
+  const proven = await db.from("expenses").select("amount, evidence_path").eq("user_id", userId).like("evidence_path", `${evidenceOf("purchase_invoice", "")}%`);
+  if (proven.error) throw new Error(proven.error.message);
+  const linked = new Map<string, { count: number; sum: number }>();
+  for (const p of proven.data ?? []) {
+    const id = String(p.evidence_path).slice(evidenceOf("purchase_invoice", "").length);
+    const l = linked.get(id) ?? { count: 0, sum: 0 };
+    linked.set(id, { count: l.count + 1, sum: Math.round((l.sum + Math.abs(Number(p.amount))) * 100) / 100 });
+  }
+  const instalments = matchInstalments(inEuro, lines, {
+    toleranceEur: need(cfg, "expense_agent.amount_tolerance_eur"),
+    periodDays: need(cfg, "moneybird.instalment_period_days"),
+    windowDays: need(cfg, "moneybird.match_window_days"),
+    minLines: need(cfg, "moneybird.instalment_min_lines"),
+    linked,
+    taken: new Set(matches.keys()),
+    aliases,
+  });
   const byId = new Map(docs.map((d) => [d.id, d]));
-  for (const [costId, docId] of matches) {
+  for (const [costId, docId] of [...matches, ...instalments]) {
     const d = byId.get(docId)!;
     const ex = await db.from("expenses").update({ evidence_path: evidenceOf(d.kind, d.id), updated_at: now })
       .eq("id", costId).eq("user_id", userId).is("evidence_path", null).select("id, invoice_number").maybeSingle();
     if (ex.error) throw new Error(ex.error.message);
     if (!ex.data) continue;
     if (!ex.data.invoice_number && d.reference) await db.from("expenses").update({ invoice_number: d.reference }).eq("id", costId);
-    await db.from("nx_moneybird_documents").update({ expense_id: costId }).eq("user_id", userId).eq("kind", d.kind).eq("id", d.id);
+    await db.from("nx_moneybird_documents").update({ expense_id: costId }).eq("user_id", userId).eq("kind", d.kind).eq("id", d.id).is("expense_id", null);
   }
 
   // Sales invoices pair with the invoices Nexus already holds.
@@ -115,7 +135,7 @@ export async function syncUser(db: SupabaseClient, cfg: AppConfig, userId: strin
   }
 
   await markConnection(db, userId, "moneybird", { status: "active", last_error: null, cursor: { synced_at: now, documents: docs.length } });
-  return { fetched, removed, documents: docs.length, matched: matches.size, sales_linked: sales.size };
+  return { fetched, removed, documents: docs.length, matched: matches.size, instalments: instalments.size, sales_linked: sales.size };
 }
 
 type Detail = { tax_rate_id?: string | number | null; ledger_account_id?: string | number | null };
