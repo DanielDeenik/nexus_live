@@ -1,7 +1,7 @@
 // Moneybird link rules on made-up documents and cost lines: how a Moneybird
 // document is read, which cost line it proves, and how sales invoices pair up.
 import { assertEquals } from "jsr:@std/assert@1";
-import { type CostLine, linkSalesInvoices, matchEvidence, type MbDoc, normalizeDoc } from "../functions/_shared/moneybird.ts";
+import { type CostLine, linkSalesInvoices, matchEvidence, type MbDoc, normalizeDoc, sameShop, toEuro } from "../functions/_shared/moneybird.ts";
 
 const doc = (over: Partial<MbDoc>): MbDoc => ({
   id: "1", kind: "receipt", version: 1, date: "2026-06-09", reference: null, contact: "Anthropic, PBC",
@@ -69,4 +69,36 @@ Deno.test("sales invoices pair with Nexus invoices by number, ignoring case and 
   const docs = [doc({ id: "a", kind: "sales_invoice", reference: "inv 013" }), doc({ id: "b", kind: "sales_invoice", reference: "2026-0001" })];
   const invoices = [{ id: "n13", invoice_number: "INV-013" }, { id: "n12", invoice_number: "INV-012" }];
   assertEquals([...linkSalesInvoices(docs, invoices)], [["a", "n13"]]);
+});
+
+Deno.test("euro: a dollar document gets its euro total from the day's rate; euro documents stay as they are", () => {
+  const usd = doc({ id: "u", currency: "USD", total_incl: 98.7, total_incl_eur: 98.7, date: "2026-08-27" });
+  const eur = doc({ id: "e" });
+  const out = toEuro([usd, eur], (cur, day) => (cur === "USD" && day === "2026-08-27" ? 0.86 : null));
+  assertEquals(out.map((d) => [d.id, d.total_incl_eur]), [["u", 84.88], ["e", 21.78]]);
+  assertEquals(toEuro([usd], () => null)[0].total_incl_eur, null);
+});
+
+Deno.test("shops: a legal name proves a card line under its trade name only through the alias list", () => {
+  const aliases = { ravenpack: "bigdata" };
+  assertEquals(sameShop("RavenPack International S.L.U.", "BLS*BIGDATA SUBSCRIPTIO MARBELLA"), false);
+  assertEquals(sameShop("RavenPack International S.L.U.", "BLS*BIGDATA SUBSCRIPTIO MARBELLA", aliases), true);
+  const usd = doc({ id: "bd", currency: "USD", total_incl: 60.5, total_incl_eur: 52.03, contact: "RavenPack International S.L.U.", date: "2026-11-02" });
+  const card = cost({ id: "c-bd", date: "2026-11-02", amount: 53.33, vendor: "BLS*BIGDATA SUBSCRIPTIO MARBELLA" });
+  assertEquals([...matchEvidence([usd], [card], { ...opts, aliases })], [["c-bd", "bd"]]);
+});
+
+Deno.test("sales invoices: a different number still pairs on currency, amount and date when only one invoice fits", () => {
+  const docs = [
+    doc({ id: "feb", kind: "sales_invoice", reference: "2026-0002", currency: "CAD", total_incl: 29600, date: "2026-02-27" }),
+    doc({ id: "jan", kind: "sales_invoice", reference: "2026-0001", currency: "CAD", total_incl: 22200, date: "2026-01-31" }),
+  ];
+  const invoices = [
+    { id: "n4", invoice_number: "INV-004", amount: 29600, currency: "CAD", issued_date: "2026-02-28" },
+    { id: "n6", invoice_number: "INV-006", amount: 29600, currency: "CAD", issued_date: "2026-04-30" },
+    { id: "n1", invoice_number: "INV-001", amount: 22200, currency: "CAD", issued_date: "2026-01-30" },
+    { id: "n2", invoice_number: "INV-002", amount: 22200, currency: "CAD", issued_date: "2026-01-31" },
+  ];
+  // February has one fit; January has two (INV-001 and INV-002), so it waits for a person.
+  assertEquals([...linkSalesInvoices(docs, invoices, 10)], [["feb", "n4"]]);
 });

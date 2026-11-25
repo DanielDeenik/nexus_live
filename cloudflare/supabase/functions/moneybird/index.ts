@@ -12,7 +12,8 @@ import { adminClient, authorize } from "../_shared/client.ts";
 import { type AppConfig, loadConfig, need } from "../_shared/config.ts";
 import { type Connection, connections, markConnection, readSecret } from "../_shared/connect.ts";
 import { json, preflight } from "../_shared/cors.ts";
-import { changedDocs, type CostLine, linkSalesInvoices, matchEvidence, type MbDoc, type MbKind, mbClient } from "../_shared/moneybird.ts";
+import { eurRate } from "../_shared/fx.ts";
+import { changedDocs, type CostLine, linkSalesInvoices, matchEvidence, type MbDoc, type MbKind, mbClient, toEuro } from "../_shared/moneybird.ts";
 
 const KINDS: MbKind[] = ["receipt", "purchase_invoice", "sales_invoice"];
 const DOC_COLS = "id, kind, version, doc_date, reference, contact, currency, total_incl, total_incl_eur, total_excl_eur, state, paid_at, attachments, expense_id, invoice_id";
@@ -72,11 +73,22 @@ export async function syncUser(db: SupabaseClient, cfg: AppConfig, userId: strin
     .eq("user_id", userId).gte("date", since).neq("status", "rejected").is("evidence_path", null);
   if (costs.error) throw new Error(costs.error.message);
   const lines: CostLine[] = (costs.data ?? []).map((c) => ({ ...c, amount: Number(c.amount), currency: c.currency ?? "EUR" }) as CostLine);
-  const matches = matchEvidence(docs, lines, {
+  // Documents in another currency are compared in euros at the ECB rate of their date.
+  const rates = new Map<string, number | null>();
+  for (const d of docs) {
+    if (d.currency === "EUR" || !d.date || rates.has(`${d.currency}|${d.date}`)) continue;
+    const r = await eurRate(db, setting(cfg, "integrations.fx_api_base"), d.currency, d.date);
+    rates.set(`${d.currency}|${d.date}`, r?.rate ?? null);
+  }
+  const inEuro = toEuro(docs, (cur, day) => rates.get(`${cur}|${day}`) ?? null);
+  let aliases: Record<string, string> = {};
+  try { aliases = JSON.parse(cfg["moneybird.shop_aliases"] ?? "{}"); } catch { /* none */ }
+  const matches = matchEvidence(inEuro, lines, {
     toleranceEur: need(cfg, "expense_agent.amount_tolerance_eur"),
     tolerancePct: need(cfg, "moneybird.fx_tolerance_pct"),
     windowDays: need(cfg, "moneybird.match_window_days"),
     linkedDocIds: new Set(docs.filter((d) => d.expense_id).map((d) => d.id)),
+    aliases,
   });
   const byId = new Map(docs.map((d) => [d.id, d]));
   for (const [costId, docId] of matches) {
@@ -90,9 +102,11 @@ export async function syncUser(db: SupabaseClient, cfg: AppConfig, userId: strin
   }
 
   // Sales invoices pair with the invoices Nexus already holds.
-  const inv = await db.from("invoices").select("id, invoice_number").eq("user_id", userId).is("voided_at", null);
+  const inv = await db.from("invoices").select("id, invoice_number, amount, currency, issued_date").eq("user_id", userId).is("voided_at", null);
   if (inv.error) throw new Error(inv.error.message);
-  const sales = linkSalesInvoices(docs.filter((d) => !d.invoice_id), inv.data ?? []);
+  const pairedIds = new Set(docs.filter((d) => d.invoice_id).map((d) => d.invoice_id as string));
+  const sales = linkSalesInvoices(docs.filter((d) => !d.invoice_id), (inv.data ?? []).filter((i) => !pairedIds.has(i.id)).map((i) => ({ ...i, amount: Number(i.amount) })),
+    need(cfg, "moneybird.match_window_days"));
   for (const [docId, invoiceId] of sales) {
     await db.from("nx_moneybird_documents").update({ invoice_id: invoiceId }).eq("user_id", userId).eq("kind", "sales_invoice").eq("id", docId);
   }

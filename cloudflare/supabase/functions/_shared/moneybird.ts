@@ -43,6 +43,7 @@ export interface MatchOptions {
   tolerancePct: number; // a foreign-currency document against a euro line: percent of the line
   windowDays: number; // document date to payment date
   linkedDocIds?: Set<string>; // documents that already prove a line
+  aliases?: Record<string, string>; // legal name word -> trade name word, from app_config
 }
 
 type Raw = Record<string, unknown>;
@@ -84,9 +85,25 @@ const GENERIC = new Set([
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const tokens = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !GENERIC.has(t));
 
-/** True when a word of one name appears in the other (card lines glue words together). */
-export function sameShop(a: string | null, b: string | null): boolean {
+const round2 = (x: number) => Math.round(x * 100) / 100;
+
+/** Documents in another currency get their euro total from the day's rate (Moneybird's own
+ *  base amount is only filled once a document is processed). No rate, no euro total. */
+export function toEuro(docs: MbDoc[], rate: (currency: string, day: string) => number | null): MbDoc[] {
+  return docs.map((d) => {
+    if (d.currency === "EUR" || d.total_incl == null || !d.date) return d;
+    const r = rate(d.currency, d.date);
+    return { ...d, total_incl_eur: r == null ? null : round2(d.total_incl * r) };
+  });
+}
+
+/** True when a word of one name appears in the other (card lines glue words together).
+ *  Aliases add the trade name for a legal name (RavenPack sells Bigdata.com). */
+export function sameShop(a: string | null, b: string | null, aliases: Record<string, string> = {}): boolean {
   if (!a || !b) return false;
+  const expand = (x: string) => [x, ...Object.entries(aliases).filter(([k]) => squash(x).includes(squash(k))).map(([, v]) => v)].join(" ");
+  a = expand(a);
+  b = expand(b);
   const sa = squash(a), sb = squash(b);
   return tokens(a).some((t) => sb.includes(t)) || tokens(b).some((t) => sa.includes(t));
 }
@@ -103,7 +120,7 @@ export function matchEvidence(docs: MbDoc[], costs: CostLine[], o: MatchOptions)
       const days = Math.abs(dayNumber(d.date) - dayNumber(c.date));
       if (days > o.windowDays) continue;
       const amount = Math.abs(c.amount);
-      const shop = sameShop(d.contact, c.vendor ?? c.description);
+      const shop = sameShop(d.contact, c.vendor ?? c.description, o.aliases);
       let diff: number;
       if (d.currency === c.currency && d.total_incl != null) {
         diff = Math.abs(amount - d.total_incl);
@@ -127,15 +144,29 @@ export function matchEvidence(docs: MbDoc[], costs: CostLine[], o: MatchOptions)
   return out;
 }
 
-/** Moneybird sales invoices paired with Nexus invoices by number (case and separators ignored). */
-export function linkSalesInvoices(docs: MbDoc[], invoices: { id: string; invoice_number: string | null }[]): Map<string, string> {
+export interface NexusInvoice {
+  id: string;
+  invoice_number: string | null;
+  amount?: number | null;
+  currency?: string | null;
+  issued_date?: string | null;
+}
+
+/** Moneybird sales invoices paired with Nexus invoices: by number (case and separators
+ *  ignored), otherwise by currency, amount and date when exactly one invoice fits. */
+export function linkSalesInvoices(docs: MbDoc[], invoices: NexusInvoice[], windowDays = 0): Map<string, string> {
   const byNumber = new Map<string, string>();
   for (const inv of invoices) if (inv.invoice_number) byNumber.set(squash(inv.invoice_number), inv.id);
   const out = new Map<string, string>();
+  const taken = new Set<string>();
   for (const d of docs) {
-    if (d.kind !== "sales_invoice" || !d.reference) continue;
-    const hit = byNumber.get(squash(d.reference));
-    if (hit) out.set(d.id, hit);
+    if (d.kind !== "sales_invoice") continue;
+    const hit = d.reference ? byNumber.get(squash(d.reference)) : undefined;
+    if (hit && !taken.has(hit)) { out.set(d.id, hit); taken.add(hit); continue; }
+    if (!d.date || d.total_incl == null) continue;
+    const fits = invoices.filter((inv) => !taken.has(inv.id) && inv.currency === d.currency && inv.amount != null && inv.issued_date &&
+      Math.abs(Number(inv.amount) - d.total_incl!) < 0.005 && Math.abs(dayNumber(inv.issued_date) - dayNumber(d.date!)) <= windowDays);
+    if (fits.length === 1) { out.set(d.id, fits[0].id); taken.add(fits[0].id); }
   }
   return out;
 }
