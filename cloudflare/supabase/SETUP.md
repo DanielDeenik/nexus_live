@@ -47,16 +47,26 @@ supabase secrets set \
   WISE_API_KEY=... \
   STRIPE_SECRET_KEY=... \
   GOCARDLESS_SECRET_ID=... \
-  GOCARDLESS_SECRET_KEY=...
+  GOCARDLESS_SECRET_KEY=... \
+  GOOGLE_CLIENT_ID=... \
+  GOOGLE_CLIENT_SECRET=...
 ```
+
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` come from a Google OAuth client (type Web application) whose
+authorised redirect URI is `https://YOUR-PROJECT-REF.supabase.co/functions/v1/nexus/integrations`; the app's
+Settings, Gmail screen shows the exact value.
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.
 
 ## 5. Deploy the Edge Functions
 
 ```bash
-supabase functions deploy sync-moneybird sync-wise sync-stripe sync-bank run-agents recalc
+supabase functions deploy nexus spend --no-verify-jwt
 ```
+
+`nexus` routes to the agent modules (expense, tax, forecast, accounts, integrations, moneybird and more);
+`spend` is the v2 budget feed (order emails and Apple receipts, receipt photos, food splits, recurring
+charges, the stop list and the monthly close). Both check the caller themselves.
 
 ## 6. Wire pg_cron secrets (Vault)
 
