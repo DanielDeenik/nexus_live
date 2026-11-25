@@ -1,7 +1,7 @@
 // Moneybird link rules on made-up documents and cost lines: how a Moneybird
 // document is read, which cost line it proves, and how sales invoices pair up.
 import { assertEquals } from "jsr:@std/assert@1";
-import { type CostLine, linkSalesInvoices, matchEvidence, type MbDoc, normalizeDoc, sameShop, toEuro } from "../functions/_shared/moneybird.ts";
+import { type CostLine, linkSalesInvoices, matchEvidence, type MbDoc, externalSalesInvoice, normalizeDoc, sameShop, toEuro } from "../functions/_shared/moneybird.ts";
 
 const doc = (over: Partial<MbDoc>): MbDoc => ({
   id: "1", kind: "receipt", version: 1, date: "2026-06-09", reference: null, contact: "Anthropic, PBC",
@@ -101,4 +101,21 @@ Deno.test("sales invoices: a different number still pairs on currency, amount an
   ];
   // February has one fit; January has two (INV-001 and INV-002), so it waits for a person.
   assertEquals([...linkSalesInvoices(docs, invoices, 10)], [["feb", "n4"]]);
+});
+
+Deno.test("normalize: an external sales invoice reads its date and its own reference", () => {
+  const d = normalizeDoc("sales_invoice", { id: 9, version: 1, date: "2026-03-31", reference: "INV-005", currency: "CAD", total_price_incl_tax: "32560.0", contact: { company_name: "Client Ltd" } });
+  assertEquals([d.date, d.reference, d.total_incl], ["2026-03-31", "INV-005", 32560]);
+});
+
+Deno.test("external sales invoice: hours times rate when they add up, one line otherwise; tax and ledger from the template", () => {
+  const t = { contact_id: "c1", tax_rate_id: "t0", ledger_account_id: "l8" };
+  const inv = { invoice_number: "INV-005", issued_date: "2026-03-31", due_date: "2026-04-30", currency: "CAD", amount: 32560, hours: 176, unit_rate: 185, description: null, period_start: "2026-03-01", period_end: "2026-03-31" };
+  assertEquals(externalSalesInvoice(inv, t), { external_sales_invoice: {
+    contact_id: "c1", reference: "INV-005", date: "2026-03-31", due_date: "2026-04-30", currency: "CAD", prices_are_incl_tax: false,
+    details_attributes: [{ description: "Services 2026-03-01 to 2026-03-31", amount: "176", price: "185", tax_rate_id: "t0", ledger_account_id: "l8" }],
+  } });
+  const odd = externalSalesInvoice({ ...inv, hours: 100, due_date: null, description: "Consulting, October" }, { contact_id: "c1", tax_rate_id: null, ledger_account_id: null });
+  assertEquals(odd.external_sales_invoice.details_attributes, [{ description: "Consulting, October", amount: "1", price: "32560" }]);
+  assertEquals("due_date" in odd.external_sales_invoice, false);
 });

@@ -4,11 +4,12 @@
 
 export type MbKind = "receipt" | "purchase_invoice" | "sales_invoice";
 
-/** The API path of each document kind, under /{administration_id}/. */
-export const MB_PATHS: Record<MbKind, string> = {
-  receipt: "documents/receipts",
-  purchase_invoice: "documents/purchase_invoices",
-  sales_invoice: "sales_invoices",
+/** The API paths of each document kind, under /{administration_id}/. Sales invoices made
+ *  outside Moneybird live under external_sales_invoices; Nexus treats both as sales invoices. */
+export const MB_PATHS: Record<MbKind, string[]> = {
+  receipt: ["documents/receipts"],
+  purchase_invoice: ["documents/purchase_invoices"],
+  sales_invoice: ["sales_invoices", "external_sales_invoices"],
 };
 
 export interface MbDoc {
@@ -64,7 +65,7 @@ export function normalizeDoc(kind: MbKind, raw: Raw): MbDoc {
     id: String(raw.id),
     kind,
     version: Number(raw.version),
-    date: text(sales ? raw.invoice_date : raw.date),
+    date: text(sales ? (raw.invoice_date ?? raw.date) : raw.date),
     reference: text(sales ? (raw.invoice_id ?? raw.reference) : raw.reference),
     contact: contactName(raw.contact),
     currency,
@@ -176,13 +177,14 @@ export function linkSalesInvoices(docs: MbDoc[], invoices: NexusInvoice[], windo
 export interface MbClient {
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body: unknown): Promise<T>;
+  upload<T>(path: string, filename: string, bytes: Uint8Array, mime: string): Promise<T>;
 }
 
 /** A paced client: at most `perMinute` requests a minute, one retry after a 429. */
 export function mbClient(apiBase: string, token: string, perMinute: number): MbClient {
   const gap = 60_000 / perMinute;
   let last = 0;
-  const call = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
+  const call = async <T>(method: string, path: string, body?: unknown, form?: FormData): Promise<T> => {
     for (let attempt = 0; attempt < 2; attempt++) {
       const wait = last + gap - Date.now();
       if (wait > 0) await new Promise((r) => setTimeout(r, wait));
@@ -190,7 +192,7 @@ export function mbClient(apiBase: string, token: string, perMinute: number): MbC
       const res = await fetch(`${apiBase}${path}`, {
         method,
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
-        body: body ? JSON.stringify(body) : undefined,
+        body: form ?? (body ? JSON.stringify(body) : undefined),
       });
       if (res.status === 429 && attempt === 0) {
         const after = Number(res.headers.get("retry-after"));
@@ -202,7 +204,15 @@ export function mbClient(apiBase: string, token: string, perMinute: number): MbC
     }
     throw new Error(`Moneybird ${method} ${path}: rate limited`);
   };
-  return { get: (p) => call("GET", p), post: (p, b) => call("POST", p, b) };
+  return {
+    get: (p) => call("GET", p),
+    post: (p, b) => call("POST", p, b),
+    upload: (p, filename, bytes, mime) => {
+      const form = new FormData();
+      form.append("file", new Blob([bytes as BlobPart], { type: mime }), filename);
+      return call("POST", p, undefined, form);
+    },
+  };
 }
 
 export async function administrations(c: MbClient): Promise<{ id: string; name: string }[]> {
@@ -212,14 +222,50 @@ export async function administrations(c: MbClient): Promise<{ id: string; name: 
 
 /** The documents of one kind whose version changed, and every id Moneybird still has. */
 export async function changedDocs(c: MbClient, adminId: string, kind: MbKind, known: Map<string, number>): Promise<{ docs: MbDoc[]; ids: Set<string> }> {
-  const path = `/${adminId}/${MB_PATHS[kind]}/synchronization.json`;
-  const list = await c.get<{ id: string | number; version: number }[]>(path);
-  const ids = new Set(list.map((x) => String(x.id)));
-  const todo = list.filter((x) => known.get(String(x.id)) !== Number(x.version)).map((x) => String(x.id));
+  const ids = new Set<string>();
   const docs: MbDoc[] = [];
-  for (let i = 0; i < todo.length; i += 100) {
-    const batch = await c.post<Raw[]>(path, { ids: todo.slice(i, i + 100) });
-    for (const raw of batch) docs.push(normalizeDoc(kind, raw));
+  for (const p of MB_PATHS[kind]) {
+    const path = `/${adminId}/${p}/synchronization.json`;
+    const list = await c.get<{ id: string | number; version: number }[]>(path);
+    for (const x of list) ids.add(String(x.id));
+    const todo = list.filter((x) => known.get(String(x.id)) !== Number(x.version)).map((x) => String(x.id));
+    for (let i = 0; i < todo.length; i += 100) {
+      const batch = await c.post<Raw[]>(path, { ids: todo.slice(i, i + 100) });
+      for (const raw of batch) docs.push(normalizeDoc(kind, raw));
+    }
   }
   return { docs, ids };
+}
+
+export interface SalesTemplate { contact_id: string; tax_rate_id: string | null; ledger_account_id: string | null }
+export interface InvoiceForBooks {
+  invoice_number: string;
+  issued_date: string;
+  due_date: string | null;
+  currency: string;
+  amount: number;
+  hours: number | null;
+  unit_rate: number | null;
+  description: string | null;
+  period_start: string | null;
+  period_end: string | null;
+}
+
+/** A Nexus invoice as a Moneybird external sales invoice, with the client, VAT rate and
+ *  revenue account of an invoice already in the books. Hours times rate when they add up. */
+export function externalSalesInvoice(inv: InvoiceForBooks, t: SalesTemplate) {
+  const byHours = inv.hours != null && inv.unit_rate != null && Math.abs(inv.hours * inv.unit_rate - inv.amount) < 0.01;
+  const detail: Record<string, string> = {
+    description: inv.description ?? `Services ${inv.period_start} to ${inv.period_end}`,
+    amount: byHours ? String(inv.hours) : "1",
+    price: byHours ? String(inv.unit_rate) : String(inv.amount),
+  };
+  if (t.tax_rate_id) detail.tax_rate_id = t.tax_rate_id;
+  if (t.ledger_account_id) detail.ledger_account_id = t.ledger_account_id;
+  const body: Record<string, unknown> = {
+    contact_id: t.contact_id, reference: inv.invoice_number, date: inv.issued_date, currency: inv.currency, prices_are_incl_tax: false,
+    details_attributes: [detail],
+  };
+  if (inv.due_date) body.due_date = inv.due_date;
+  return { external_sales_invoice: body as Record<string, unknown> & { details_attributes: Record<string, string>[] } };
 }

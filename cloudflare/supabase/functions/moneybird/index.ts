@@ -1,6 +1,9 @@
 // moneybird: the link between Nexus and the books.
 //
 // POST { mode: "sync" }   the scheduler: everyone with Moneybird connected; signed in: yourself
+// POST { mode: "push_sales", user_id, invoice_numbers }   scheduler only: the named Nexus invoices
+//      go into Moneybird as external sales invoices with their document, using the client, VAT
+//      rate and revenue account of an invoice already in the books; then a sync pairs them
 //
 // Reads receipts, purchase invoices and sales invoices (only documents whose
 // version changed), keeps a mirror in nx_moneybird_documents, marks the cost
@@ -13,7 +16,7 @@ import { type AppConfig, loadConfig, need } from "../_shared/config.ts";
 import { type Connection, connections, markConnection, readSecret } from "../_shared/connect.ts";
 import { json, preflight } from "../_shared/cors.ts";
 import { eurRate } from "../_shared/fx.ts";
-import { changedDocs, type CostLine, linkSalesInvoices, matchEvidence, type MbDoc, type MbKind, mbClient, toEuro } from "../_shared/moneybird.ts";
+import { changedDocs, type CostLine, externalSalesInvoice, linkSalesInvoices, matchEvidence, type MbDoc, type MbKind, mbClient, type SalesTemplate, toEuro } from "../_shared/moneybird.ts";
 
 const KINDS: MbKind[] = ["receipt", "purchase_invoice", "sales_invoice"];
 const DOC_COLS = "id, kind, version, doc_date, reference, contact, currency, total_incl, total_incl_eur, total_excl_eur, state, paid_at, attachments, expense_id, invoice_id";
@@ -115,6 +118,63 @@ export async function syncUser(db: SupabaseClient, cfg: AppConfig, userId: strin
   return { fetched, removed, documents: docs.length, matched: matches.size, sales_linked: sales.size };
 }
 
+type Detail = { tax_rate_id?: string | number | null; ledger_account_id?: string | number | null };
+
+/** Book the named Nexus invoices in Moneybird. Each call names its invoices; nothing else is written. */
+export async function pushSales(db: SupabaseClient, cfg: AppConfig, userId: string, numbers: string[]): Promise<Record<string, unknown>> {
+  const conn = (await connections(db, userId)).get("moneybird");
+  const token = await readSecret(db, conn);
+  if (!conn || !token) throw new Error("Moneybird is not connected");
+  const adminId = String((conn.settings as Record<string, unknown> | null)?.administration_id ?? "");
+  const client = mbClient(setting(cfg, "integrations.moneybird.api_base"), token, need(cfg, "api.moneybird_requests_per_minute"));
+
+  // The template: an invoice to the same client already in the books.
+  const paired = await db.from("nx_moneybird_documents").select("id, invoice_id").eq("user_id", userId).eq("kind", "sales_invoice").not("invoice_id", "is", null).limit(1);
+  if (paired.error) throw new Error(paired.error.message);
+  if (!paired.data?.length) throw new Error("no sales invoice in Moneybird is paired with Nexus yet; run a sync first");
+  let src: { contact_id: string | number; details: Detail[] };
+  try {
+    src = await client.get(`/${adminId}/sales_invoices/${paired.data[0].id}.json`);
+  } catch {
+    src = await client.get(`/${adminId}/external_sales_invoices/${paired.data[0].id}.json`);
+  }
+  const t: SalesTemplate = {
+    contact_id: String(src.contact_id),
+    tax_rate_id: src.details?.[0]?.tax_rate_id == null ? null : String(src.details[0].tax_rate_id),
+    ledger_account_id: src.details?.[0]?.ledger_account_id == null ? null : String(src.details[0].ledger_account_id),
+  };
+
+  const have = await db.from("nx_moneybird_documents").select("invoice_id").eq("user_id", userId).not("invoice_id", "is", null);
+  const inBooks = new Set((have.data ?? []).map((r) => r.invoice_id as string));
+  const out: Record<string, unknown>[] = [];
+  for (const number of numbers) {
+    const { data: inv, error } = await db.from("invoices")
+      .select("id, invoice_number, issued_date, due_date, currency, amount, hours, unit_rate, description, period_start, period_end, document_path")
+      .eq("user_id", userId).eq("invoice_number", number).is("voided_at", null).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!inv) { out.push({ invoice: number, skipped: "not in Nexus or voided" }); continue; }
+    if (inBooks.has(inv.id)) { out.push({ invoice: number, skipped: "already in Moneybird" }); continue; }
+    const payload = externalSalesInvoice({ ...inv, amount: Number(inv.amount), hours: inv.hours == null ? null : Number(inv.hours), unit_rate: inv.unit_rate == null ? null : Number(inv.unit_rate) }, t);
+    const created = await client.post<{ id: string | number }>(`/${adminId}/external_sales_invoices.json`, payload);
+    let attached: string | null = null;
+    if (inv.document_path) {
+      const bucket = setting(cfg, "storage.documents_bucket");
+      const dl = await db.storage.from(bucket).download(inv.document_path);
+      const mime = dl.data?.type ?? "";
+      if (dl.data && (mime === "application/pdf" || mime.startsWith("image/"))) {
+        const name = inv.document_path.split("/").pop() ?? `${number}`;
+        await client.upload(`/${adminId}/external_sales_invoices/${created.id}/attachment.json`, name, new Uint8Array(await dl.data.arrayBuffer()), mime);
+        attached = name;
+      } else {
+        attached = `not attached (${mime || "missing"})`;
+      }
+    }
+    out.push({ invoice: number, moneybird_id: String(created.id), attached });
+  }
+  const sync = await syncUser(db, cfg, userId, (await connections(db, userId)).get("moneybird")!);
+  return { results: out, sync };
+}
+
 export async function handler(req: Request): Promise<Response> {
   const pf = preflight(req);
   if (pf) return pf;
@@ -123,8 +183,14 @@ export async function handler(req: Request): Promise<Response> {
     const who = await authorize(req, db);
     if (!who) return json({ error: "unauthorized" }, 401);
     const body = await req.json().catch(() => ({}));
-    if ((body.mode ?? "sync") !== "sync") return json({ error: "unknown mode" }, 400);
     const cfg = await loadConfig(db);
+    if (body.mode === "push_sales") {
+      if (who.kind !== "service") return json({ error: "push_sales runs only from the server" }, 403);
+      const numbers = Array.isArray(body.invoice_numbers) ? body.invoice_numbers.map(String) : [];
+      if (typeof body.user_id !== "string" || !numbers.length) return json({ error: "user_id and invoice_numbers are required" }, 400);
+      return json({ ok: true, ...(await pushSales(db, cfg, body.user_id, numbers)) });
+    }
+    if ((body.mode ?? "sync") !== "sync") return json({ error: "unknown mode" }, 400);
     let users: string[];
     if (who.kind === "service") {
       const { data, error } = await db.from("integration_connections").select("user_id").eq("provider", "moneybird").neq("status", "revoked");
