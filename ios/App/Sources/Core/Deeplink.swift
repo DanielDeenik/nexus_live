@@ -13,12 +13,14 @@ struct BuyDraft: Equatable, Identifiable {
 }
 
 /// The app's own links (scheme from Info.plist): nexuslive://buy?item=&amount=&app=&entry=,
-/// nexuslive://review, nexuslive://close and nexuslive://purchases.
+/// nexuslive://review, nexuslive://close, nexuslive://purchases, and nexuslive://connect, where a
+/// consent (a bank, Google) comes back when it returns through Safari instead of the sign-in sheet.
 enum Deeplink: Equatable {
     case buy(BuyDraft)
     case review
     case close
     case purchases
+    case connect
 
     static func parse(_ url: URL, scheme: String) -> Deeplink? {
         guard url.scheme?.lowercased() == scheme.lowercased(),
@@ -37,6 +39,7 @@ enum Deeplink: Equatable {
         case "review": return .review
         case "close": return .close
         case "purchases": return .purchases
+        case "connect": return .connect
         default: return nil
         }
     }

@@ -14,8 +14,12 @@ func deeplinkChecks() {
     check("review, close and purchases links", Deeplink.parse(URL(string: "nexuslive://review")!, scheme: s) == .review
           && Deeplink.parse(URL(string: "nexuslive://close")!, scheme: s) == .close
           && Deeplink.parse(URL(string: "nexuslive://purchases")!, scheme: s) == .purchases)
+    check("a consent that comes back through the app's link is a connect link",
+          Deeplink.parse(URL(string: "nexuslive://connect?flow=bank&code=1&state=s")!, scheme: s) == .connect
+          && Deeplink.parse(URL(string: "NEXUSLIVE://Connect?flow=bank&error=access_denied")!, scheme: s) == .connect)
     check("another scheme or route is ignored", Deeplink.parse(URL(string: "https://buy")!, scheme: s) == nil
-          && Deeplink.parse(URL(string: "nexuslive://connect?code=1")!, scheme: s) == nil)
+          && Deeplink.parse(URL(string: "https://connect?code=1")!, scheme: s) == nil
+          && Deeplink.parse(URL(string: "nexuslive://other?code=1")!, scheme: s) == nil)
     check("amounts as Shortcuts writes them", Amounts.parse("€ 12,50") == 12.5 && Amounts.parse("EUR 1.234,56") == 1234.56
           && Amounts.parse("$19.99") == 19.99 && Amounts.parse("free") == nil)
     check("shop names against a setting pattern", Amounts.matches("FRESHMART 1234", pattern: "freshmart|grocerly")

@@ -20,13 +20,14 @@ final class AppRouter: ObservableObject {
         buyDraft = draft
     }
 
-    /// The app's own links (nexuslive://buy, review, close, purchases).
+    /// The app's own links (nexuslive://buy, review, close, purchases, connect).
     func handle(_ url: URL) {
         switch Deeplink.parse(url, scheme: AppConfig.urlScheme) {
         case .buy(let draft): openBuy(draft)
         case .review: showReview = true
         case .close: showClose = true
         case .purchases: showPurchases = true
+        case .connect: ConsentRelay.shared.deliver(url)
         case nil: break
         }
     }

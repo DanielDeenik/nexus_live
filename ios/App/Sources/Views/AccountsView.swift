@@ -157,7 +157,7 @@ struct AccountsView: View {
             let sync = finish["sync"] as? [String: Any]
             let lines = (sync?["inserted"] as? NSNumber)?.intValue ?? 0
             let accounts = (finish["accounts"] as? NSNumber)?.intValue ?? 0
-            return "\(service.name) is connected: \(accounts) accounts, \(lines) new lines. It syncs every morning."
+            return "\(service.name) is connected: \(accounts) accounts, \(lines) new lines. It keeps syncing on its own."
         }
     }
 
