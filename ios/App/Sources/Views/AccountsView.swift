@@ -140,6 +140,7 @@ struct AccountsView: View {
         case ConnectKind.wise.via: sheet = .wise
         case ConnectKind.etoro.via: sheet = .etoro
         case ConnectKind.enableBanking.via: sheet = .enableBanking
+        case ConnectKind.moneybird.via: sheet = .moneybird
         case "enable_banking": bankConsent(service)
         case "google_oauth": googleConsent()
         default: break
@@ -249,7 +250,7 @@ enum ConnectError: LocalizedError {
 
 /// The connections that need a key typed or a file chosen, rather than a sign in.
 enum ConnectKind: String, Identifiable {
-    case wise, etoro, enableBanking
+    case wise, etoro, enableBanking, moneybird
 
     var id: String { rawValue }
 
@@ -259,6 +260,7 @@ enum ConnectKind: String, Identifiable {
         case .wise: return "wise_token"
         case .etoro: return "etoro_keys"
         case .enableBanking: return "enable_banking_app"
+        case .moneybird: return "moneybird_token"
         }
     }
 
@@ -267,6 +269,7 @@ enum ConnectKind: String, Identifiable {
         case .wise: return "Connect Wise"
         case .etoro: return "Connect eToro"
         case .enableBanking: return "Set up Enable Banking"
+        case .moneybird: return "Connect Moneybird"
         }
     }
 }
@@ -427,6 +430,7 @@ struct ConnectForm: View {
                 case .wise: wiseFields
                 case .etoro: etoroFields
                 case .enableBanking: bankingFields
+                case .moneybird: moneybirdFields
                 }
             }
             .navigationTitle(kind.title)
@@ -465,6 +469,16 @@ struct ConnectForm: View {
         }
     }
 
+    @ViewBuilder private var moneybirdFields: some View {
+        Section {
+            SecureField("Moneybird API token", text: $first)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+        } footer: {
+            Text(helpText ?? "")
+        }
+    }
+
     @ViewBuilder private var bankingFields: some View {
         Section {
             Text(redirectURL).font(.caption.monospaced()).textSelection(.enabled)
@@ -491,6 +505,7 @@ struct ConnectForm: View {
         case .etoro: return !first.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !second.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .enableBanking: return !first.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && pem != nil
+        case .moneybird: return !first.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
     }
 
@@ -531,6 +546,10 @@ struct ConnectForm: View {
                 case .enableBanking:
                     try await ledger.call("accounts", ["action": "eb_setup", "app_id": one, "private_key": pem ?? ""])
                     done = "Enable Banking is set up. Now connect each bank."
+                case .moneybird:
+                    try await ledger.call("integrations", ["action": "moneybird_connect", "token": one])
+                    try await ledger.call("moneybird", ["mode": "sync"])
+                    done = "Moneybird is connected. Receipts are linked to your costs every morning."
                 }
                 first = ""
                 second = ""
