@@ -149,10 +149,12 @@ const median = (xs: number[]) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
-/** A gap fits the cadence when it is one period, or a whole number of periods (a skipped bill). */
-const fitsCadence = (gap: number, [lo, hi]: [number, number]) => {
+/** A gap fits the cadence when it is one period, or a whole number of periods (a skipped bill),
+ *  give or take the grace days, but never more than the spread of the cadence itself. */
+const fitsCadence = (gap: number, [lo, hi]: [number, number], graceDays: number) => {
+  const slack = Math.min(graceDays, hi - lo);
   const periods = Math.max(1, Math.round(gap / ((lo + hi) / 2)));
-  return gap >= lo * periods && gap <= hi * periods;
+  return gap >= lo * periods - slack && gap <= hi * periods + slack;
 };
 
 /** Recurring charges: per shop, charges of about the same amount (within the tolerance) where
@@ -180,10 +182,13 @@ export function detectRecurring(lines: SpendLine[], o: RecurringOptions): Recurr
     for (const c of clusters) {
       if (c.length < o.minCharges) continue;
       const byDate = [...c].sort((a, b) => a.booked_on.localeCompare(b.booked_on));
-      const gaps = byDate.slice(1).map((l, i) => day(l.booked_on) - day(byDate[i].booked_on));
+      // Gaps between the days it was charged: a double charge on one day does not break the rhythm.
+      const days = [...new Set(byDate.map((l) => day(l.booked_on)))];
+      if (days.length < 2) continue;
+      const gaps = days.slice(1).map((d, i) => d - days[i]);
       const g = median(gaps);
       const cadence = (Object.keys(o.cadenceDays) as Cadence[]).find((k) => g >= o.cadenceDays[k][0] && g <= o.cadenceDays[k][1]);
-      if (!cadence || !gaps.every((x) => fitsCadence(x, o.cadenceDays[cadence]))) continue;
+      if (!cadence || !gaps.every((x) => fitsCadence(x, o.cadenceDays[cadence], o.graceDays))) continue;
       const last = byDate.at(-1)!;
       if (day(o.today) - day(last.booked_on) > o.cadenceDays[cadence][1] + o.graceDays) continue;
       const amount = round2(median(c.map((l) => -l.amount)));

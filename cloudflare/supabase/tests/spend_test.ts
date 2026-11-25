@@ -115,9 +115,9 @@ Deno.test("one shop billing several subscriptions gives one recurring charge per
 
 Deno.test("same-amount purchases at irregular gaps are not a subscription", () => {
   const found = detectRecurring([
-    charge("2026-07-01", 41.2, "Freshmart 1001", "Groceries"), charge("2026-07-21", 40.1, "Freshmart 1001", "Groceries"),
-    charge("2026-08-20", 42, "Freshmart 1001", "Groceries"), charge("2026-09-20", 41, "Freshmart 1001", "Groceries"),
-    charge("2026-11-04", 39.9, "Freshmart 1001", "Groceries"),
+    charge("2026-07-01", 41.2, "Freshmart 1001", "Groceries"), charge("2026-07-13", 40.1, "Freshmart 1001", "Groceries"),
+    charge("2026-08-12", 42, "Freshmart 1001", "Groceries"), charge("2026-09-12", 41, "Freshmart 1001", "Groceries"),
+    charge("2026-10-27", 39.9, "Freshmart 1001", "Groceries"),
   ], rOpts);
   assertEquals(found, []);
 });
@@ -132,6 +132,20 @@ Deno.test("a skipped month still counts as monthly", () => {
     charge("2026-07-03", 15, "Gymco"), charge("2026-08-03", 15, "Gymco"), charge("2026-10-02", 15, "Gymco"), charge("2026-11-03", 15, "Gymco"),
   ], rOpts);
   assertEquals(found.map((r) => [r.label, r.cadence]), [["Gymco", "monthly"]]);
+});
+
+Deno.test("a debit a few days late or early, or charged twice on one day, keeps the rhythm", () => {
+  const found = detectRecurring([
+    charge("2026-06-28", 60, "Clubhouse"), charge("2026-07-29", 60, "Clubhouse"), charge("2026-09-01", 60, "Clubhouse"),
+    charge("2026-09-26", 60, "Clubhouse"), charge("2026-10-27", 60, "Clubhouse"), charge("2026-10-27", 60, "Clubhouse"),
+  ], rOpts);
+  assertEquals(found.map((r) => [r.label, r.cadence, r.charges, r.next_due]), [["Clubhouse", "monthly", 6, "2026-11-27"]]);
+});
+
+Deno.test("a weekly charge may move by the spread of its cadence, no more", () => {
+  const weekly = (dates: string[]) => detectRecurring(dates.map((d) => charge(d, 6.5, "Snackbox")), rOpts).length;
+  assertEquals(weekly(["2026-10-28", "2026-11-04", "2026-11-13", "2026-11-20"]), 1);
+  assertEquals(weekly(["2026-10-28", "2026-11-04", "2026-11-07", "2026-11-14", "2026-11-21"]), 0);
 });
 
 Deno.test("rows a run no longer finds go, unless they carry a decision or a cancel status", () => {
