@@ -126,6 +126,8 @@ export interface RecurringOptions {
   cadenceDays: Record<Cadence, [number, number]>;
   tolerancePct: number;
   today: string;
+  /** Days past the longest gap of its cadence that the next charge may be late and the charge still runs. */
+  graceDays: number;
 }
 export interface RecurringFound {
   key: string;
@@ -147,8 +149,15 @@ const median = (xs: number[]) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
-/** Recurring charges: per shop, charges of about the same amount (within the tolerance) at a
- *  steady cadence. One shop billing several subscriptions (Apple) gives one charge per amount. */
+/** A gap fits the cadence when it is one period, or a whole number of periods (a skipped bill). */
+const fitsCadence = (gap: number, [lo, hi]: [number, number]) => {
+  const periods = Math.max(1, Math.round(gap / ((lo + hi) / 2)));
+  return gap >= lo * periods && gap <= hi * periods;
+};
+
+/** Recurring charges: per shop, charges of about the same amount (within the tolerance) where
+ *  every gap fits one cadence, and the last charge is recent enough that the charge still runs.
+ *  One shop billing several subscriptions (Apple) gives one charge per amount. */
 export function detectRecurring(lines: SpendLine[], o: RecurringOptions): RecurringFound[] {
   const byShop = new Map<string, SpendLine[]>();
   for (const l of lines) {
@@ -174,9 +183,10 @@ export function detectRecurring(lines: SpendLine[], o: RecurringOptions): Recurr
       const gaps = byDate.slice(1).map((l, i) => day(l.booked_on) - day(byDate[i].booked_on));
       const g = median(gaps);
       const cadence = (Object.keys(o.cadenceDays) as Cadence[]).find((k) => g >= o.cadenceDays[k][0] && g <= o.cadenceDays[k][1]);
-      if (!cadence) continue;
-      const amount = round2(median(c.map((l) => -l.amount)));
+      if (!cadence || !gaps.every((x) => fitsCadence(x, o.cadenceDays[cadence]))) continue;
       const last = byDate.at(-1)!;
+      if (day(o.today) - day(last.booked_on) > o.cadenceDays[cadence][1] + o.graceDays) continue;
+      const amount = round2(median(c.map((l) => -l.amount)));
       const next = cadence === "weekly" ? isoDay(day(last.booked_on) + 7)
         : addMonths(last.booked_on, cadence === "monthly" ? 1 : cadence === "quarterly" ? 3 : 12);
       found.push({
@@ -196,6 +206,14 @@ export function detectRecurring(lines: SpendLine[], o: RecurringOptions): Recurr
     out.push(...found);
   }
   return out.sort((a, b) => b.per_year - a.per_year);
+}
+
+/** Rows a run no longer finds and that carry nothing of yours (no decision, no cancel status):
+ *  they go, so the review shows only charges that still run. */
+export function staleRecurring(
+  rows: { id: string; key: string; decided_at: string | null; status: string | null }[], found: Set<string>,
+): string[] {
+  return rows.filter((r) => !found.has(r.key) && !r.decided_at && !r.status).map((r) => r.id);
 }
 
 export type Call = "keep" | "cancel" | "move_business";

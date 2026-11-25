@@ -22,7 +22,7 @@ import { Google } from "../_shared/google.ts";
 import { type ContentBlock, type Structured, structuredFor } from "../_shared/llm.ts";
 import {
   applyCalls, type CallRule, cancelUpdates, cleanReading, detectRecurring, foodSplit, type Item, matchReceipt, matchTap,
-  type Reading, receiptInTime, type SpendLine, stopAlerts, stopLists,
+  type Reading, receiptInTime, type SpendLine, staleRecurring, stopAlerts, stopLists,
 } from "../_shared/spend.ts";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -245,6 +245,7 @@ async function review(db: SupabaseClient, cfg: AppConfig, userId: string, lines:
     cadenceDays: list(cfg, "recurring.cadence_days"),
     tolerancePct: need(cfg, "recurring.amount_tolerance_pct"),
     today: today(),
+    graceDays: need(cfg, "spend.match_window_days"),
   });
   const standing = list<CallRule[]>(cfg, "review.standing_calls");
   const proposals = list<CallRule[]>(cfg, "review.proposals");
@@ -263,14 +264,17 @@ async function review(db: SupabaseClient, cfg: AppConfig, userId: string, lines:
     });
   }
   // Named Apple subscriptions from their receipts: the item, its price, how often and when it renews.
-  const appleSubs = new Map<string, { label: string; amount: number | null; period: string; renews: string | null; last: string }>();
+  const lineById = new Map(lines.map((l) => [l.id, l]));
+  const appleSubs = new Map<string, { label: string; amount: number | null; period: string; renews: string | null; last: string; category: string | null }>();
   for (const r of receipts.filter((x) => x.kind === "apple")) {
     for (const it of r.items) {
       if (!it.period) continue;
       const key = `apple:${squash(it.name)}`;
       const date = r.order_date ?? r.received_at.slice(0, 10);
       const prev = appleSubs.get(key);
-      if (!prev || date >= prev.last) appleSubs.set(key, { label: it.name, amount: it.amount, period: it.period, renews: it.renews_on ?? null, last: date });
+      if (!prev || date >= prev.last) {
+        appleSubs.set(key, { label: it.name, amount: it.amount, period: it.period, renews: it.renews_on ?? null, last: date, category: (r.txn_id && lineById.get(r.txn_id)?.category) || null });
+      }
     }
   }
   const perYear: Record<string, number> = { weekly: 52, monthly: 12, quarterly: 4, yearly: 1 };
@@ -278,17 +282,27 @@ async function review(db: SupabaseClient, cfg: AppConfig, userId: string, lines:
     const prior = rows.get(key);
     const calls = applyCalls({ label: s.label, call: (prior?.call ?? null) as never, tag: (prior?.tag ?? null) as never, proposed_call: (prior?.proposed_call ?? null) as never, note: prior?.note ?? null }, standing, proposals);
     upserts.push({
-      user_id: userId, key, label: s.label, category: "Subscriptions and phone", source: "apple", cadence: perYear[s.period] ? s.period : "irregular",
+      user_id: userId, key, label: s.label, category: s.category, source: "apple", cadence: perYear[s.period] ? s.period : "irregular",
       amount: s.amount, per_year: s.amount !== null && perYear[s.period] ? Math.round(s.amount * perYear[s.period] * 100) / 100 : null,
       last_charge: s.last, next_due: s.renews, call: calls.call, tag: calls.tag, proposed_call: calls.proposed_call, note: calls.note,
       updated_at: new Date().toISOString(),
     });
   }
-  if (upserts.length) {
-    const { error } = await db.from("nx_recurring").upsert(upserts, { onConflict: "user_id,key" });
+  // One row per key: two charges whose amounts round to the same euro keep the larger one.
+  const byKey = new Map<string, Record<string, unknown>>();
+  for (const u of upserts) if (!byKey.has(u.key as string)) byKey.set(u.key as string, u);
+  if (byKey.size) {
+    const { error } = await db.from("nx_recurring").upsert([...byKey.values()], { onConflict: "user_id,key" });
     if (error) throw new Error(error.message);
   }
-  m.recurring = upserts.length;
+  // Rows this run no longer finds go, unless they carry a decision or a cancel status of yours.
+  const stale = staleRecurring((existing ?? []) as RecurringRow[], new Set(byKey.keys()));
+  if (stale.length) {
+    const { error } = await db.from("nx_recurring").delete().in("id", stale);
+    if (error) throw new Error(error.message);
+  }
+  m.recurring = byKey.size;
+  m.recurring_gone = stale.length;
 
   // Cancel follow-up: charges per key from the lines and the Apple receipts.
   const charges = new Map<string, string[]>();

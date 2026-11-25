@@ -4,8 +4,8 @@
 // lists flag, and when a cancel is confirmed or broken.
 import { assertEquals } from "jsr:@std/assert@1";
 import {
-  applyCalls, cancelUpdates, cleanReading, detectRecurring, foodSplit, matchReceipt, matchTap, receiptInTime, stopAlerts,
-  stopLists, type SpendLine,
+  applyCalls, cancelUpdates, cleanReading, detectRecurring, foodSplit, matchReceipt, matchTap, receiptInTime, staleRecurring,
+  stopAlerts, stopLists, type SpendLine,
 } from "../functions/_shared/spend.ts";
 
 const line = (over: Partial<SpendLine>): SpendLine => ({
@@ -86,7 +86,7 @@ Deno.test("a Wallet tap finds its bank line by shop, amount and date", () => {
 });
 
 const cadence = { weekly: [6, 8] as [number, number], monthly: [26, 35] as [number, number], quarterly: [85, 97] as [number, number], yearly: [350, 380] as [number, number] };
-const rOpts = { minCharges: 2, cadenceDays: cadence, tolerancePct: 20, today: "2026-11-25" };
+const rOpts = { minCharges: 2, cadenceDays: cadence, tolerancePct: 20, today: "2026-11-25", graceDays: 5 };
 const charge = (date: string, amount: number, merchant: string, category = "Subscriptions") =>
   line({ id: `${merchant}-${date}-${amount}`, booked_on: date, amount: -amount, merchant, category });
 
@@ -111,6 +111,37 @@ Deno.test("one shop billing several subscriptions gives one recurring charge per
   ], rOpts);
   assertEquals(found.map((r) => [r.amount, r.cadence]).sort(), [[3.49, "monthly"], [7.99, "monthly"]]);
   assertEquals(new Set(found.map((r) => r.key)).size, 2);
+});
+
+Deno.test("same-amount purchases at irregular gaps are not a subscription", () => {
+  const found = detectRecurring([
+    charge("2026-07-01", 41.2, "Freshmart 1001", "Groceries"), charge("2026-07-21", 40.1, "Freshmart 1001", "Groceries"),
+    charge("2026-08-20", 42, "Freshmart 1001", "Groceries"), charge("2026-09-20", 41, "Freshmart 1001", "Groceries"),
+    charge("2026-11-04", 39.9, "Freshmart 1001", "Groceries"),
+  ], rOpts);
+  assertEquals(found, []);
+});
+
+Deno.test("a subscription that stopped charging is not running any more", () => {
+  const found = detectRecurring([charge("2026-03-10", 12.5, "Learnly"), charge("2026-04-10", 12.5, "Learnly"), charge("2026-05-11", 12.5, "Learnly")], rOpts);
+  assertEquals(found, []);
+});
+
+Deno.test("a skipped month still counts as monthly", () => {
+  const found = detectRecurring([
+    charge("2026-07-03", 15, "Gymco"), charge("2026-08-03", 15, "Gymco"), charge("2026-10-02", 15, "Gymco"), charge("2026-11-03", 15, "Gymco"),
+  ], rOpts);
+  assertEquals(found.map((r) => [r.label, r.cadence]), [["Gymco", "monthly"]]);
+});
+
+Deno.test("rows a run no longer finds go, unless they carry a decision or a cancel status", () => {
+  const rows = [
+    { id: "a", key: "streamly|10", decided_at: null, status: null },
+    { id: "b", key: "learnly|13", decided_at: null, status: null },
+    { id: "c", key: "gymco|15", decided_at: "2026-11-20T09:00:00Z", status: null },
+    { id: "d", key: "musicbox|5", decided_at: null, status: "requested" },
+  ];
+  assertEquals(staleRecurring(rows, new Set(["streamly|10"])), ["b"]);
 });
 
 Deno.test("standing calls apply, suggestions stay suggestions, and a call already made is never overwritten", () => {
