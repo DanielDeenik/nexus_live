@@ -178,7 +178,7 @@ struct TodayView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Next").font(.caption).foregroundStyle(.secondary)
                     Text(next.action ?? next.title).font(.headline).foregroundStyle(Color.primary)
-                    Text(next.short).font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.leading)
+                    Text("\(next.title): \(next.now)").font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
