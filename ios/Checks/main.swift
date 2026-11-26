@@ -11,5 +11,6 @@ func near(_ a: Double?, _ b: Double, _ tol: Double) -> Bool { a.map { abs($0 - b
 planMathChecks()
 deeplinkChecks()
 spendModelChecks()
+glanceChecks()
 if failures > 0 { print("\(failures) failed"); exit(1) }
 print("all core checks passed")

@@ -36,6 +36,9 @@ final class Ledger: ObservableObject {
     @Published var mailbox: MailboxStatus?
     @Published var spendError: String?
     @Published var fxToEUR: [String: Double] = [:]
+    // Today, Slipping, A month and Assignment: one answer from nx_glance.
+    @Published var glance: Glance?
+    @Published var glanceError: String?
 
     let backend: Backend
 
@@ -77,6 +80,7 @@ final class Ledger: ObservableObject {
             await refreshForecast()
             let raw = try await backend.rpc("nx_money_summary", [:])
             summary = try JSONDecoder().decode(MoneySummary.self, from: JSONSerialization.data(withJSONObject: raw))
+            await reloadGlance()
             error = nil
             Task { await self.refreshOverview() }
             await reloadSpend()

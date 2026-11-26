@@ -279,6 +279,20 @@ struct SundayReviewView: View {
 
     var body: some View {
         List {
+            if let glance = ledger.glance {
+                Section {
+                    LabeledContent("Yours, after tax", value: Money.format(glance.today.yours.rounded(), ledger.baseCurrency))
+                    if let moved = glance.review.moved, let since = glance.review.snapshot_date.flatMap({ Day.date($0) }) {
+                        LabeledContent("Since \(since.formatted(date: .abbreviated, time: .omitted))",
+                                       value: (moved < 0 ? "" : "+") + Money.format(moved.rounded(), ledger.baseCurrency))
+                            .foregroundStyle(moved < 0 ? Color.red : Color.green)
+                    }
+                } header: {
+                    Text("This week")
+                } footer: {
+                    Text("Done saves today's figure, so next Sunday shows what moved.")
+                }
+            }
             Section {
                 if ledger.reviewQueue.isEmpty { Text("Nothing waits for a category.").foregroundStyle(.secondary) }
                 ForEach(ledger.reviewQueue.prefix(25)) { line in
@@ -329,7 +343,10 @@ struct SundayReviewView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Done") {
-                    Task { await ledger.markSeen(breaches) }
+                    Task {
+                        await ledger.markSeen(breaches)
+                        await ledger.saveReviewSnapshot()
+                    }
                     dismiss()
                 }
             }
