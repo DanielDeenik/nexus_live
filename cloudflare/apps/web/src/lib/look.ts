@@ -14,7 +14,7 @@ export interface LookInvoice { number: string | null; period: string | null; iss
 export interface LookRecurring { key: string; label: string; cadence: string; amount: number | null; per_year: number | null; next_due: string | null; call: string | null; proposed_call: string | null; overdue: boolean }
 export interface LookDayItem { label: string; amount: number; call?: string | null; proposed_call?: string | null; payment?: boolean }
 export interface LookDay { date: string; items: LookDayItem[]; balance: number }
-type Figures = Record<string, number | boolean | null | undefined | { rate: number }[]>
+type Figures = Record<string, number | boolean | null | undefined | { rate: number; base?: number; tax?: number }[]>
 
 export interface Look {
   version: number
@@ -175,14 +175,22 @@ function taxTopic(look: Look): Topic | null {
   add('Business costs', '', -n(d.costs_eur), n(d.costs_eur) !== 0)
   add('Depreciation', '', -n(d.depreciation_eur), n(d.depreciation_eur) !== 0)
   add('Profit', '', n(d.profit))
+  add('KIA', 'Kleinschaligheidsinvesteringsaftrek', -n(d.kia), n(d.kia) !== 0)
   add('Zelfstandigenaftrek', '', -n(d.zelfstandigenaftrek), n(d.zelfstandigenaftrek) !== 0)
   add('Startersaftrek', '', -n(d.startersaftrek), n(d.startersaftrek) !== 0)
   add('MKB winstvrijstelling', '', -n(d.mkb_winstvrijstelling), n(d.mkb_winstvrijstelling) !== 0)
   add('Taxable profit', '', n(d.taxable_profit))
   add('Wage', '', n(d.wage), n(d.wage) !== 0)
+  add('Lijfrente', '', -n(d.lijfrente), n(d.lijfrente) !== 0)
   add('Box 1 income', '', n(d.box1_income))
-  const brackets = Array.isArray(d.bracket_tax) ? d.bracket_tax.map((b) => `${Math.round(b.rate * 10000) / 100}%`) : []
-  add('Income tax', brackets.length ? `Brackets of ${brackets.join(', ')}` : '', n(d.income_tax))
+  // Every step from box 1 income to the tax: each bracket, the tariefsaanpassing, the credits.
+  for (const b of Array.isArray(d.bracket_tax) ? d.bracket_tax : []) {
+    add(`Tax at ${Math.round(b.rate * 10000) / 100}%`, b.base != null ? `On ${eur2(b.base)}` : '', n(b.tax), n(b.tax) !== 0)
+  }
+  add('Tariefsaanpassing', 'On the deductions that fall in the top bracket', n(d.tariefsaanpassing), n(d.tariefsaanpassing) !== 0)
+  add('Algemene heffingskorting', '', -n(d.algemene_heffingskorting), n(d.algemene_heffingskorting) !== 0)
+  add('Arbeidskorting', '', -n(d.arbeidskorting), n(d.arbeidskorting) !== 0)
+  add('Income tax', '', n(d.income_tax))
   add('Zvw', '', n(d.zvw))
   add('Total due', '', n(d.total_due))
   add('Withheld on the wage', '', -n(d.withheld), n(d.withheld) !== 0)
