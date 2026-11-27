@@ -109,3 +109,44 @@ Deno.test("below zero the days until the payment say so, and without a forecast 
   assertEquals(topics(bare).map((x) => x.key), ["hold", "living", "slipping", "calendar", "recurring"]);
   assertEquals(rings(bare, "now").map((r) => r.key), ["yours", "living"]);
 });
+
+Deno.test("the tax table shows every line from what is billed to what is to pay", async () => {
+  const l = await look();
+  l.facts.tax!.to_date = {
+    revenue_eur: 100000, costs_eur: 10000, depreciation_eur: 1000, profit: 89000, kia: 500, zelfstandigenaftrek: 1200, startersaftrek: 2123,
+    mkb_winstvrijstelling: 10817.48, taxable_profit: 74359.52, wage: 5000, lijfrente: 1000, box1_income: 78359.52,
+    bracket_tax: [{ rate: 0.3575, base: 38883, tax: 13900.67 }, { rate: 0.3756, base: 39476.52, tax: 14827.38 }], tariefsaanpassing: 250,
+    income_tax_before_credits: 28978.05, algemene_heffingskorting: 300, arbeidskorting: 700, income_tax: 27978.05, zvw: 3000, total_due: 30978.05,
+    withheld: 1500, prepaid: 2000, to_pay: 27478.05,
+  };
+  const rows = topics(l).find((x) => x.key === "tax")!.rows;
+  // Between the billed line on top and the reserve and year end below: each step of the sum.
+  assertEquals(rows.slice(1, -2), [
+    ["Business costs", "", "−€10,000.00"],
+    ["Depreciation", "", "−€1,000.00"],
+    ["Profit", "", "€89,000.00"],
+    ["KIA", "Kleinschaligheidsinvesteringsaftrek", "−€500.00"],
+    ["Zelfstandigenaftrek", "", "−€1,200.00"],
+    ["Startersaftrek", "", "−€2,123.00"],
+    ["MKB winstvrijstelling", "", "−€10,817.48"],
+    ["Taxable profit", "", "€74,359.52"],
+    ["Wage", "", "€5,000.00"],
+    ["Lijfrente", "", "−€1,000.00"],
+    ["Box 1 income", "", "€78,359.52"],
+    ["Tax at 35.75%", "On €38,883.00", "€13,900.67"],
+    ["Tax at 37.56%", "On €39,476.52", "€14,827.38"],
+    ["Tariefsaanpassing", "On the deductions that fall in the top bracket", "€250.00"],
+    ["Algemene heffingskorting", "", "−€300.00"],
+    ["Arbeidskorting", "", "−€700.00"],
+    ["Income tax", "", "€27,978.05"],
+    ["Zvw", "", "€3,000.00"],
+    ["Total due", "", "€30,978.05"],
+    ["Withheld on the wage", "", "−€1,500.00"],
+    ["Prepaid", "", "−€2,000.00"],
+    ["To pay, to date", "", "€27,478.05"],
+  ]);
+  // A line that is zero stays out.
+  l.facts.tax!.to_date = { ...l.facts.tax!.to_date, kia: 0, lijfrente: 0, tariefsaanpassing: 0, algemene_heffingskorting: 0, arbeidskorting: 0 };
+  const lean = topics(l).find((x) => x.key === "tax")!.rows.map((r) => r[0]);
+  for (const gone of ["KIA", "Lijfrente", "Tariefsaanpassing", "Algemene heffingskorting", "Arbeidskorting"]) assert(!lean.includes(gone), gone);
+});
