@@ -1,47 +1,27 @@
 import SwiftUI
 
-/// Home: the Mallorca target as the one number that matters, business and capital income under it,
-/// three sliders that redraw the path, safe to spend and what Skip and save has kept, and at most
-/// three rows that need you. Everything else is one tap down.
-struct HomeView: View {
+/// The target, one tap down from Today: the Mallorca target as one number, business and capital
+/// income under it, three sliders that redraw the path, safe to spend and what Skip and save has
+/// kept, and at most three rows that need you. The + menu lives on Today.
+struct TargetView: View {
     @EnvironmentObject private var ledger: Ledger
-    @EnvironmentObject private var router: AppRouter
     @State private var growth = 0.0
     @State private var invest = 0.0
     @State private var returnPct = 0.0
     @State private var loaded = false
-    @State private var loggingCost = false
-    @State private var pickPhoto = false
-    @State private var takePhoto = false
 
     var body: some View {
-        NavigationStack {
-            List {
-                hero
-                sliders
-                pills
-                needsYou
-            }
-            .navigationTitle(ledger.goalName.isEmpty ? "Home" : ledger.goalName)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button { router.openBuy(BuyDraft()) } label: { Label("Buy check", systemImage: "cart.badge.questionmark") }
-                        Button { loggingCost = true } label: { Label("Log business cost", systemImage: "briefcase") }
-                        if cameraAvailable {
-                            Button { takePhoto = true } label: { Label("Photograph a receipt", systemImage: "camera") }
-                        }
-                        Button { pickPhoto = true } label: { Label("Receipt from Photos", systemImage: "photo") }
-                    } label: { Image(systemName: "plus") }
-                }
-            }
-            .refreshable { await ledger.reload() }
-            .sheet(isPresented: $loggingCost) { LogView() }
-            .receiptCapture(pickPhoto: $pickPhoto, takePhoto: $takePhoto)
-            .onAppear(perform: load)
-            .onChange(of: ledger.userSettings) { _, _ in if !loaded { load() } }
-            .overlay { if ledger.loading && ledger.summary == nil { ProgressView() } }
+        List {
+            hero
+            sliders
+            pills
+            needsYou
         }
+        .navigationTitle(ledger.goalName.isEmpty ? "Target" : ledger.goalName)
+        .refreshable { await ledger.reload() }
+        .onAppear(perform: load)
+        .onChange(of: ledger.userSettings) { _, _ in if !loaded { load() } }
+        .overlay { if ledger.loading && ledger.summary == nil { ProgressView() } }
     }
 
     private func load() {

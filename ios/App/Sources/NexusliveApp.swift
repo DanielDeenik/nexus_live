@@ -77,7 +77,7 @@ struct RootView: View {
             LockView()
         } else {
             TabView(selection: $router.tab) {
-                HomeView().tabItem { Label("Home", systemImage: "house") }.tag(AppRouter.Tab.home)
+                TodayView().tabItem { Label("Today", systemImage: "house") }.tag(AppRouter.Tab.home)
                 SpendView().tabItem { Label("Spend", systemImage: "creditcard") }.tag(AppRouter.Tab.spend)
                 DecideView().tabItem { Label("Decide", systemImage: "arrow.triangle.branch") }.tag(AppRouter.Tab.decide)
                 PlanView().tabItem { Label("Plan", systemImage: "chart.line.uptrend.xyaxis") }.tag(AppRouter.Tab.plan)
