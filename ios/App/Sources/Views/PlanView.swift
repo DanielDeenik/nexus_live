@@ -43,7 +43,7 @@ struct PlanView: View {
                             Text("net worth in \(years) years on plan; \(Money.format(asNow.last ?? 0, ledger.baseCurrency)) if spending stays as now")
                                 .font(.subheadline).foregroundStyle(.secondary)
                         }
-                        ChartCard(title: "Net worth forecast", caption: "Band: return \(ledger.returnBand.formatted(.number.precision(.fractionLength(0...1)))) points either side. As now: your average spending above the plan comes out of the monthly invest. Starts from your accounts today.") {
+                        ChartCard(title: "Net worth forecast", caption: "Band: return \(ledger.returnBand.formatted(.number.precision(.fractionLength(0...1)))) points either side. As now: your average spending above the plan comes out of the monthly invest. Starts from what is yours on Today.") {
                             NetWorthChart(band: band, onPlan: dated(onPlan), asNow: dated(asNow), labelled: false)
                         } large: {
                             NetWorthChart(band: band, onPlan: dated(onPlan), asNow: dated(asNow))

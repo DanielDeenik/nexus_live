@@ -35,7 +35,6 @@ final class Ledger: ObservableObject {
     @Published var measures: ServerMeasures?
     @Published var mailbox: MailboxStatus?
     @Published var spendError: String?
-    @Published var fxToEUR: [String: Double] = [:]
     // Today, Slipping, A month and Assignment: one answer from nx_glance.
     @Published var glance: Glance?
     @Published var glanceError: String?
@@ -54,7 +53,7 @@ final class Ledger: ObservableObject {
             let profiles: [Profile] = try await backend.select("profiles", "select=id,base_currency&id=eq.\(uid)")
             if let currency = profiles.first?.base_currency, !currency.isEmpty { baseCurrency = currency }
             let config: [ConfigEntry] = try await backend.select("app_config",
-                "select=key,value&or=(key.like.purchase.*,key.like.budget.*,key.eq.storage.documents_bucket,key.like.target.*,key.like.plan.*,key.like.food.*,key.like.stop.*,key.like.review.*,key.like.measures.*,key.like.notifications.*,key.eq.integrations.fx.api_base)")
+                "select=key,value&or=(key.like.purchase.*,key.like.budget.*,key.eq.storage.documents_bucket,key.like.target.*,key.like.plan.*,key.like.food.*,key.like.stop.*,key.like.review.*,key.like.measures.*,key.like.notifications.*)")
             settings = Dictionary(config.map { ($0.key, $0.value) }, uniquingKeysWith: { first, _ in first })
 
             // Enough months for the averages and for the spend chart; a split line comes in per part.
