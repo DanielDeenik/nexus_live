@@ -73,4 +73,15 @@ func glanceChecks() {
     """
     let empty = try? JSONDecoder().decode(Glance.self, from: Data(bare.utf8))
     check("an answer without a forecast still decodes", empty != nil && empty?.month == nil && empty?.assignment == nil && empty?.today.next == nil && empty?.review.moved == -250.5)
+
+    let start = GlanceMath.netWorth(glance)
+    check("the forecasts start from what is yours on Today", start.total == 10540 && start.note == nil)
+    let uncounted = bare.replacingOccurrences(of: "\"items\": []",
+        with: "\"items\": [{\"key\": \"not_counted\", \"title\": \"Not counted\", \"now\": \"1 account\", \"short\": \"s\", \"detail\": \"No exchange rate yet for Wise GBP.\"}]")
+    if let partial = try? JSONDecoder().decode(Glance.self, from: Data(uncounted.utf8)) {
+        let part = GlanceMath.netWorth(partial)
+        check("an account without an exchange rate is named where the forecasts start", part.total == 100 && part.note == "No exchange rate yet for Wise GBP.")
+    } else {
+        check("an account without an exchange rate is named where the forecasts start", false)
+    }
 }

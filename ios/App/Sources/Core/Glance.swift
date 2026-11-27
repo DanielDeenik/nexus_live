@@ -163,6 +163,12 @@ enum GlanceMath {
         return (rows, slipping.items.count - rows.count)
     }
 
+    /// Where the forecasts start: what is yours on Today, with the server's sentence about an
+    /// account it could not count when there is one.
+    static func netWorth(_ glance: Glance) -> (total: Double, note: String?) {
+        (glance.today.yours, glance.slipping.items.first { $0.key == "not_counted" }?.detail)
+    }
+
     /// The address of a page of the web app, when the server names one.
     static func webURL(_ base: String?, path: String, topic: String? = nil) -> URL? {
         guard let base, base.hasPrefix("https://"), var parts = URLComponents(string: base) else { return nil }

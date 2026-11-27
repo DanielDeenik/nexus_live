@@ -113,8 +113,8 @@ struct TargetView: View {
             let needed = PlanMath.capitalNeeded(monthly: target, withdrawalPct: withdrawal)
             Text("Investing \(Money.format(invest, ledger.baseCurrency)) a month at \(returnPct.formatted(.number.precision(.fractionLength(1))))% it pays \(Money.format(pays, ledger.baseCurrency)) a month by the date, at a \(withdrawal.formatted(.number.precision(.fractionLength(1))))% withdrawal rate. Capital alone needs \(needed.map { Money.format($0, ledger.baseCurrency) } ?? "?").")
                 .font(.caption).foregroundStyle(.secondary)
-            if let missing = ledger.netWorthParts?.missing, !missing.isEmpty {
-                Text("Not counted yet: \(missing.joined(separator: ", ")) (no exchange rate).").font(.caption2).foregroundStyle(.orange)
+            if let note = ledger.netWorthParts?.note {
+                Text(note).font(.caption2).foregroundStyle(.orange)
             }
         }
     }

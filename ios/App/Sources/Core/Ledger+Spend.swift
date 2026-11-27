@@ -59,37 +59,9 @@ extension Ledger {
         return PlanMath.requiredGrowth(current: current, target: target, months: months)
     }
 
-    /// Net worth now in euros: cash in your accounts less the tax you owe, plus Wise and eToro
-    /// converted at today's rate. Parts that cannot be converted yet are left out and named.
-    var netWorthParts: (total: Double, missing: [String])? {
-        guard let summary else { return nil }
-        var total = summary.cash - summary.tax_reserve
-        var missing: [String] = []
-        for wallet in overview?.wallets ?? [] {
-            if wallet.currency == baseCurrency { total += wallet.balance }
-            else if let rate = fxToEUR[wallet.currency] { total += wallet.balance * rate }
-            else { missing.append(wallet.label) }
-        }
-        if let broker = overview?.broker {
-            let usd = broker.cash_usd + broker.invested_usd + broker.unrealized_pnl_usd
-            if let rate = fxToEUR["USD"] { total += usd * rate } else { missing.append("eToro") }
-        }
-        return (total, missing)
-    }
-
-    /// Converts the currencies of your wallets and broker to euros, from the rate provider in app_config.
-    func refreshFX() async {
-        guard let base = settings["integrations.fx.api_base"], !base.isEmpty else { return }
-        let needed = Set((overview?.wallets ?? []).map(\.currency) + (overview?.broker == nil ? [] : ["USD"])).subtracting([baseCurrency])
-        for currency in needed where fxToEUR[currency] == nil {
-            guard let url = URL(string: "\(base)/latest?from=\(currency)&to=\(baseCurrency)"),
-                  let (data, _) = try? await URLSession.shared.data(from: url),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let rates = json["rates"] as? [String: Any],
-                  let rate = (rates[baseCurrency] as? NSNumber)?.doubleValue else { continue }
-            fxToEUR[currency] = rate
-        }
-    }
+    /// Net worth now in euros: what is yours on Today, from the same answer of nx_glance, so the
+    /// forecasts and Today never start from different figures. Nil until that answer is in.
+    var netWorthParts: (total: Double, note: String?)? { glance.map(GlanceMath.netWorth) }
 
     /// The top of the monthly invest slider: what a month leaves after the tax set-aside and the plan
     /// (or today's setting if that is higher), and never less than ten steps.
@@ -173,7 +145,6 @@ extension Ledger {
             spendError = error.localizedDescription
         }
         await refreshMailbox()
-        await refreshFX()
         Reminders.sync(self)
     }
 
