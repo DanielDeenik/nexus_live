@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
+  PieChart,
   TrendingUp,
   Settings,
   ChevronLeft,
@@ -31,6 +32,7 @@ interface SidebarItem {
 }
 
 const sidebarItems: SidebarItem[] = [
+  { label: 'Look-through', path: '/look', icon: <PieChart size={20} /> },
   { label: 'Income & Tax', path: '/', icon: <LayoutDashboard size={20} /> },
   { label: 'Forecast', path: '/forecast', icon: <TrendingUp size={20} /> },
   { label: 'Review', path: '/review', icon: <ClipboardCheck size={20} /> },

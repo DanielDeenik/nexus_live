@@ -3,6 +3,7 @@
   "specifiers": {
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.14",
+    "npm:@electric-sql/pglite@0.6.0": "0.6.0",
     "npm:@langchain/anthropic@1.5.11": "1.5.11_@langchain+core@1.2.12",
     "npm:@langchain/core@1.2.12": "1.2.12_openai@7.32.0",
     "npm:@langchain/langgraph@1.4.17": "1.4.17_@langchain+core@1.2.12_zod@4.6.5",
@@ -39,6 +40,9 @@
     },
     "@cfworker/json-schema@4.1.1": {
       "integrity": "sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og=="
+    },
+    "@electric-sql/pglite@0.6.0": {
+      "integrity": "sha512-g3tAPFjRLEdN1g5FvawTl4ETo9LtmVwBRUJYnH6Erl6mhlKFRGB2mYhPABffIuXMYxki64mX0Al8U4UFUhuYDQ=="
     },
     "@langchain/anthropic@1.5.11_@langchain+core@1.2.12": {
       "integrity": "sha512-NunWC6u8A/h5VnRk/WvyFkvN3RtdONUWV16u2i/EcEvhtjL2ZhJBPjjSFhm/7vyjtwdTyDhp7Uny75FHB7JXEQ==",

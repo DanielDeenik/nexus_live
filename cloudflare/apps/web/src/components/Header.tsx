@@ -18,6 +18,7 @@ const pageNames: Record<string, string> = {
   '/recruiter/roles': 'Roles',
   '/linkedin': 'LinkedIn',
   '/settings': 'Settings',
+  '/look': 'Look-through',
 }
 
 interface HeaderProps {

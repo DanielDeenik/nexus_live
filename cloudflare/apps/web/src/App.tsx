@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { Forecast } from './pages/Forecast'
+import { Look } from './pages/Look'
 import { Settings } from './pages/Settings'
 import { IncomeTax } from './pages/IncomeTax'
 import { Review } from './pages/Review'
@@ -67,6 +68,7 @@ function App() {
       >
         <Routes>
           <Route path="/" element={<IncomeTax />} />
+          <Route path="/look" element={<Look />} />
           <Route path="/forecast" element={<Forecast />} />
           <Route path="/review" element={<Review />} />
           <Route path="/expenses" element={<Expenses />} />
