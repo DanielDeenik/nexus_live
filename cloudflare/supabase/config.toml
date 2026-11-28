@@ -65,3 +65,9 @@ verify_jwt = false
 # scheduler's non-JWT bearer and Google's redirect through.
 [functions.nexus]
 verify_jwt = false
+
+# The Nexus agents MCP server for Claude Code. It verifies the user's token
+# itself (withSupabase user mode); the gateway must let the unauthenticated
+# OAuth discovery request through.
+[functions.mcp]
+verify_jwt = false

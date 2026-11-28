@@ -14,6 +14,7 @@
 // POST { action: "close_month", month }                  signed in: month = YYYY-MM-01
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { adminClient, authorize, requireEnv } from "../_shared/client.ts";
+import { asRun } from "../_shared/harness.ts";
 import { type AppConfig, loadConfig, need } from "../_shared/config.ts";
 import { json, preflight } from "../_shared/cors.ts";
 import { claimState, connections, markConnection, redirectUri, saveConnection, signState } from "../_shared/connect.ts";
@@ -359,7 +360,7 @@ async function loadLines(db: SupabaseClient, cfg: AppConfig, userId: string): Pr
 }
 
 /** One user's run: mail, matching, review and the stop list. A failing stage is recorded and the rest still run. */
-async function daily(db: SupabaseClient, base: AppConfig, userId: string): Promise<Record<string, unknown>> {
+async function daily(db: SupabaseClient, base: AppConfig, userId: string): Promise<{ metrics: Record<string, number>; errors: string[] }> {
   const cfg = await userCfg(db, base, userId);
   const m: Record<string, number> = {};
   const errors: string[] = [];
@@ -374,6 +375,14 @@ async function daily(db: SupabaseClient, base: AppConfig, userId: string): Promi
   await stage("review", () => review(db, cfg, userId, lines, receipts, m));
   await stage("stop", () => stopList(db, cfg, userId, lines, receipts, m));
   return { metrics: m, errors };
+}
+
+/** The daily run as an agent run: stages that failed make it partial. */
+function loggedDaily(db: SupabaseClient, base: AppConfig, userId: string, trigger: "cron" | "manual") {
+  return asRun(db, userId, "spend", trigger, null, () => daily(db, base, userId), {
+    summarize: (r) => r.metrics,
+    problems: (r) => r.errors,
+  });
 }
 
 // ------------------------------------------------------------ close ---------
@@ -487,7 +496,7 @@ export async function handler(req: Request): Promise<Response> {
       if (body.mode !== "daily") return json({ error: "unknown mode" }, 400);
       const { data: users } = await db.from("nx_category_rules").select("user_id");
       const out: Record<string, unknown> = {};
-      for (const u of [...new Set((users ?? []).map((x) => x.user_id as string))]) out[u.slice(0, 8)] = await daily(db, cfg, u);
+      for (const u of [...new Set((users ?? []).map((x) => x.user_id as string))]) out[u.slice(0, 8)] = await loggedDaily(db, cfg, u, "cron");
       return json({ ok: true, users: out });
     }
 
@@ -541,7 +550,7 @@ export async function handler(req: Request): Promise<Response> {
         return json({ ok: true });
       }
       case "run":
-        return json(await daily(db, cfg, userId));
+        return json(await loggedDaily(db, cfg, userId, "manual"));
       case "receipt_photo": {
         const path = String(body.path ?? "");
         if (!path.startsWith(`${userId}/`)) return json({ error: "that file is not yours" }, 403);

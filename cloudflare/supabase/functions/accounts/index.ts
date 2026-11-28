@@ -14,6 +14,7 @@
 // POST { action: "overview", user_id } with the service key  one user's overview (checks)
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { adminClient, authorize } from "../_shared/client.ts";
+import { asRun } from "../_shared/harness.ts";
 import { type AppConfig, loadConfig, need } from "../_shared/config.ts";
 import { json, preflight } from "../_shared/cors.ts";
 import { claimState, type Connection, connections, markConnection, type Provider, readSecret, redirectUri, saveConnection, signState } from "../_shared/connect.ts";
@@ -407,6 +408,9 @@ async function overview(db: SupabaseClient, cfg: AppConfig, userId: string) {
 
 // ---------------------------------------------------------------- handler
 
+const syncProblems = (rs: Record<string, unknown>[]) => rs.filter((r) => r.ok === false).map((r) => `${r.service_id}: ${r.error ?? "failed"}`);
+const syncSummary = (rs: Record<string, unknown>[]) => rs.map((r) => ({ service_id: r.service_id, ok: r.ok }));
+
 export async function handler(req: Request): Promise<Response> {
   const pf = preflight(req);
   if (pf) return pf;
@@ -421,7 +425,10 @@ export async function handler(req: Request): Promise<Response> {
       if (sb.action === "overview" && typeof sb.user_id === "string") return json(await overview(db, cfg, sb.user_id));
       const { data: users } = await db.from("profiles").select("id");
       const out: Record<string, unknown>[] = [];
-      for (const u of users ?? []) out.push({ user: (u.id as string).slice(0, 8), results: await syncAll(db, cfg, u.id as string) });
+      for (const u of users ?? []) {
+        const id = u.id as string;
+        out.push({ user: id.slice(0, 8), results: await asRun(db, id, "accounts_sync", "cron", null, () => syncAll(db, cfg, id), { summarize: syncSummary, problems: syncProblems }) });
+      }
       return json({ ok: true, users: out });
     }
     const userId = who.id;
@@ -432,7 +439,7 @@ export async function handler(req: Request): Promise<Response> {
         return json(await overview(db, cfg, userId));
 
       case "sync":
-        return json({ results: await syncAll(db, cfg, userId), overview: await overview(db, cfg, userId) });
+        return json({ results: await asRun(db, userId, "accounts_sync", "manual", null, () => syncAll(db, cfg, userId), { summarize: syncSummary, problems: syncProblems }), overview: await overview(db, cfg, userId) });
 
       case "etoro_connect": {
         const keys = { api_key: String(body.api_key ?? "").trim(), user_key: String(body.user_key ?? "").trim() };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { Forecast } from './pages/Forecast'
 import { Look } from './pages/Look'
@@ -19,6 +19,8 @@ import { Applications } from './pages/recruiter/Applications'
 import { Roles } from './pages/recruiter/Roles'
 import { LinkedInOverview } from './pages/linkedin/LinkedInOverview'
 import { SignIn } from './pages/SignIn'
+import { OAuthConsent } from './pages/OAuthConsent'
+import { keepConsentPath, takeConsentPath } from './lib/claudeAccess'
 import { LoadingSpinner } from './components/ui/LoadingSpinner'
 import { useAuthProvider } from './hooks/useAuth'
 import { AuthContext } from './stores/auth'
@@ -31,6 +33,8 @@ function RedirectKeepQuery({ to, hash }: { to: string; hash?: string }) {
 
 function App() {
   const authProvider = useAuthProvider()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [userRole] = useState('Founder')
   const [notificationCount] = useState(0)
 
@@ -48,6 +52,15 @@ function App() {
     if (userId) ensureBootstrap(userId).catch((e) => console.error('time bootstrap failed', e))
   }, [userId])
 
+  // A consent request from Claude Code that arrived before sign-in comes back
+  // once signed in; sign-in itself returns to the start page.
+  const signedIn = authProvider.isAuthenticated
+  useEffect(() => {
+    if (!signedIn) { keepConsentPath(location.pathname, location.search, sessionStorage); return }
+    const kept = takeConsentPath(sessionStorage)
+    if (kept && kept !== `${location.pathname}${location.search}`) navigate(kept, { replace: true })
+  }, [signedIn, location.pathname, location.search, navigate])
+
   const handleLogout = () => {
     authProvider.logout()
   }
@@ -56,6 +69,9 @@ function App() {
     return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><LoadingSpinner /></div>
   }
   if (!authProvider.isAuthenticated) return <SignIn />
+  if (location.pathname === '/oauth/consent') {
+    return <AuthContext.Provider value={authProvider}><OAuthConsent /></AuthContext.Provider>
+  }
   const userName = authProvider.user?.name || authProvider.user?.email || ''
 
   return (
