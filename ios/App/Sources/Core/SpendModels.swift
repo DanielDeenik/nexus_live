@@ -35,6 +35,13 @@ struct RecurringCharge: Codable, Identifiable {
     let cancel_by: String?
     let status: String?
     let note: String?
+    // From nx_subscriptions: the account it is paid from (yours, or the latest bank line that
+    // matches), whether that is bunq, and what the receipts show: active, failing or cancelled.
+    var paying_account: String? = nil
+    var billing_status: String? = nil
+    var evidence: [String]? = nil
+    var paid_from: String? = nil
+    var on_bunq: Bool? = nil
 
     var perMonth: Double { (per_year ?? 0) / 12 }
     var isCut: Bool { call == "cancel" }
@@ -52,8 +59,50 @@ struct CancelRoute: Codable, Identifiable {
     let steps: String?
     let trap: String?
     let notice_to: String?
+    /// The merchant's account page, where the subscription is seen and managed. `url` is the cancel page.
+    var manage_url: String? = nil
 
     func matches(_ text: String) -> Bool { Amounts.matches(text, pattern: pattern) }
+}
+
+/// The Subscriptions list: Manage and Cancel open the merchant's own pages in the browser;
+/// cancelling stays your action.
+enum Subscriptions {
+    enum Group: Equatable { case onBunq, active, ended }
+
+    struct Links: Equatable {
+        let manage: URL?
+        let cancel: URL?
+        /// The only route is the bank one: Cancel blocks the direct debit at the bank.
+        let cancelAtBank: Bool
+    }
+
+    private static func web(_ text: String?) -> URL? {
+        guard let text, let url = URL(string: text), let scheme = url.scheme?.lowercased(),
+              scheme == "https" || scheme == "http", url.host != nil else { return nil }
+        return url
+    }
+
+    /// The first route by priority whose pattern matches the charge. An Apple route manages where it cancels.
+    static func links(for charge: RecurringCharge, routes: [CancelRoute]) -> Links {
+        guard let route = routes.sorted(by: { $0.priority < $1.priority }).first(where: { $0.matches(charge.label) }) else {
+            return Links(manage: nil, cancel: nil, cancelAtBank: false)
+        }
+        let cancel = web(route.url)
+        let manage = web(route.manage_url) ?? (route.route == "apple" ? cancel : nil)
+        return Links(manage: manage, cancel: cancel, cancelAtBank: route.route == "bank" && cancel != nil)
+    }
+
+    static func group(_ charge: RecurringCharge, today: String) -> Group {
+        if charge.billing_status == "cancelled" { return .ended }
+        if let end = charge.ends_on, end.prefix(10) < today.prefix(10) { return .ended }
+        if charge.call == "cancel" && charge.status == "confirmed" { return .ended }
+        return charge.on_bunq == true ? .onBunq : .active
+    }
+
+    static func isFailing(_ charge: RecurringCharge) -> Bool { charge.billing_status == "failing" }
+
+    static func paidFrom(_ charge: RecurringCharge) -> String { charge.paid_from ?? charge.paying_account ?? "Account not known" }
 }
 
 /// A stop list: shops that are not allowed from a date, set as stop.<name>_pattern and

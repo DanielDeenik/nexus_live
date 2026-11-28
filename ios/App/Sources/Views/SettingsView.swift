@@ -336,6 +336,7 @@ struct RouteForm: View {
     @State private var pattern: String
     @State private var kind: String
     @State private var url: String
+    @State private var manageURL: String
     @State private var steps: String
     @State private var trap: String
     @State private var noticeTo: String
@@ -348,6 +349,7 @@ struct RouteForm: View {
         _pattern = State(initialValue: route?.pattern ?? "")
         _kind = State(initialValue: route?.route ?? "web")
         _url = State(initialValue: route?.url ?? "")
+        _manageURL = State(initialValue: route?.manage_url ?? "")
         _steps = State(initialValue: route?.steps ?? "")
         _trap = State(initialValue: route?.trap ?? "")
         _noticeTo = State(initialValue: route?.notice_to ?? "")
@@ -365,7 +367,8 @@ struct RouteForm: View {
                     Text("Bank direct debit").tag("bank")
                     Text("Written notice").tag("notice")
                 }
-                TextField("Page", text: $url).keyboardType(.URL).textInputAutocapitalization(.never)
+                TextField("Cancel page", text: $url).keyboardType(.URL).textInputAutocapitalization(.never)
+                TextField("Account page", text: $manageURL).keyboardType(.URL).textInputAutocapitalization(.never)
                 TextField("Steps", text: $steps, axis: .vertical)
                 TextField("Trap to avoid", text: $trap, axis: .vertical)
                 if kind == "notice" { TextField("Notice email address", text: $noticeTo).keyboardType(.emailAddress).textInputAutocapitalization(.never) }
@@ -387,7 +390,7 @@ struct RouteForm: View {
         Task {
             do {
                 try await ledger.saveRoute(id: route?.id, priority: order, pattern: pattern, label: label, route: kind,
-                                           url: url, steps: steps, trap: trap, noticeTo: noticeTo)
+                                           url: url, manageURL: manageURL, steps: steps, trap: trap, noticeTo: noticeTo)
                 dismiss()
             } catch { self.error = error.localizedDescription }
         }

@@ -12,5 +12,6 @@ planMathChecks()
 deeplinkChecks()
 spendModelChecks()
 glanceChecks()
+subscriptionChecks()
 if failures > 0 { print("\(failures) failed"); exit(1) }
 print("all core checks passed")

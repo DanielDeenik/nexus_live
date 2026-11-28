@@ -95,6 +95,14 @@ struct SpendView: View {
 
     @ViewBuilder private var more: some View {
         Section {
+            NavigationLink { SubscriptionsView() } label: {
+                HStack {
+                    Label("Subscriptions", systemImage: "creditcard")
+                    Spacer()
+                    let bunq = ledger.recurring.filter { Subscriptions.group($0, today: Day.string(Date())) == .onBunq }.count
+                    if bunq > 0 { Text("\(bunq) on bunq").font(.caption.bold()).foregroundStyle(.orange) }
+                }
+            }
             NavigationLink { PurchaseReviewView() } label: {
                 HStack {
                     Label("Purchase review", systemImage: "arrow.triangle.2.circlepath")

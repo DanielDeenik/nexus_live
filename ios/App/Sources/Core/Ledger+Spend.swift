@@ -157,9 +157,9 @@ extension Ledger {
         do {
             receipts = try await backend.select("nx_receipts",
                 "select=id,source,kind,merchant,total,currency,order_date,received_at,txn_id,match_status&order=received_at.desc&limit=200")
-            recurring = try await backend.select("nx_recurring", "select=*&order=per_year.desc.nullslast,label.asc")
+            recurring = try await backend.select("nx_subscriptions", "select=*&order=per_year.desc.nullslast,label.asc")
             routes = try await backend.select("nx_cancel_routes",
-                "select=id,priority,pattern,label,route,url,steps,trap,notice_to&order=priority.asc,label.asc")
+                "select=id,priority,pattern,label,route,url,steps,trap,notice_to,manage_url&order=priority.asc,label.asc")
             alerts = try await backend.select("nx_alerts", "select=id,kind,title,detail,txn_id,created_at,seen_at&order=created_at.desc&limit=100")
             taps = try await backend.select("nx_wallet_taps",
                 "select=id,tapped_at,merchant,amount,currency,card,planned,food,txn_id&order=tapped_at.desc&limit=200")
@@ -225,10 +225,11 @@ extension Ledger {
     }
 
     func saveRoute(id: String?, priority: Int, pattern: String, label: String, route: String,
-                   url: String, steps: String, trap: String, noticeTo: String) async throws {
+                   url: String, manageURL: String = "", steps: String, trap: String, noticeTo: String) async throws {
         let row: [String: Any] = [
             "priority": priority, "pattern": pattern, "label": label, "route": route,
-            "url": url.isEmpty ? NSNull() : url, "steps": steps.isEmpty ? NSNull() : steps,
+            "url": url.isEmpty ? NSNull() : url, "manage_url": manageURL.isEmpty ? NSNull() : manageURL,
+            "steps": steps.isEmpty ? NSNull() : steps,
             "trap": trap.isEmpty ? NSNull() : trap, "notice_to": noticeTo.isEmpty ? NSNull() : noticeTo
         ]
         if let id { try await backend.update("nx_cancel_routes", id: id, row) } else { try await backend.insert("nx_cancel_routes", row) }

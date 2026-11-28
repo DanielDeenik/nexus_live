@@ -186,6 +186,9 @@ struct RecurringDetail: View {
             Section("Cancel it: \(route.label)") {
                 if let steps = route.steps { Text(steps) }
                 if let trap = route.trap { Label(trap, systemImage: "exclamationmark.triangle").font(.callout).foregroundStyle(.orange) }
+                if let manage = Subscriptions.links(for: charge, routes: ledger.routes).manage, route.route != "apple" {
+                    Button { openURL(manage) } label: { Label("Open the account page", systemImage: "person.crop.circle") }
+                }
                 if let link = route.url, let url = URL(string: link) {
                     Button { openURL(url) } label: { Label(route.route == "bank" ? "Open the bank" : "Open the cancel page", systemImage: "arrow.up.right.square") }
                 }
