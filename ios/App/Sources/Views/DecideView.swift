@@ -198,22 +198,37 @@ struct DecideView: View {
     }
 }
 
+/// A new if/then rule. Opened from a slipping tag it starts from the server's proposal, an
+/// implementation intention with its cue, and remembers the tag it corrects.
 struct RuleForm: View {
     @EnvironmentObject private var ledger: Ledger
     @Environment(\.dismiss) private var dismiss
+    private let draft: RuleDraft?
     @State private var area = ""
-    @State private var condition = ""
-    @State private var then = ""
+    @State private var condition: String
+    @State private var then: String
     @State private var otherwise = ""
     @State private var error: String?
+
+    init(draft: RuleDraft? = nil) {
+        self.draft = draft
+        _condition = State(initialValue: draft?.condition ?? "")
+        _then = State(initialValue: draft?.then ?? "")
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Area (money, health, trading)", text: $area).textInputAutocapitalization(.never)
-                TextField("If", text: $condition, axis: .vertical)
-                TextField("Then", text: $then, axis: .vertical)
-                TextField("Else (optional)", text: $otherwise, axis: .vertical)
+                Section {
+                    TextField("Area (money, health, trading)", text: $area).textInputAutocapitalization(.never)
+                    TextField("If", text: $condition, axis: .vertical)
+                    TextField("Then", text: $then, axis: .vertical)
+                    TextField("Else (optional)", text: $otherwise, axis: .vertical)
+                } footer: {
+                    if let cue = draft?.cue, !cue.isEmpty {
+                        Text("The cue: \(cue). Change the if and then to your own words; Slipping shows the spend before and since.")
+                    }
+                }
             }
             .navigationTitle("New rule")
             .toolbar {
@@ -222,7 +237,8 @@ struct RuleForm: View {
                     Button("Save") {
                         Task {
                             do {
-                                try await ledger.addRule(area: area, condition: condition, then: then, otherwise: otherwise)
+                                try await ledger.addRule(area: area, condition: condition, then: then, otherwise: otherwise,
+                                                         cue: draft?.cue, tagDimension: draft?.tagDimension, tagValue: draft?.tagValue)
                                 dismiss()
                             } catch { self.error = error.localizedDescription }
                         }

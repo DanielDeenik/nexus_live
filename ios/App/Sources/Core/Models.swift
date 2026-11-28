@@ -29,9 +29,11 @@ struct Transaction: Codable, Identifiable {
     let rail: String?
     let review_status: String
     let decision_id: String?
+    /// A part of a split line: its id is the split's, not the bank line's.
+    let split: Bool?
 
     enum CodingKeys: String, CodingKey {
-        case id, booked_on, amount, currency, merchant, category, rail, review_status, decision_id
+        case id, booked_on, amount, currency, merchant, category, rail, review_status, decision_id, split
         case txClass = "class"
     }
 

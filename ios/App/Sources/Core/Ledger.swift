@@ -39,6 +39,8 @@ final class Ledger: ObservableObject {
     // Today, Slipping, A month and Assignment: one answer from nx_glance.
     @Published var glance: Glance?
     @Published var glanceError: String?
+    // Tags on bank lines: the dimensions and their values (nx_tag_choices).
+    @Published var tagChoices: [TagChoice] = []
 
     let backend: Backend
 
@@ -65,7 +67,7 @@ final class Ledger: ObservableObject {
                 transactions = []
             } else {
                 transactions = try await selectAll("nx_spend_lines",
-                    "select=id,booked_on,amount,currency,merchant,category,class,rail,review_status,decision_id&booked_on=gte.\(since)&class=in.(\(classes))&order=booked_on.desc,created_at.desc,id.desc")
+                    "select=id,booked_on,amount,currency,merchant,category,class,rail,review_status,decision_id,split&booked_on=gte.\(since)&class=in.(\(classes))&order=booked_on.desc,created_at.desc,id.desc")
             }
             expenses = try await backend.select("expenses",
                 "select=id,amount,currency,category,date,description,vendor,status,source&date=gte.\(since)&status=neq.rejected&order=date.desc,created_at.desc")
@@ -425,13 +427,19 @@ final class Ledger: ObservableObject {
         return summary
     }
 
-    func addRule(area: String?, condition: String, then: String, otherwise: String?) async throws {
+    /// An if/then rule. One from a slipping tag also names the tag it corrects and its cue, so
+    /// Slipping can show what changed since you made it.
+    func addRule(area: String?, condition: String, then: String, otherwise: String?,
+                 cue: String? = nil, tagDimension: String? = nil, tagValue: String? = nil) async throws {
         try await backend.insert("nx_decisions", [
             "kind": "rule",
             "area": orNull(area),
             "if_condition": condition,
             "then_action": then,
-            "else_action": orNull(otherwise)
+            "else_action": orNull(otherwise),
+            "cue": orNull(cue),
+            "tag_dimension": orNull(tagDimension),
+            "tag_value": orNull(tagValue)
         ])
         await reload()
     }

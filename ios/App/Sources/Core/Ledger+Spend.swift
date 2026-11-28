@@ -168,6 +168,8 @@ extension Ledger {
                 "select=id,booked_on,amount,currency,merchant,payee,category,class,review_status&or=(review_status.eq.needs_review,category.eq.Uncategorised,category.like.To%20check*)&order=booked_on.desc,id.desc&limit=200")
             let raw = try await backend.rpc("nx_measures", [:])
             measures = try JSONDecoder().decode(ServerMeasures.self, from: JSONSerialization.data(withJSONObject: raw))
+            let choices = try await backend.rpc("nx_tag_choices", [:])
+            tagChoices = try JSONDecoder().decode([TagChoice].self, from: JSONSerialization.data(withJSONObject: choices))
             spendError = nil
         } catch {
             spendError = error.localizedDescription
@@ -315,6 +317,30 @@ extension Ledger {
             _ = try await backend.rpc("nx_reclassify", [:])
         }
         await reload()
+    }
+
+    // MARK: Tags
+
+    /// The tags on one line, by dimension.
+    func lineTags(_ lineId: String) async throws -> [LineTag] {
+        try await backend.select("nx_line_tags", "select=dimension,value,source&txn_id=eq.\(lineId)")
+    }
+
+    /// Tags lines by hand; nil hands the dimension back to the rules. With always, the tag also
+    /// goes on the shop's rule, the same one "Always for this shop" makes for the category.
+    func setTag(_ lineIds: [String], dimension: String, value: String?, always: Bool) async throws {
+        _ = try await backend.rpc("nx_set_line_tags", [
+            "p_txns": lineIds, "p_dimension": dimension, "p_value": value.map { $0 as Any } ?? NSNull(), "p_always": always
+        ])
+    }
+
+    /// Saves what changed in a line form's tag picks, then reloads the figures that use them.
+    func saveTags(_ lineIds: [String], before: [String: String], picks: [String: String], always: Bool) async throws {
+        let changes = Tags.changes(from: before, to: picks)
+        for change in changes {
+            try await setTag(lineIds, dimension: change.dimension, value: change.value, always: always)
+        }
+        if !changes.isEmpty { await reloadGlance() }
     }
 
     // MARK: Monthly close

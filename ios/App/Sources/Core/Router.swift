@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 /// Which tab is showing and what was asked from outside: a Buy check from Shortcuts, the widget or
-/// a notification, the Sunday review, the monthly close or the purchase review.
+/// a notification, the Sunday review, the monthly close, the purchase review or a proposed rule.
 @MainActor
 final class AppRouter: ObservableObject {
     static let shared = AppRouter()
@@ -14,6 +14,8 @@ final class AppRouter: ObservableObject {
     @Published var showReview = false
     @Published var showClose = false
     @Published var showPurchases = false
+    /// A rule to save, proposed by a slipping tag on the Slipping screen.
+    @Published var ruleDraft: RuleDraft?
 
     /// Opens the Buy check over whatever is showing.
     func openBuy(_ draft: BuyDraft) {
