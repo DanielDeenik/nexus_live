@@ -27,8 +27,8 @@ struct PurchaseReviewView: View {
         return (zip(dates, series.now).map { ChartPoint(date: $0, value: $1) }, zip(dates, series.afterCuts).map { ChartPoint(date: $0, value: $1) })
     }
 
-    private func section(_ title: String, _ rows: [RecurringCharge]) -> some View {
-        Section(title) {
+    private func section(_ title: String, _ rows: [RecurringCharge], footer: String? = nil) -> some View {
+        Section {
             ForEach(rows) { charge in
                 NavigationLink { RecurringDetail(charge: charge) } label: { RecurringRow(charge: charge) }
                     .swipeActions(edge: .trailing) {
@@ -39,6 +39,10 @@ struct PurchaseReviewView: View {
                         Button("Keep") { set(charge, "keep") }.tint(.green)
                     }
             }
+        } header: {
+            Text(title)
+        } footer: {
+            if let footer { Text(footer) }
         }
     }
 
@@ -68,14 +72,24 @@ struct PurchaseReviewView: View {
             if ledger.recurring.isEmpty {
                 Text("Recurring charges appear after the next bank sync or import.").foregroundStyle(.secondary)
             }
-            let open = ledger.recurring.filter { $0.call == nil }
+            let today = Day.string(Date())
+            let running = ledger.recurring.filter { Subscriptions.group($0, today: today) != .ended }
+            let bunq = running.filter { Subscriptions.group($0, today: today) == .onBunq && !$0.isCut }
+            if !bunq.isEmpty {
+                section("Still on bunq: move or cancel", bunq,
+                        footer: "bunq closes. Move each one to ABN AMRO, Wise or Amex, or cancel it.")
+            }
+            let rest = running.filter { !bunq.map(\.id).contains($0.id) }
+            let open = rest.filter { $0.call == nil }
             if !open.isEmpty { section("To decide", open) }
-            let cuts = ledger.recurring.filter(\.isCut)
+            let cuts = rest.filter(\.isCut)
             if !cuts.isEmpty { section("Cancel", cuts) }
-            let business = ledger.recurring.filter { $0.call == "move_business" }
+            let business = rest.filter { $0.call == "move_business" }
             if !business.isEmpty { section("Move to business", business) }
-            let keep = ledger.recurring.filter { $0.call == "keep" }
+            let keep = rest.filter { $0.call == "keep" }
             if !keep.isEmpty { section("Keep", keep) }
+            let ended = ledger.recurring.filter { Subscriptions.group($0, today: today) == .ended }
+            if !ended.isEmpty { section("Ended", ended) }
         }
         .navigationTitle("Purchase review")
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
@@ -104,6 +118,9 @@ struct RecurringRow: View {
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text(charge.per_year.map { Money.format($0, ledger.baseCurrency) + " a year" } ?? "").font(.caption.monospacedDigit())
+                if Subscriptions.isFailing(charge) {
+                    Text("Payment failing").font(.caption2.bold()).foregroundStyle(.red)
+                }
                 if let call = charge.shownCall {
                     Text((charge.call == nil ? "Suggested: " : "") + (callLabels[call] ?? call))
                         .font(.caption2.bold())
@@ -118,6 +135,7 @@ struct RecurringRow: View {
         if let amount = charge.amount { parts.append(Money.format(amount, ledger.baseCurrency)) }
         if let status = charge.status { parts.append(statusLabels[status] ?? status) }
         else if let next = charge.next_due { parts.append("next \(next)") }
+        if let from = charge.paid_from ?? charge.paying_account { parts.append(from) }
         return parts.joined(separator: " · ")
     }
 }
@@ -150,7 +168,23 @@ struct RecurringDetail: View {
                 LabeledContent("Paid this year", value: Money.format(charge.paid_this_year, ledger.baseCurrency))
                 if let last = charge.last_charge { LabeledContent("Last charge", value: last) }
                 if let next = charge.next_due { LabeledContent("Next charge", value: next) }
+                if let from = charge.paid_from ?? charge.paying_account { LabeledContent("Paid from", value: from) }
                 if let note = charge.note { Text(note).font(.caption).foregroundStyle(.secondary) }
+            }
+            let links = Subscriptions.links(for: charge, routes: ledger.routes)
+            if charge.call != "cancel", links.manage != nil || links.cancel != nil {
+                Section {
+                    if let manage = links.manage {
+                        Button { openURL(manage) } label: { Label("Open the account page", systemImage: "person.crop.circle") }
+                    }
+                    if let cancel = links.cancel {
+                        Button { openURL(cancel) } label: {
+                            Label(links.cancelAtBank ? "Block it at the bank" : "Open the cancel page", systemImage: "arrow.up.right.square")
+                        }
+                    }
+                } footer: {
+                    Text("Opens the merchant's own page. Cancelling stays your action; set your call above to track it.")
+                }
             }
             Section("Your call") {
                 Picker("Call", selection: $call) {

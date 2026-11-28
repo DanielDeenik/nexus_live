@@ -95,20 +95,14 @@ struct SpendView: View {
 
     @ViewBuilder private var more: some View {
         Section {
-            NavigationLink { SubscriptionsView() } label: {
-                HStack {
-                    Label("Subscriptions", systemImage: "creditcard")
-                    Spacer()
-                    let bunq = ledger.recurring.filter { Subscriptions.group($0, today: Day.string(Date())) == .onBunq }.count
-                    if bunq > 0 { Text("\(bunq) on bunq").font(.caption.bold()).foregroundStyle(.orange) }
-                }
-            }
             NavigationLink { PurchaseReviewView() } label: {
                 HStack {
                     Label("Purchase review", systemImage: "arrow.triangle.2.circlepath")
                     Spacer()
                     let open = ledger.recurring.filter { $0.call == nil }.count
-                    if open > 0 { Text(String(open)).font(.caption.bold()).foregroundStyle(.orange) }
+                    let bunq = ledger.recurring.filter { Subscriptions.group($0, today: Day.string(Date())) == .onBunq && !$0.isCut }.count
+                    if bunq > 0 { Text("\(bunq) on bunq").font(.caption.bold()).foregroundStyle(.orange) }
+                    else if open > 0 { Text(String(open)).font(.caption.bold()).foregroundStyle(.orange) }
                 }
             }
             let unplanned = ledger.unplannedThisMonth
