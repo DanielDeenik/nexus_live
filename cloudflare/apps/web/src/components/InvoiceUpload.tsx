@@ -22,7 +22,7 @@ export function InvoiceUpload({ onDone }: { onDone?: () => void }) {
   return (
     <Card>
       <CardHeader title="Upload invoices" subtitle="PDF or photo of invoices you sent. Each adds to income and its hours go into Time." />
-      <label className={`flex items-center justify-center gap-2 rounded-lg border border-dashed border-slate-600 px-4 py-6 text-sm text-slate-300 ${busy ? 'opacity-60' : 'cursor-pointer hover:border-sky-500 hover:text-slate-100'}`}>
+      <label className={`flex items-center justify-center gap-2 rounded-lg border border-dashed border-line px-4 py-6 text-sm text-body ${busy ? 'opacity-60' : 'cursor-pointer hover:border-lemon hover:text-ink'}`}>
         <Upload size={16} />
         {busy ? 'Reading invoices' : 'Choose invoice files'}
         <input ref={input} type="file" multiple accept="application/pdf,image/*" className="hidden" disabled={busy} onChange={(e) => onFiles(e.target.files)} />
@@ -30,7 +30,7 @@ export function InvoiceUpload({ onDone }: { onDone?: () => void }) {
       {results.length > 0 && (
         <ul className="mt-3 space-y-1 text-sm">
           {results.map((r) => (
-            <li key={r.file} className={r.ok ? 'text-slate-300' : 'text-warning-400'}>
+            <li key={r.file} className={r.ok ? 'text-body' : 'text-lemon-ink'}>
               <span className="font-medium">{r.file}</span>: {r.text}
             </li>
           ))}

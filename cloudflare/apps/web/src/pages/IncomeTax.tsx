@@ -7,18 +7,18 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { InvoiceUpload } from '../components/InvoiceUpload'
 import { supabase } from '../lib/supabase'
 import { type YearView, buildYearView, eur, hrs, loadOpenReviews, money } from '../lib/nexus'
+import { chart } from '../lib/theme'
 
-// Validated single-series hue on the dark surface (dataviz validator: lightness
-// band and contrast pass on #0f172a).
-const SERIES = '#0284c7'
+// The single series hue from lib/theme, validated on the white card.
+const SERIES = chart.actual
 
 function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: React.ReactNode; tone?: 'good' | 'warn' }) {
   return (
     <div className="glass p-5">
-      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-50 tabular-nums">{value}</p>
+      <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-ink tabular-nums">{value}</p>
       {sub && (
-        <p className={`mt-1 text-xs flex items-center gap-1 ${tone === 'good' ? 'text-success-400' : tone === 'warn' ? 'text-warning-400' : 'text-slate-400'}`}>
+        <p className={`mt-1 text-xs flex items-center gap-1 ${tone === 'good' ? 'text-good' : tone === 'warn' ? 'text-lemon-ink' : 'text-muted'}`}>
           {tone === 'good' && <CheckCircle2 size={12} />}{tone === 'warn' && <AlertTriangle size={12} />}{sub}
         </p>
       )}
@@ -29,7 +29,7 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub?:
 function Progress({ value, max }: { value: number; max: number }) {
   const pct = Math.min(100, (value / max) * 100)
   return (
-    <div className="h-2 rounded-full bg-slate-800 overflow-hidden" role="progressbar" aria-valuenow={value} aria-valuemax={max}>
+    <div className="h-2 rounded-full bg-chip overflow-hidden" role="progressbar" aria-valuenow={value} aria-valuemax={max}>
       <div className="h-full rounded-full" style={{ width: `${pct}%`, background: SERIES }} />
     </div>
   )
@@ -49,7 +49,7 @@ function TimeEntryForm({ onSaved }: { onSaved: () => void }) {
     if (error) { setErr(error.message); return }
     setHours(''); setDescription(''); onSaved()
   }
-  const input = 'rounded-lg bg-slate-900 border-slate-700 text-slate-100 text-sm'
+  const input = 'rounded-lg bg-card border-line text-ink text-sm'
   return (
     <form onSubmit={save} className="flex flex-wrap items-end gap-2">
       <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={input} required />
@@ -58,8 +58,8 @@ function TimeEntryForm({ onSaved }: { onSaved: () => void }) {
         {['admin', 'acquisition', 'product', 'training', 'travel', 'other'].map((c) => <option key={c}>{c}</option>)}
       </select>
       <input placeholder="What did you do" value={description} onChange={(e) => setDescription(e.target.value)} className={`${input} flex-1 min-w-40`} />
-      <button className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2">Log hours</button>
-      {err && <p className="w-full text-sm text-danger-400">{err}</p>}
+      <button className="rounded-lg bg-ink hover:bg-night-2 text-white text-sm px-4 py-2">Log hours</button>
+      {err && <p className="w-full text-sm text-bad">{err}</p>}
     </form>
   )
 }
@@ -84,7 +84,7 @@ export function IncomeTax() {
   useEffect(() => { load() }, [load])
 
   const counted = useMemo(() => new Set(view?.ledger.counted_invoice_ids ?? []), [view])
-  if (error) return <Card><p className="text-danger-400 text-sm">{error}</p></Card>
+  if (error) return <Card><p className="text-bad text-sm">{error}</p></Card>
   if (!view) return <div className="flex justify-center p-12"><LoadingSpinner /></div>
 
   const v: YearView = view
@@ -96,25 +96,26 @@ export function IncomeTax() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-50">Income, hours and tax</h1>
-          <p className="text-sm text-slate-400">Live from your invoices, logged hours and approved expenses.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">Income, hours and tax</h1>
+          <div className="lemon-rule" aria-hidden="true" />
+          <p className="mt-3 text-sm text-muted">Live from your invoices, logged hours and approved expenses.</p>
         </div>
         <div className="flex items-center gap-2">
           {openReviews > 0 && (
-            <Link to="/review" className="rounded-lg border border-warning-500/40 text-warning-300 text-sm px-3 py-2 flex items-center gap-2">
+            <Link to="/review" className="rounded-lg border border-lemon text-lemon-ink text-sm px-3 py-2 flex items-center gap-2">
               <AlertTriangle size={14} /> {openReviews} waiting for your review
             </Link>
           )}
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="rounded-lg bg-slate-900 border-slate-700 text-slate-100 text-sm">
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="rounded-lg bg-card border-line text-ink text-sm">
             {[year - 1, year, year + 1].map((y) => <option key={y}>{y}</option>)}
           </select>
         </div>
       </div>
 
       {!p && (
-        <Card><p className="text-sm text-warning-300 flex items-center gap-2"><Info size={14} /> No fiscal parameters loaded for {year}. Tax figures are hidden until they are.</p></Card>
+        <Card><p className="text-sm text-lemon-ink flex items-center gap-2"><Info size={14} /> No fiscal parameters loaded for {year}. Tax figures are hidden until they are.</p></Card>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -126,11 +127,11 @@ export function IncomeTax() {
           tone={v.ledger.revenue_eur_complete ? undefined : 'warn'}
         />
         <div className="glass p-5">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Urencriterium</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-50 tabular-nums">{hrs(v.totalHours)}{required ? <span className="text-base text-slate-400"> / {hrs(required)}</span> : null}</p>
+          <p className="text-xs uppercase tracking-wide text-muted">Urencriterium</p>
+          <p className="mt-2 text-2xl font-semibold text-ink tabular-nums">{hrs(v.totalHours)}{required ? <span className="text-base text-muted"> / {hrs(required)}</span> : null}</p>
           {required && <div className="mt-3"><Progress value={v.totalHours} max={required} /></div>}
           {required && (
-            <p className={`mt-2 text-xs flex items-center gap-1 ${v.totalHours >= required ? 'text-success-400' : 'text-warning-400'}`}>
+            <p className={`mt-2 text-xs flex items-center gap-1 ${v.totalHours >= required ? 'text-good' : 'text-lemon-ink'}`}>
               {v.totalHours >= required ? <><CheckCircle2 size={12} /> Met: zelfstandigenaftrek applies</> : <><Clock size={12} /> {hrs(required - v.totalHours)} hours to go</>}
             </p>
           )}
@@ -159,12 +160,12 @@ export function IncomeTax() {
           <div className="h-64" aria-label="Billed hours by month">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="#1e293b" strokeWidth={1} />
-                <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <CartesianGrid vertical={false} stroke={chart.grid} strokeWidth={1} />
+                <XAxis dataKey="month" tick={chart.axis} axisLine={false} tickLine={false} />
+                <YAxis tick={chart.axis} axisLine={false} tickLine={false} />
                 <Tooltip
-                  cursor={{ fill: 'rgba(148,163,184,0.08)' }}
-                  contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, color: '#e2e8f0' }}
+                  cursor={{ fill: chart.cursor }}
+                  contentStyle={chart.tooltip}
                   formatter={(val: number, _n, item) => [`${hrs(val)} h  (${eur(item.payload.eur)})`, 'Billed']}
                 />
                 <Bar dataKey="hours" fill={SERIES} radius={[4, 4, 0, 0]} maxBarSize={24} />
@@ -176,19 +177,19 @@ export function IncomeTax() {
         <Card>
           <CardHeader title="Checks" subtitle="What the ledger found" />
           {v.ledger.anomalies.length === 0 ? (
-            <p className="text-sm text-success-400 flex items-center gap-2"><CheckCircle2 size={14} /> No anomalies in {year}.</p>
+            <p className="text-sm text-good flex items-center gap-2"><CheckCircle2 size={14} /> No anomalies in {year}.</p>
           ) : (
             <ul className="space-y-3">
               {v.ledger.anomalies.map((a, i) => (
-                <li key={i} className="text-sm text-slate-300 flex gap-2">
-                  <AlertTriangle size={14} className="text-warning-400 mt-0.5 shrink-0" />
+                <li key={i} className="text-sm text-body flex gap-2">
+                  <AlertTriangle size={14} className="text-lemon-ink mt-0.5 shrink-0" />
                   <span>{a.message}</span>
                 </li>
               ))}
             </ul>
           )}
           {p && p.unverifiedKeys.length > 0 && (
-            <p className="mt-4 text-xs text-slate-400">Unverified parameters: {p.unverifiedKeys.join(', ')}. VAT drafts stay blocked until you confirm them.</p>
+            <p className="mt-4 text-xs text-muted">Unverified parameters: {p.unverifiedKeys.join(', ')}. VAT drafts stay blocked until you confirm them.</p>
           )}
         </Card>
       </div>
@@ -197,19 +198,19 @@ export function IncomeTax() {
         <CardHeader title="Invoices" subtitle={`${yearInvoices.length} in ${year}`} />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-400 border-b border-slate-700/50">
+            <thead className="text-left text-muted border-b border-line">
               <tr><th className="py-2 pr-4">Number</th><th className="pr-4">Client</th><th className="pr-4">Period</th><th className="pr-4 text-right">Hours</th><th className="pr-4 text-right">Amount</th><th className="pr-4 text-right">EUR</th><th>Counted</th></tr>
             </thead>
-            <tbody className="text-slate-200">
+            <tbody className="text-ink">
               {yearInvoices.map((i) => (
-                <tr key={i.id} className="border-b border-slate-800/60">
+                <tr key={i.id} className="border-b border-line">
                   <td className="py-2 pr-4 font-mono">{i.invoice_number ?? '-'}</td>
                   <td className="pr-4">{i.client}</td>
-                  <td className="pr-4 text-slate-400">{i.period_start ? `${i.period_start} to ${i.period_end}` : i.issued_date}</td>
+                  <td className="pr-4 text-muted">{i.period_start ? `${i.period_start} to ${i.period_end}` : i.issued_date}</td>
                   <td className="pr-4 text-right tabular-nums">{i.hours != null ? hrs(i.hours) : '-'}</td>
                   <td className="pr-4 text-right tabular-nums">{money(i.amount, i.currency)}</td>
-                  <td className="pr-4 text-right tabular-nums">{i.amount_eur != null ? eur(i.amount_eur) : <span className="text-warning-400">pending</span>}</td>
-                  <td>{i.voided_at ? <span className="text-slate-500">void</span> : i.review_state === 'needs_review' ? <Link to="/review" className="text-warning-400 underline">needs review</Link> : counted.has(i.id) ? <span className="text-success-400">yes</span> : <span className="text-warning-400">duplicate</span>}</td>
+                  <td className="pr-4 text-right tabular-nums">{i.amount_eur != null ? eur(i.amount_eur) : <span className="text-lemon-ink">pending</span>}</td>
+                  <td>{i.voided_at ? <span className="text-muted">void</span> : i.review_state === 'needs_review' ? <Link to="/review" className="text-lemon-ink underline">needs review</Link> : counted.has(i.id) ? <span className="text-good">yes</span> : <span className="text-lemon-ink">duplicate</span>}</td>
                 </tr>
               ))}
             </tbody>

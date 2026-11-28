@@ -139,7 +139,7 @@ export function TimeEntries() {
 
       {form && (
         <Card className="p-4 sm:p-6">
-          <h3 className="text-lg font-semibold text-slate-50 mb-3">{form.editing ? 'Edit time' : 'Log time'}</h3>
+          <h3 className="text-lg font-semibold text-ink mb-3">{form.editing ? 'Edit time' : 'Log time'}</h3>
           <EntryForm
             key={form.editing?.id ?? 'new'}
             projects={projects}
@@ -180,46 +180,46 @@ export function TimeEntries() {
             </select>
           </Field>
         </div>
-        {anyFilter && <button onClick={clear} className="mb-3 text-xs text-slate-400 hover:text-slate-200 inline-flex items-center gap-1"><X size={12} /> Clear filters</button>}
+        {anyFilter && <button onClick={clear} className="mb-3 text-xs text-muted hover:text-ink inline-flex items-center gap-1"><X size={12} /> Clear filters</button>}
         <ErrorNote message={error} />
 
         <div className="relative overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-400 border-b border-slate-700/50">
+            <thead className="text-left text-muted border-b border-line">
               <tr>
                 <th className={th}>Date</th><th className={`${th} text-right`}>Hours</th><th className={th}>Project</th><th className={th}>Activity</th>
                 <th className={th}>Category</th><th className={th}>Description</th>
                 <th className={th}>Source</th><th className={th}><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
-            <tbody className="text-slate-200">
+            <tbody className="text-ink">
               {data?.rows.map((r) => (
-                <tr key={r.id} className="border-b border-slate-800/60">
+                <tr key={r.id} className="border-b border-line">
                   <td className={`${td} whitespace-nowrap tabular-nums`}>{r.entry_date}</td>
                   <td className={`${td} text-right tabular-nums whitespace-nowrap`}>{hoursLabel(r.minutes / 60)}</td>
                   <td className={`${td} min-w-[8rem]`}>{projectName.get(r.project_id) ?? '-'}</td>
-                  <td className={`${td} min-w-[7rem] text-slate-300`}>{r.activity_id ? activityName.get(r.activity_id) ?? '-' : '-'}</td>
-                  <td className={`${td} text-slate-300`}>{r.category ?? '-'}</td>
-                  <td className={`${td} text-slate-300 min-w-[10rem]`}>{r.description ?? ''}</td>
-                  <td className={`${td} whitespace-nowrap text-slate-400`}>{sourceName(r.source)}</td>
+                  <td className={`${td} min-w-[7rem] text-body`}>{r.activity_id ? activityName.get(r.activity_id) ?? '-' : '-'}</td>
+                  <td className={`${td} text-body`}>{r.category ?? '-'}</td>
+                  <td className={`${td} text-body min-w-[10rem]`}>{r.description ?? ''}</td>
+                  <td className={`${td} whitespace-nowrap text-muted`}>{sourceName(r.source)}</td>
                   <td className={`${td} whitespace-nowrap text-right`}>
                     {fromRelay(r) ? <Chip>from Relay</Chip> : (
                       <span className="inline-flex gap-1">
                         <button className={btnIcon} onClick={() => { setForm({ editing: r }); document.querySelector('main')?.scrollTo({ top: 0 }) }} aria-label="Edit"><Pencil size={15} /></button>
-                        <button className={`${btnIcon} hover:text-danger-400`} onClick={() => remove(r)} aria-label="Delete"><Trash2 size={15} /></button>
+                        <button className={`${btnIcon} hover:text-bad`} onClick={() => remove(r)} aria-label="Delete"><Trash2 size={15} /></button>
                       </span>
                     )}
                   </td>
                 </tr>
               ))}
-              {data && data.rows.length === 0 && <tr><td className={`${td} text-slate-400`} colSpan={8}>No time entries{anyFilter ? ' match these filters' : ' yet'}.</td></tr>}
-              {!data && !error && <tr><td className={`${td} text-slate-400`} colSpan={8}>Loading.</td></tr>}
+              {data && data.rows.length === 0 && <tr><td className={`${td} text-muted`} colSpan={8}>No time entries{anyFilter ? ' match these filters' : ' yet'}.</td></tr>}
+              {!data && !error && <tr><td className={`${td} text-muted`} colSpan={8}>Loading.</td></tr>}
             </tbody>
           </table>
         </div>
         {data && <Pager page={page} perPage={PER_PAGE} total={data.total} onPage={setPage} />}
         {data && data.rows.length > 0 && (
-          <p className="mt-1 text-xs text-slate-400">This page: {hoursLabel(data.rows.reduce((s, r) => s + r.minutes, 0) / 60)}</p>
+          <p className="mt-1 text-xs text-muted">This page: {hoursLabel(data.rows.reduce((s, r) => s + r.minutes, 0) / 60)}</p>
         )}
       </Card>
     </div>

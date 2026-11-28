@@ -3,6 +3,7 @@
 // The figures and the wording of the phone come from the database; this file only
 // lays the same facts out as rows. Money reads as the database words it (€1,234),
 // so a sentence from the server and a cell from here never differ in style.
+import { livingRamp, split } from './theme.ts'
 
 export interface LookSlice { key: string; label: string; amount: number }
 export interface LookProposal { if: string; then: string; cue: string | null; eur_month: number | null; goal: string | null }
@@ -71,10 +72,10 @@ export interface Look {
 export interface Topic { key: string; label: string; title: string; note: string; cols: [string, string, string]; rows: [string, string, string][] }
 export interface Ring { key: string; title: string; centre: string; caption: string; slices: (LookSlice & { color: string })[] }
 
-// Colours checked with the dataviz validator on the card surface (#101829): three hues that stay
-// apart for colour-blind readers, a neutral for tax, and one blue stepped light to dark.
-export const COLOR = { tax: '#94a3b8', business: '#12a594', living: '#338ced', yours: '#d28e05' }
-const LIVING_RAMP = ['#cce3fd', '#6aabf1', '#2370cd', '#1757ac']
+// Colours from lib/theme, checked with the dataviz validator on the white card: three hues that
+// stay apart for colour-blind readers, a neutral for tax, and one blue stepped light to dark.
+export const COLOR = split
+const LIVING_RAMP = livingRamp
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']

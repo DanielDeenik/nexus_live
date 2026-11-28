@@ -13,15 +13,15 @@ import {
 } from '../lib/forecast'
 import { loadForecastConfig, loadForecastInvoices, loadUrencriterium, loggedBillableHours } from '../lib/forecastData'
 import { iso } from '../lib/period'
+import { chart } from '../lib/theme'
 
-// Colours validated with the dataviz checker on the #0f172a surface: sky for
-// actuals and peak months, amber for the forecast and slow months, slate for
-// the rest.
-const SKY = '#0284c7'
-const AMBER = '#d97706'
-const NEUTRAL = '#475569'
-const AXIS = { fill: '#94a3b8', fontSize: 12 }
-const TIP = { background: '#0f172a', border: '1px solid #334155', borderRadius: 8, color: '#e2e8f0' }
+// Colours come from lib/theme (validated on the white card): blue for actuals and peak months,
+// lemon for the forecast and slow months, the muted ink for the rest.
+const SKY = chart.actual
+const AMBER = chart.forecast
+const NEUTRAL = chart.neutral
+const AXIS = chart.axis
+const TIP = chart.tooltip
 
 const monthName = (i: number, style: 'short' | 'long' = 'short') => new Date(2000, i, 1).toLocaleDateString(undefined, { month: style })
 const monthTick = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString(undefined, { month: 'short', year: '2-digit' })
@@ -126,16 +126,16 @@ export function Forecast() {
         />
         <Tile label="Projected hours" value={`${hrs(hours.projected)} h`} hint={`${hours.remainingDays} working days left at ${hrs(cfg.dailyHours)} h`} />
         <div className="glass p-4 sm:p-5 min-w-0 col-span-2 xl:col-span-1">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Urencriterium</p>
+          <p className="text-xs uppercase tracking-wide text-muted">Urencriterium</p>
           {req == null ? (
-            <p className="mt-2 text-sm text-warning-300 flex items-start gap-1"><AlertTriangle size={14} className="mt-0.5 shrink-0" /> {threshold.note || 'Threshold not loaded.'}</p>
+            <p className="mt-2 text-sm text-lemon-ink flex items-start gap-1"><AlertTriangle size={14} className="mt-0.5 shrink-0" /> {threshold.note || 'Threshold not loaded.'}</p>
           ) : (
             <>
-              <p className="mt-2 text-2xl font-semibold text-slate-50 tabular-nums">{hrs(hours.invoicedYtd)}<span className="text-base text-slate-400"> / {hrs(req)}</span></p>
-              <div className="mt-3 h-2 rounded-full bg-slate-800 overflow-hidden" role="progressbar" aria-valuenow={hours.invoicedYtd} aria-valuemax={req}>
+              <p className="mt-2 text-2xl font-semibold text-ink tabular-nums">{hrs(hours.invoicedYtd)}<span className="text-base text-muted"> / {hrs(req)}</span></p>
+              <div className="mt-3 h-2 rounded-full bg-chip overflow-hidden" role="progressbar" aria-valuenow={hours.invoicedYtd} aria-valuemax={req}>
                 <div className="h-full rounded-full" style={{ width: `${Math.min(100, (hours.invoicedYtd / req) * 100)}%`, background: SKY }} />
               </div>
-              <p className={`mt-2 text-xs flex items-center gap-1 ${metYtd || onTrack ? 'text-success-400' : 'text-warning-400'}`}>
+              <p className={`mt-2 text-xs flex items-center gap-1 ${metYtd || onTrack ? 'text-good' : 'text-lemon-ink'}`}>
                 {metYtd ? <><CheckCircle2 size={12} /> Met on invoiced hours</>
                   : onTrack ? <><Clock size={12} /> On track: {hrs(hours.projected)} h by year end</>
                   : <><AlertTriangle size={12} /> Short by {hrs(req - hours.projected)} h at this pace</>}
@@ -150,16 +150,16 @@ export function Forecast() {
           title="Monthly income"
           subtitle={fc.method === 'none' ? 'No income yet' : `Actuals by service month and ${cfg.horizonMonths} months ahead, ${pct}% band`}
         />
-        {fc.method === 'none' ? <p className="text-sm text-slate-500">{METHOD_TEXT.none}</p> : (
+        {fc.method === 'none' ? <p className="text-sm text-muted">{METHOD_TEXT.none}</p> : (
           <>
             <div className="h-72" aria-label="Monthly income, actual and forecast">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={view.chart} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-                  <CartesianGrid vertical={false} stroke="#1e293b" />
+                  <CartesianGrid vertical={false} stroke={chart.grid} />
                   <XAxis dataKey="month" tickFormatter={monthTick} tick={AXIS} axisLine={false} tickLine={false} minTickGap={16} />
                   <YAxis tick={AXIS} axisLine={false} tickLine={false} tickFormatter={(v: number) => eur(v)} width={84} />
                   <Tooltip
-                    cursor={{ fill: 'rgba(148,163,184,0.08)' }}
+                    cursor={{ fill: chart.cursor }}
                     contentStyle={TIP}
                     labelFormatter={(l) => monthTick(String(l))}
                     formatter={(v: number | number[], name: string, item: { payload?: { anomaly?: { z: number } | null } }) => {
@@ -174,12 +174,12 @@ export function Forecast() {
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400">
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
               <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ background: SKY }} /> Actual</span>
               <span className="flex items-center gap-1.5"><span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: AMBER }} /> Forecast</span>
               <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ background: AMBER, opacity: 0.3 }} /> {pct}% band</span>
             </div>
-            <p className="mt-3 text-xs text-slate-400">
+            <p className="mt-3 text-xs text-muted">
               {METHOD_TEXT[fc.method]} {fc.historyUsed} month{fc.historyUsed === 1 ? '' : 's'} of history used (window {cfg.historyMonths}); market season from {industry} at weight {cfg.seasonalityWeight}.
             </p>
           </>
@@ -190,18 +190,18 @@ export function Forecast() {
         <Card>
           <CardHeader title="Hours for the rest of the year" subtitle={`To ${dayLabel(yearEnd)}, on the ${cfg.workCalendar.region ?? 'client'} calendar`} />
           <dl className="space-y-2 text-sm">
-            <div className="flex justify-between gap-4"><dt className="text-slate-400">Invoiced so far</dt><dd className="tabular-nums text-slate-100">{hrs(hours.invoicedYtd)} h</dd></div>
-            <div className="flex justify-between gap-4"><dt className="text-slate-400">Logged in DTrack, not yet invoiced</dt><dd className="tabular-nums text-slate-100">{hrs(hours.loggedUnbilled)} h</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-muted">Invoiced so far</dt><dd className="tabular-nums text-ink">{hrs(hours.invoicedYtd)} h</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-muted">Logged in DTrack, not yet invoiced</dt><dd className="tabular-nums text-ink">{hrs(hours.loggedUnbilled)} h</dd></div>
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-400">{hours.remainingDays} working days from {dayLabel(hours.capacityFrom)} at {hrs(cfg.dailyHours)} h</dt>
-              <dd className="tabular-nums text-slate-100">{hrs(hours.remainingHours)} h</dd>
+              <dt className="text-muted">{hours.remainingDays} working days from {dayLabel(hours.capacityFrom)} at {hrs(cfg.dailyHours)} h</dt>
+              <dd className="tabular-nums text-ink">{hrs(hours.remainingHours)} h</dd>
             </div>
-            <div className="flex justify-between gap-4 border-t border-slate-700/50 pt-2"><dt className="text-slate-300 font-medium">Projected for {year}</dt><dd className="tabular-nums text-slate-50 font-semibold">{hrs(hours.projected)} h</dd></div>
+            <div className="flex justify-between gap-4 border-t border-line pt-2"><dt className="text-body font-medium">Projected for {year}</dt><dd className="tabular-nums text-ink font-semibold">{hrs(hours.projected)} h</dd></div>
           </dl>
           {hours.holidays.length > 0 && (
-            <p className="mt-3 text-xs text-slate-400">Days off left out: {hours.holidays.map((h) => `${h.name ?? 'Holiday'} (${dayLabel(h.date)})`).join(', ')}.</p>
+            <p className="mt-3 text-xs text-muted">Days off left out: {hours.holidays.map((h) => `${h.name ?? 'Holiday'} (${dayLabel(h.date)})`).join(', ')}.</p>
           )}
-          <p className="mt-2 text-xs text-slate-500">Daily hours and the client calendar come from app config. <Link to="/time" className="underline">Logged time</Link>.</p>
+          <p className="mt-2 text-xs text-muted">Daily hours and the client calendar come from app config. <Link to="/time" className="underline">Logged time</Link>.</p>
         </Card>
 
         <Card>
@@ -217,10 +217,10 @@ export function Forecast() {
           <div className="h-48" aria-label={`Demand index for ${industry}`}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={view.preset.map((v, i) => ({ m: monthName(i), v, i }))} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="#1e293b" />
+                <CartesianGrid vertical={false} stroke={chart.grid} />
                 <XAxis dataKey="m" tick={AXIS} axisLine={false} tickLine={false} interval={0} />
                 <YAxis tick={AXIS} axisLine={false} tickLine={false} />
-                <Tooltip cursor={{ fill: 'rgba(148,163,184,0.08)' }} contentStyle={TIP}
+                <Tooltip cursor={{ fill: chart.cursor }} contentStyle={TIP}
                   formatter={(v: number, _n, item: { payload?: { i: number } }) => {
                     const i = item.payload?.i ?? -1
                     return [`${v}${view.peak.includes(i) ? ', peak' : view.slow.includes(i) ? ', slow' : ''}`, 'Demand']
@@ -231,25 +231,25 @@ export function Forecast() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400">
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
             <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ background: SKY }} /> Peak</span>
             <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ background: AMBER }} /> Slow</span>
           </div>
-          <p className="mt-3 text-sm text-slate-300">
+          <p className="mt-3 text-sm text-body">
             Demand peaks in {monthList(view.peak)}. It is slowest in {monthList(view.slow)}, so line up your next contract before then; roles that open in the peak months are the ones to land.
           </p>
-          {industry !== cfg.industry && <p className="mt-1 text-xs text-slate-500">Showing {industry} for comparison; the forecast above uses it too until you switch back.</p>}
+          {industry !== cfg.industry && <p className="mt-1 text-xs text-muted">Showing {industry} for comparison; the forecast above uses it too until you switch back.</p>}
         </Card>
       </div>
 
       <Card>
         <CardHeader title="Unusual months" subtitle={`Income more than ${cfg.anomalyZ} standard deviations from your average, after the market season`} />
-        {fc.historyUsed < cfg.minModelMonths ? <p className="text-sm text-slate-500">Needs at least {cfg.minModelMonths} months of income.</p>
-          : fc.anomalies.length === 0 ? <p className="text-sm text-success-400 flex items-center gap-2"><CheckCircle2 size={14} /> No unusual months.</p> : (
+        {fc.historyUsed < cfg.minModelMonths ? <p className="text-sm text-muted">Needs at least {cfg.minModelMonths} months of income.</p>
+          : fc.anomalies.length === 0 ? <p className="text-sm text-good flex items-center gap-2"><CheckCircle2 size={14} /> No unusual months.</p> : (
             <ul className="space-y-2">
               {fc.anomalies.map((a) => (
-                <li key={a.month} className="text-sm text-slate-300 flex gap-2">
-                  <AlertTriangle size={14} className="text-warning-400 mt-0.5 shrink-0" />
+                <li key={a.month} className="text-sm text-body flex gap-2">
+                  <AlertTriangle size={14} className="text-lemon-ink mt-0.5 shrink-0" />
                   <span>
                     {monthName(monthIndex(a.month), 'long')} {a.month.slice(0, 4)}: {eur(a.value)}, {a.value > a.expected ? 'above' : 'below'} the usual {eur(a.expected)} for that month (z {a.z.toFixed(1)}).
                   </span>
@@ -260,8 +260,8 @@ export function Forecast() {
       </Card>
 
       <Card>
-        <div className="flex gap-2 text-sm text-slate-300">
-          <Info size={16} className="mt-0.5 shrink-0 text-sky-400" />
+        <div className="flex gap-2 text-sm text-body">
+          <Info size={16} className="mt-0.5 shrink-0 text-lemon-ink" />
           <p>
             Projected income uses your latest invoiced EUR per hour for hours not yet invoiced; the trend model figure is shown for comparison. Income counts every invoice with an EUR amount except voided ones and linked duplicates, by service month (period start, else issue date).
             Smoothing, band, history window, seasonality and calendar settings are in app config.

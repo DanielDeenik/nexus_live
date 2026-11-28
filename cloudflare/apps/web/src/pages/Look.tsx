@@ -5,6 +5,8 @@ import { Card } from '../components/ui/Card'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { supabase } from '../lib/supabase'
 import { type Look as LookData, type Ring, SLICE_TOPIC, dayShort, eur0, rings, topics } from '../lib/look'
+import { chart } from '../lib/theme'
+import { PageHeader } from '../components/time/ui'
 
 // Look-through: the phone shows one number a screen; this page shows what is behind it.
 // Three rings on top, and under them one table that every slice and every chip opens.
@@ -23,7 +25,7 @@ function Donut({ ring, active, onHover, onPick }: { ring: Ring; active: string |
   return (
     <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="w-40 h-40 shrink-0" role="img"
       aria-label={`${ring.title}: ${ring.slices.map((s) => `${s.label} ${eur0(s.amount)}`).join(', ')}`}>
-      <circle cx={SIZE / 2} cy={SIZE / 2} r={RADIUS} fill="none" stroke="#1e293b" strokeWidth={WIDTH} />
+      <circle cx={SIZE / 2} cy={SIZE / 2} r={RADIUS} fill="none" stroke={chart.track} strokeWidth={WIDTH} />
       {shown.map((s) => {
         const share = (s.amount / total) * round
         const length = Math.max(share - GAP, 0.5)
@@ -38,7 +40,7 @@ function Donut({ ring, active, onHover, onPick }: { ring: Ring; active: string |
           </circle>
         )
       })}
-      <text x={SIZE / 2} y={SIZE / 2 + 7} textAnchor="middle" fill="#f8fafc" fontSize="20" fontWeight="600" style={{ fontVariantNumeric: 'tabular-nums' }}>
+      <text x={SIZE / 2} y={SIZE / 2 + 7} textAnchor="middle" fill={chart.centre} fontSize="20" fontWeight="600" style={{ fontVariantNumeric: 'tabular-nums' }}>
         {hovered ? eur0(hovered.amount) : ring.centre}
       </text>
     </svg>
@@ -53,8 +55,8 @@ function RingCard({ ring, onPick, children }: { ring: Ring; onPick: (topic: stri
     <Card className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-lg font-semibold text-slate-50">{ring.title}</h3>
-          <p className="text-sm text-slate-400 mt-1 truncate">{hovered ? hovered.label : ring.caption}</p>
+          <h3 className="text-lg font-semibold text-ink">{ring.title}</h3>
+          <p className="text-sm text-muted mt-1 truncate">{hovered ? hovered.label : ring.caption}</p>
         </div>
         {children}
       </div>
@@ -65,10 +67,10 @@ function RingCard({ ring, onPick, children }: { ring: Ring; onPick: (topic: stri
             <li key={s.key}>
               <button type="button" onClick={() => pick(s.key)} onMouseEnter={() => setActive(s.key)} onMouseLeave={() => setActive(null)}
                 onFocus={() => setActive(s.key)} onBlur={() => setActive(null)}
-                className={`w-full min-h-11 flex items-center gap-3 rounded-lg px-2 text-left text-sm transition-colors ${active === s.key ? 'bg-slate-700/50' : 'hover:bg-slate-700/30'}`}>
+                className={`w-full min-h-11 flex items-center gap-3 rounded-lg px-2 text-left text-sm transition-colors ${active === s.key ? 'bg-chip' : 'hover:bg-chip'}`}>
                 <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: s.color }} aria-hidden="true" />
-                <span className="flex-1 text-slate-300">{s.label}</span>
-                <span className="text-slate-50 tabular-nums font-medium">{eur0(s.amount)}</span>
+                <span className="flex-1 text-body">{s.label}</span>
+                <span className="text-ink tabular-nums font-medium">{eur0(s.amount)}</span>
               </button>
             </li>
           ))}
@@ -100,29 +102,31 @@ export function Look() {
   const open = (key: string) => setParams({ topic: key }, { replace: true })
 
   if (loading && !look) return <div className="flex justify-center py-16"><LoadingSpinner /></div>
-  if (!look) return <Card><p className="text-sm text-danger-400">The look-through could not load: {error}</p></Card>
+  if (!look) return <Card><p className="text-sm text-bad">The look-through could not load: {error}</p></Card>
   const { as_of, data_through } = look.facts
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-400">
-          Figures of {dayShort(as_of, as_of)}{data_through ? `, bank lines to ${dayShort(data_through, as_of)}` : ''}. The phone shows the answer; this page shows what is behind it.
-        </p>
-        <button type="button" onClick={() => void load()} className="btn-secondary text-sm" disabled={loading}>
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
-      </div>
-      {error && <p className="text-sm text-danger-400">{error}</p>}
+      <PageHeader
+        eyebrow="Nexus live"
+        title="Look-through"
+        subtitle={`Figures of ${dayShort(as_of, as_of)}${data_through ? `, bank lines to ${dayShort(data_through, as_of)}` : ''}. The phone shows the answer; this page shows what is behind it.`}
+        action={
+          <button type="button" onClick={() => void load()} className="btn-secondary text-sm" disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+        }
+      />
+      {error && <p className="text-sm text-bad">{error}</p>}
 
       <div className="grid gap-6 xl:grid-cols-3 lg:grid-cols-2">
         {charts.map((ring) => (
           <RingCard key={ring.key} ring={ring} onPick={open}>
             {ring.key === 'month' && (
-              <div className="flex rounded-lg bg-slate-900 p-1 shrink-0" role="group" aria-label="Living costs">
+              <div className="flex rounded-lg bg-chip p-1 shrink-0" role="group" aria-label="Living costs">
                 {(['now', 'budget'] as const).map((m) => (
                   <button key={m} type="button" onClick={() => setMode(m)} aria-pressed={mode === m}
-                    className={`min-h-9 px-3 rounded-md text-xs font-medium transition-colors ${mode === m ? 'bg-slate-700 text-slate-50' : 'text-slate-400 hover:text-slate-200'}`}>
+                    className={`min-h-9 px-3 rounded-md text-xs font-medium transition-colors ${mode === m ? 'bg-ink text-white' : 'text-muted hover:text-ink'}`}>
                     {m === 'now' ? 'As now' : 'On budget'}
                   </button>
                 ))}
@@ -135,7 +139,7 @@ export function Look() {
       <div className="flex flex-wrap gap-2" role="group" aria-label="Table">
         {tables.map((t) => (
           <button key={t.key} type="button" onClick={() => open(t.key)} aria-pressed={table?.key === t.key}
-            className={`min-h-11 px-4 rounded-full text-sm font-medium transition-colors ${table?.key === t.key ? 'bg-cyan-600 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
+            className={`min-h-11 px-4 rounded-full text-sm font-medium transition-colors ${table?.key === t.key ? 'bg-ink text-white' : 'bg-card border border-line text-body hover:bg-chip'}`}>
             {t.label}
           </button>
         ))}
@@ -143,22 +147,22 @@ export function Look() {
 
       {table && (
         <Card>
-          <h3 className="text-lg font-semibold text-slate-50">{table.title}</h3>
-          <p className="text-sm text-slate-400 mt-1 mb-4">{table.note}</p>
+          <h3 className="text-lg font-semibold text-ink">{table.title}</h3>
+          <p className="text-sm text-muted mt-1 mb-4">{table.note}</p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-slate-400 border-b border-slate-700/50">
+              <thead className="text-left text-muted border-b border-line">
                 <tr>
                   <th className="py-2 pr-4 font-medium">{table.cols[0]}</th>
                   <th className="pr-4 font-medium">{table.cols[1]}</th>
                   <th className="text-right font-medium whitespace-nowrap">{table.cols[2]}</th>
                 </tr>
               </thead>
-              <tbody className="text-slate-200">
+              <tbody className="text-ink">
                 {table.rows.map((r, i) => (
-                  <tr key={`${table.key}-${i}`} className="border-b border-slate-800/60 align-top">
-                    <td className="py-2 pr-4 font-medium text-slate-100">{r[0]}</td>
-                    <td className="py-2 pr-4 text-slate-400">{r[1]}</td>
+                  <tr key={`${table.key}-${i}`} className="border-b border-line align-top">
+                    <td className="py-2 pr-4 font-medium text-ink">{r[0]}</td>
+                    <td className="py-2 pr-4 text-muted">{r[1]}</td>
                     <td className="py-2 text-right tabular-nums whitespace-nowrap">{r[2]}</td>
                   </tr>
                 ))}

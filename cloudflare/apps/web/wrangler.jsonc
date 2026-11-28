@@ -1,0 +1,23 @@
+// Nexus live web on Cloudflare: the "nexuslive" Worker serves the built app as static assets.
+// Workers Builds runs `npx wrangler deploy` (production branch) or `npx wrangler versions upload`
+// (other branches) from this folder; both run build.command first. Setup steps for the dashboard
+// are in cloudflare/docs/cloudflare-web.md. Public Supabase settings come from .env.production.
+{
+  // Must equal the Worker name in the Cloudflare dashboard, or Workers Builds refuses the build.
+  "name": "nexuslive",
+  "compatibility_date": "2026-11-01",
+  "build": {
+    // pnpm finds the workspace in cloudflare/ and installs it from the lockfile; the build
+    // type-checks before vite writes dist/.
+    "command": "pnpm install --frozen-lockfile && pnpm run build"
+  },
+  "assets": {
+    "directory": "./dist",
+    // Every path the router knows (/look, /oauth/consent, ...) gets index.html.
+    "not_found_handling": "single-page-application"
+  },
+  // Preview links for branches other than the production branch.
+  "preview_urls": true,
+  "workers_dev": true,
+  "observability": { "enabled": true }
+}

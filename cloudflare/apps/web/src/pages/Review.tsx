@@ -15,7 +15,7 @@ const TREATMENTS = [
 ] as const
 
 const reasonText = (c: string) => REASON_TEXT[c as ReasonCode] ?? c.replace(/_/g, ' ')
-const input = 'rounded-lg bg-slate-900 border-slate-700 text-slate-100 text-sm'
+const input = 'rounded-lg bg-card border-line text-ink text-sm'
 
 function Evidence({ expenseId }: { expenseId?: string }) {
   const [url, setUrl] = useState<string | null>(null)
@@ -25,7 +25,7 @@ function Evidence({ expenseId }: { expenseId?: string }) {
       if (data?.evidence_path) setUrl(await evidenceUrl(data.evidence_path))
     })
   }, [expenseId])
-  return url ? <a href={url} target="_blank" rel="noreferrer" className="text-xs text-sky-400 flex items-center gap-1"><FileText size={12} /> View receipt</a> : null
+  return url ? <a href={url} target="_blank" rel="noreferrer" className="text-xs text-lemon-ink flex items-center gap-1"><FileText size={12} /> View receipt</a> : null
 }
 
 function ExpenseDecision({ item, onDone }: { item: ReviewItem; onDone: () => void }) {
@@ -52,42 +52,42 @@ function ExpenseDecision({ item, onDone }: { item: ReviewItem; onDone: () => voi
 
   return (
     <div className="space-y-3">
-      {p.rationale && <p className="text-sm text-slate-300">Agent: {p.rationale}</p>}
+      {p.rationale && <p className="text-sm text-body">Agent: {p.rationale}</p>}
       <Evidence expenseId={isAsset ? p.expense_id : item.item_id ?? undefined} />
       <div className="flex flex-wrap items-end gap-3">
         {isAsset ? (
-          <label className="text-xs text-slate-400">Useful life (years)
+          <label className="text-xs text-muted">Useful life (years)
             <input type="number" min="1" step="0.5" value={life} onChange={(e) => setLife(e.target.value)} className={`${input} block w-28 mt-1`} />
           </label>
         ) : (
           <>
-            <label className="text-xs text-slate-400">Treatment
+            <label className="text-xs text-muted">Treatment
               <select value={treatment} onChange={(e) => setTreatment(e.target.value)} className={`${input} block mt-1`}>
                 {TREATMENTS.filter(([k]) => k !== 'asset').map(([k, l]) => <option key={k} value={k}>{l}</option>)}
               </select>
             </label>
-            <label className="text-xs text-slate-400">Business use %
+            <label className="text-xs text-muted">Business use %
               <input type="number" min="0" max="100" value={use} onChange={(e) => setUse(Number(e.target.value))} className={`${input} block w-24 mt-1`} />
             </label>
-            <label className="text-xs text-slate-300 flex items-center gap-2 pb-2">
-              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="rounded bg-slate-900 border-slate-600" />
+            <label className="text-xs text-body flex items-center gap-2 pb-2">
+              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="rounded bg-card border-line" />
               Remember for this vendor
             </label>
           </>
         )}
       </div>
       {isAsset && (
-        <label className="text-xs text-slate-400 block">If this is not an asset, expense it as
+        <label className="text-xs text-muted block">If this is not an asset, expense it as
           <select value={treatment} onChange={(e) => setTreatment(e.target.value)} className={`${input} block mt-1`}>
             {TREATMENTS.filter(([k]) => k !== 'asset').map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
         </label>
       )}
       <div className="flex gap-2">
-        <button disabled={busy} onClick={() => decide('approve')} className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2 flex items-center gap-2"><CheckCircle2 size={14} /> {isAsset ? 'Confirm asset' : 'Approve'}</button>
-        <button disabled={busy} onClick={() => decide('reject')} className="rounded-lg border border-slate-600 text-slate-300 text-sm px-4 py-2 flex items-center gap-2"><XCircle size={14} /> {isAsset ? 'Not an asset' : 'Reject'}</button>
+        <button disabled={busy} onClick={() => decide('approve')} className="rounded-lg bg-ink hover:bg-night-2 text-white text-sm px-4 py-2 flex items-center gap-2"><CheckCircle2 size={14} /> {isAsset ? 'Confirm asset' : 'Approve'}</button>
+        <button disabled={busy} onClick={() => decide('reject')} className="rounded-lg border border-line text-body text-sm px-4 py-2 flex items-center gap-2"><XCircle size={14} /> {isAsset ? 'Not an asset' : 'Reject'}</button>
       </div>
-      {err && <p className="text-sm text-danger-400">{err}</p>}
+      {err && <p className="text-sm text-bad">{err}</p>}
     </div>
   )
 }
@@ -111,27 +111,27 @@ function FilingDecision({ item, onDone }: { item: ReviewItem; onDone: () => void
     <div className="space-y-3">
       <ul className="space-y-1">
         {warnings.map((w, i) => (
-          <li key={i} className={`text-sm ${w.severity === 'block' ? 'text-danger-400' : w.severity === 'warn' ? 'text-warning-300' : 'text-slate-400'}`}>
+          <li key={i} className={`text-sm ${w.severity === 'block' ? 'text-bad' : w.severity === 'warn' ? 'text-lemon-ink' : 'text-muted'}`}>
             {w.severity === 'block' ? 'Blocking: ' : w.severity === 'warn' ? 'Warning: ' : ''}{w.message}
           </li>
         ))}
       </ul>
       {blocks.length > 0 && (
-        <label className="text-xs text-slate-300 flex items-center gap-2">
-          <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="rounded bg-slate-900 border-slate-600" />
+        <label className="text-xs text-body flex items-center gap-2">
+          <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="rounded bg-card border-line" />
           I have checked the {blocks.length} blocking item(s) and accept the draft anyway
         </label>
       )}
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-muted">
         {change
           ? 'Your approved or filed draft stays untouched. Accepting creates a new draft (or a correction draft for a filed period) for you to review.'
           : 'Approving records your sign-off. Filing with the Belastingdienst stays with you; mark it filed on the Tax page afterwards.'}
       </p>
       <div className="flex gap-2">
-        <button disabled={busy} onClick={() => decide('approve')} className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2">{change ? 'Create updated draft' : 'Approve draft'}</button>
-        <button disabled={busy} onClick={() => decide('reject')} className="rounded-lg border border-slate-600 text-slate-300 text-sm px-4 py-2">{change ? 'Keep as is' : 'Discard draft'}</button>
+        <button disabled={busy} onClick={() => decide('approve')} className="rounded-lg bg-ink hover:bg-night-2 text-white text-sm px-4 py-2">{change ? 'Create updated draft' : 'Approve draft'}</button>
+        <button disabled={busy} onClick={() => decide('reject')} className="rounded-lg border border-line text-body text-sm px-4 py-2">{change ? 'Keep as is' : 'Discard draft'}</button>
       </div>
-      {err && <p className="text-sm text-danger-400">{err}</p>}
+      {err && <p className="text-sm text-bad">{err}</p>}
     </div>
   )
 }
@@ -148,9 +148,9 @@ function InvoiceDecision({ item, onDone }: { item: ReviewItem; onDone: () => voi
   }
   return (
     <div className="flex gap-2">
-      <button disabled={busy} onClick={() => decide(false)} className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2">Figures are correct</button>
-      <button disabled={busy} onClick={() => decide(true)} className="rounded-lg border border-slate-600 text-slate-300 text-sm px-4 py-2">Void this invoice</button>
-      {err && <p className="text-sm text-danger-400">{err}</p>}
+      <button disabled={busy} onClick={() => decide(false)} className="rounded-lg bg-ink hover:bg-night-2 text-white text-sm px-4 py-2">Figures are correct</button>
+      <button disabled={busy} onClick={() => decide(true)} className="rounded-lg border border-line text-body text-sm px-4 py-2">Void this invoice</button>
+      {err && <p className="text-sm text-bad">{err}</p>}
     </div>
   )
 }
@@ -193,7 +193,7 @@ function LineTags() {
   }, [])
   useEffect(() => { load() }, [load])
 
-  if (err && !lines) return <Card><p className="text-sm text-danger-400">{err}</p></Card>
+  if (err && !lines) return <Card><p className="text-sm text-bad">{err}</p></Card>
   if (!lines || choices.length === 0) return null
   const choice = choices.find((c) => c.key === dimension)
   const open = lines.filter((l) => !l.nx_line_tags.some((t) => t.dimension === dimension))
@@ -220,10 +220,10 @@ function LineTags() {
     <Card>
       <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
         <div>
-          <p className="text-xs uppercase tracking-wide text-slate-400">Bank lines</p>
-          <p className="text-base font-medium text-slate-50">{open.length} {open.length === 1 ? 'line' : 'lines'} this month without {choice?.label ?? 'a tag'}</p>
+          <p className="text-xs uppercase tracking-wide text-muted">Bank lines</p>
+          <p className="text-base font-medium text-ink">{open.length} {open.length === 1 ? 'line' : 'lines'} this month without {choice?.label ?? 'a tag'}</p>
         </div>
-        <label className="text-xs text-slate-400">Tag
+        <label className="text-xs text-muted">Tag
           <select value={dimension} onChange={(e) => { setDimension(e.target.value); setValue(''); setPicked(new Set()) }} className={`${input} block mt-1`}>
             {choices.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
@@ -231,33 +231,33 @@ function LineTags() {
       </div>
       {open.length > 0 && (
         <>
-          <ul className="divide-y divide-slate-800 mb-3">
+          <ul className="divide-y divide-line mb-3">
             {open.map((l) => (
               <li key={l.id} className="flex items-center gap-3 py-2 text-sm">
-                <input type="checkbox" checked={picked.has(l.id)} onChange={() => toggle(l.id)} className="rounded bg-slate-900 border-slate-600" />
-                <span className="flex-1 text-slate-200">{shopOf(l)} <span className="text-slate-500">· {l.booked_on} · {l.category}</span></span>
-                <span className="tabular-nums text-slate-200">{eur2(-l.amount)}</span>
+                <input type="checkbox" checked={picked.has(l.id)} onChange={() => toggle(l.id)} className="rounded bg-card border-line" />
+                <span className="flex-1 text-ink">{shopOf(l)} <span className="text-muted">· {l.booked_on} · {l.category}</span></span>
+                <span className="tabular-nums text-ink">{eur2(-l.amount)}</span>
               </li>
             ))}
           </ul>
           <div className="flex flex-wrap items-end gap-3">
-            <label className="text-xs text-slate-400">{choice?.label}
+            <label className="text-xs text-muted">{choice?.label}
               <select value={value} onChange={(e) => setValue(e.target.value)} className={`${input} block mt-1`}>
                 <option value="">Pick one</option>
                 {choice?.values.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
               </select>
             </label>
-            <label className="text-xs text-slate-300 flex items-center gap-2 pb-2">
-              <input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} className="rounded bg-slate-900 border-slate-600" />
+            <label className="text-xs text-body flex items-center gap-2 pb-2">
+              <input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} className="rounded bg-card border-line" />
               Always for these shops
             </label>
-            <button disabled={busy || !value || picked.size === 0} onClick={save} className="rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm px-4 py-2">
+            <button disabled={busy || !value || picked.size === 0} onClick={save} className="rounded-lg bg-ink hover:bg-night-2 disabled:opacity-50 text-white text-sm px-4 py-2">
               Tag {picked.size} {picked.size === 1 ? 'line' : 'lines'}
             </button>
           </div>
         </>
       )}
-      {err && <p className="text-sm text-danger-400 mt-2">{err}</p>}
+      {err && <p className="text-sm text-bad mt-2">{err}</p>}
     </Card>
   )
 }
@@ -274,27 +274,28 @@ export function Review() {
   }, [])
   useEffect(() => { load() }, [load])
 
-  if (error) return <Card><p className="text-sm text-danger-400">{error}</p></Card>
+  if (error) return <Card><p className="text-sm text-bad">{error}</p></Card>
   if (!items) return <div className="flex justify-center p-12"><LoadingSpinner /></div>
 
   const label = { expense: 'Expense', asset: 'Asset', filing: 'Tax draft', invoice_anomaly: 'Invoice' }
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-50">Review</h1>
-        <p className="text-sm text-slate-400">The agents stop here. Nothing below counts toward a filing until you decide.</p>
+        <h1 className="text-3xl font-extrabold tracking-tight">Review</h1>
+        <div className="lemon-rule" aria-hidden="true" />
+        <p className="mt-3 text-sm text-muted">The agents stop here. Nothing below counts toward a filing until you decide.</p>
       </div>
       <LineTags />
-      {items.length === 0 && <Card><p className="text-sm text-success-400 flex items-center gap-2"><CheckCircle2 size={14} /> Nothing waiting.</p></Card>}
+      {items.length === 0 && <Card><p className="text-sm text-good flex items-center gap-2"><CheckCircle2 size={14} /> Nothing waiting.</p></Card>}
       {items.map((item) => (
         <Card key={item.id}>
           <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">{label[item.item_type]}</p>
-              <p className="text-base font-medium text-slate-50">{item.summary}</p>
+              <p className="text-xs uppercase tracking-wide text-muted">{label[item.item_type]}</p>
+              <p className="text-base font-medium text-ink">{item.summary}</p>
             </div>
             <div className="flex flex-wrap gap-1">
-              {item.reason_codes.map((c) => <span key={c} className="text-xs rounded-full border border-warning-500/40 text-warning-300 px-2 py-0.5">{reasonText(c)}</span>)}
+              {item.reason_codes.map((c) => <span key={c} className="text-xs rounded-full border border-lemon text-lemon-ink px-2 py-0.5">{reasonText(c)}</span>)}
             </div>
           </div>
           {(item.item_type === 'expense' || item.item_type === 'asset') && <ExpenseDecision item={item} onDone={load} />}
@@ -302,7 +303,7 @@ export function Review() {
           {item.item_type === 'invoice_anomaly' && <InvoiceDecision item={item} onDone={load} />}
         </Card>
       ))}
-      <p className="text-xs text-slate-500">Amounts in EUR use the ECB reference rate on the document date.</p>
+      <p className="text-xs text-muted">Amounts in EUR use the ECB reference rate on the document date.</p>
     </div>
   )
 }

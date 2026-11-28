@@ -29,15 +29,15 @@ export function Settings() {
           <nav className="flex gap-2" aria-label="Settings sections">
             {SECTIONS.map((s) => (
               <a key={s.id} href={`#${s.id}`} onClick={(e) => { e.preventDefault(); document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth' }) }}
-                className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800">{s.label}</a>
+                className="rounded-lg border border-line px-3 py-1.5 text-sm text-body hover:bg-chip">{s.label}</a>
             ))}
           </nav>
         }
       />
       <AgentsSection />
-      <div className="border-t border-slate-700/50" />
+      <div className="border-t border-line" />
       <DevicesSection />
-      <div className="border-t border-slate-700/50" />
+      <div className="border-t border-line" />
       <ClaudeSection />
     </div>
   )

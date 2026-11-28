@@ -48,13 +48,13 @@ export function DevicesSection() {
   return (
     <section id="devices" className="space-y-6 scroll-mt-20">
       <div>
-        <h2 className="text-lg font-semibold text-slate-50">Devices</h2>
-        <p className="text-sm text-slate-400">Connect Relay so confirmed time lands here.</p>
+        <h2 className="text-lg font-semibold text-ink">Devices</h2>
+        <p className="text-sm text-muted">Connect Relay so confirmed time lands here.</p>
       </div>
 
       <Card className="p-4 sm:p-6">
         <CardHeader title="Connect Relay" />
-        <p className="text-sm text-slate-300 mb-4">
+        <p className="text-sm text-body mb-4">
           Make a token for the Mac that runs Relay, then paste the token and the address below into Relay, Settings, DTrack. Relay only sends time you confirmed there.
         </p>
         <form onSubmit={create} className="flex flex-wrap items-end gap-2 mb-4">
@@ -65,18 +65,18 @@ export function DevicesSection() {
         </form>
 
         {fresh && (
-          <div className="mb-4 rounded-lg border border-warning-500/40 bg-warning-500/10 p-3">
-            <p className="text-sm text-warning-200 mb-2">Copy this token now. It will not be shown again.</p>
+          <div className="mb-4 rounded-lg border border-lemon bg-lemon-soft p-3">
+            <p className="text-sm text-lemon-ink mb-2">Copy this token now. It will not be shown again.</p>
             <div className="flex items-start gap-2">
-              <code className="flex-1 min-w-0 break-all rounded bg-slate-950/60 px-2 py-1.5 text-xs text-slate-100">{fresh}</code>
+              <code className="flex-1 min-w-0 break-all rounded bg-paper px-2 py-1.5 text-xs text-ink">{fresh}</code>
               <CopyButton text={fresh} label="Copy token" />
             </div>
           </div>
         )}
 
-        <p className="text-xs text-slate-400 mb-1">Address</p>
+        <p className="text-xs text-muted mb-1">Address</p>
         <div className="flex items-start gap-2">
-          <code className="flex-1 min-w-0 break-all rounded bg-slate-950/60 px-2 py-1.5 text-xs text-slate-200">{address}</code>
+          <code className="flex-1 min-w-0 break-all rounded bg-paper px-2 py-1.5 text-xs text-ink">{address}</code>
           <CopyButton text={address} label="Copy address" />
         </div>
         <div className="mt-3"><ErrorNote message={error} /></div>
@@ -86,24 +86,24 @@ export function DevicesSection() {
         <CardHeader title="Tokens" />
         <div className="relative overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-400 border-b border-slate-700/50">
+            <thead className="text-left text-muted border-b border-line">
               <tr><th className={th}>Device</th><th className={th}>Made</th><th className={th}>Last push</th><th className={th}><span className="sr-only">Status</span></th></tr>
             </thead>
-            <tbody className="text-slate-200">
+            <tbody className="text-ink">
               {rows?.map((t) => (
-                <tr key={t.id} className="border-b border-slate-800/60">
+                <tr key={t.id} className="border-b border-line">
                   <td className={`${td} whitespace-nowrap`}>{t.name}</td>
-                  <td className={`${td} whitespace-nowrap text-slate-300`}>{when(t.created_at)}</td>
-                  <td className={`${td} whitespace-nowrap text-slate-300`}>{when(t.last_used_at)}</td>
+                  <td className={`${td} whitespace-nowrap text-body`}>{when(t.created_at)}</td>
+                  <td className={`${td} whitespace-nowrap text-body`}>{when(t.last_used_at)}</td>
                   <td className={`${td} whitespace-nowrap text-right`}>
                     {t.revoked_at
-                      ? <span className="text-xs text-slate-500">Revoked {when(t.revoked_at)}</span>
-                      : <button onClick={() => revoke(t)} className="rounded-lg border border-danger-500/40 text-danger-300 hover:bg-danger-500/10 text-xs px-2.5 py-1">Revoke</button>}
+                      ? <span className="text-xs text-muted">Revoked {when(t.revoked_at)}</span>
+                      : <button onClick={() => revoke(t)} className="rounded-lg border border-bad text-bad hover:bg-bad-soft text-xs px-2.5 py-1">Revoke</button>}
                   </td>
                 </tr>
               ))}
-              {rows && rows.length === 0 && <tr><td className={`${td} text-slate-400`} colSpan={4}>No devices yet.</td></tr>}
-              {!rows && !error && <tr><td className={`${td} text-slate-400`} colSpan={4}>Loading.</td></tr>}
+              {rows && rows.length === 0 && <tr><td className={`${td} text-muted`} colSpan={4}>No devices yet.</td></tr>}
+              {!rows && !error && <tr><td className={`${td} text-muted`} colSpan={4}>Loading.</td></tr>}
             </tbody>
           </table>
         </div>

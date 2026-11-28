@@ -109,29 +109,29 @@ export function TimeDashboard() {
       <PageHeader title="Time" subtitle="Where your hours went, from Relay and what you log here." />
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-lg border border-slate-700 overflow-hidden" role="group" aria-label="Period length">
+        <div className="inline-flex rounded-lg border border-line overflow-hidden" role="group" aria-label="Period length">
           {GRAINS.map((g) => (
             <button
               key={g.id}
               onClick={() => setPeriod(periodOf(g.id, new Date()))}
-              className={`px-3 py-1.5 text-sm ${period.grain === g.id ? 'bg-slate-700 text-cyan-300' : 'text-slate-300 hover:bg-slate-800'}`}
+              className={`px-3 py-1.5 text-sm ${period.grain === g.id ? 'bg-chip text-lemon-ink' : 'text-body hover:bg-chip'}`}
             >{g.label}</button>
           ))}
         </div>
         <div className="flex items-center">
           <button className={btnIcon} onClick={() => setPeriod(shift(period, -1))} aria-label="Previous period"><ChevronLeft size={18} /></button>
-          <span className="min-w-[10rem] text-center text-sm text-slate-200">{period.label}</span>
+          <span className="min-w-[10rem] text-center text-sm text-ink">{period.label}</span>
           <button className={btnIcon} onClick={() => setPeriod(shift(period, 1))} aria-label="Next period"><ChevronRight size={18} /></button>
         </div>
       </div>
 
-      {error && <Card><p className="text-sm text-danger-400 break-words">{error}</p></Card>}
+      {error && <Card><p className="text-sm text-bad break-words">{error}</p></Card>}
 
       {unmapped.length > 0 && (
-        <div className="rounded-xl border border-warning-500/40 bg-warning-500/10 p-4 text-sm text-warning-200 flex gap-2">
+        <div className="rounded-xl border border-lemon bg-lemon-soft p-4 text-sm text-lemon-ink flex gap-2">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           <p className="min-w-0">
-            Relay sent time for {unmapped.length === 1 ? 'a project' : 'projects'} Nexus does not know yet: {unmapped.map((p) => p.name).join(', ')}.{' '}
+            Relay sent time for {unmapped.length === 1 ? 'a project' : 'projects'} Nexus live does not know yet: {unmapped.map((p) => p.name).join(', ')}.{' '}
             <Link to="/time/projects?needs_mapping=1" className="underline">Give each an area of work</Link> so its hours count in the right place.
           </p>
         </div>
@@ -155,13 +155,13 @@ export function TimeDashboard() {
           <CardHeader title="Where the hours went" subtitle="Group by, inner ring first. Click a ring to zoom." />
           <div className="flex flex-wrap items-center gap-2 mb-4">
             {axes.map((a, i) => (
-              <span key={a} className="inline-flex items-center gap-1 rounded-full border border-slate-600 bg-slate-800 pl-2.5 pr-1 py-0.5 text-xs text-slate-200">
-                <span className="text-slate-500">{i + 1}</span> {axisLabel(a)}
-                <button onClick={() => setAxes(axes.filter((x) => x !== a))} className="p-0.5 rounded-full hover:bg-slate-700" aria-label={`Remove ${axisLabel(a)}`}><X size={12} /></button>
+              <span key={a} className="inline-flex items-center gap-1 rounded-full border border-line bg-chip pl-2.5 pr-1 py-0.5 text-xs text-ink">
+                <span className="text-muted">{i + 1}</span> {axisLabel(a)}
+                <button onClick={() => setAxes(axes.filter((x) => x !== a))} className="p-0.5 rounded-full hover:bg-chip" aria-label={`Remove ${axisLabel(a)}`}><X size={12} /></button>
               </span>
             ))}
             {axes.length < MAX_AXES && remaining.length > 0 && (
-              <label className="inline-flex items-center gap-1 text-xs text-slate-400">
+              <label className="inline-flex items-center gap-1 text-xs text-muted">
                 <Plus size={12} />
                 <select value="" onChange={(e) => e.target.value && setAxes([...axes, e.target.value as Axis])} className={`${input} py-1 text-xs`} aria-label="Add a ring">
                   <option value="">Add a ring</option>
@@ -171,13 +171,13 @@ export function TimeDashboard() {
             )}
           </div>
           {!axes.length ? (
-            <p className="text-sm text-slate-400">Pick at least one grouping.</p>
+            <p className="text-sm text-muted">Pick at least one grouping.</p>
           ) : rows === null ? (
-            <p className="text-sm text-slate-400">Loading.</p>
+            <p className="text-sm text-muted">Loading.</p>
           ) : tree ? (
             <SunburstZoomChart data={tree} onDownload={exportRows} />
           ) : (
-            <p className="text-sm text-slate-400">No time logged in this period yet.</p>
+            <p className="text-sm text-muted">No time logged in this period yet.</p>
           )}
         </Card>
 
@@ -188,7 +188,7 @@ export function TimeDashboard() {
               title={`Billable logged vs invoiced, ${year}`}
               action={
                 <button
-                  className="text-xs text-sky-300 underline disabled:opacity-60"
+                  className="text-xs text-lemon-ink underline disabled:opacity-60"
                   disabled={filling === 'busy'}
                   onClick={async () => {
                     setFilling('busy')
@@ -201,26 +201,26 @@ export function TimeDashboard() {
                 >{filling === 'busy' ? 'Adding time' : 'Fill from invoices'}</button>
               }
             />
-            {filling && filling !== 'busy' && <p className="mb-2 text-xs text-slate-400">{filling}</p>}
+            {filling && filling !== 'busy' && <p className="mb-2 text-xs text-muted">{filling}</p>}
             <div className="relative overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-left text-slate-400 border-b border-slate-700/50">
+                <thead className="text-left text-muted border-b border-line">
                   <tr><th className={th}>Month</th><th className={`${th} text-right`}>Logged</th><th className={`${th} text-right`}>Invoiced</th><th className={`${th} text-right`}>Gap</th></tr>
                 </thead>
-                <tbody className="text-slate-200">
+                <tbody className="text-ink">
                   {reconRows.map((r) => (
-                    <tr key={r.month} className="border-b border-slate-800/60">
+                    <tr key={r.month} className="border-b border-line">
                       <td className={`${td} whitespace-nowrap`}>{new Date(`${r.month.slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</td>
                       <td className={`${td} text-right tabular-nums`}>{hoursLabel(r.logged_hours)}</td>
                       <td className={`${td} text-right tabular-nums`}>{hoursLabel(r.invoiced_hours)}</td>
-                      <td className={`${td} text-right tabular-nums ${r.logged_hours - r.invoiced_hours < 0 ? 'text-warning-300' : 'text-slate-400'}`}>{hoursLabel(r.logged_hours - r.invoiced_hours)}</td>
+                      <td className={`${td} text-right tabular-nums ${r.logged_hours - r.invoiced_hours < 0 ? 'text-lemon-ink' : 'text-muted'}`}>{hoursLabel(r.logged_hours - r.invoiced_hours)}</td>
                     </tr>
                   ))}
-                  {reconRows.length === 0 && <tr><td className={`${td} text-slate-400`} colSpan={4}>Nothing logged or invoiced in {year}.</td></tr>}
+                  {reconRows.length === 0 && <tr><td className={`${td} text-muted`} colSpan={4}>Nothing logged or invoiced in {year}.</td></tr>}
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-xs text-slate-400">Invoiced hours count each client period once. Logged hours start when Relay or Nexus started recording.</p>
+            <p className="mt-3 text-xs text-muted">Invoiced hours count each client period once. Logged hours start when Relay or Nexus live started recording.</p>
           </Card>
 
           <Card className="p-4 sm:p-6">

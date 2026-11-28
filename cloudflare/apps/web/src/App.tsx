@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { Forecast } from './pages/Forecast'
@@ -35,8 +35,6 @@ function App() {
   const authProvider = useAuthProvider()
   const location = useLocation()
   const navigate = useNavigate()
-  const [userRole] = useState('Founder')
-  const [notificationCount] = useState(0)
 
   useEffect(() => {
     // Initialize auth on mount
@@ -66,7 +64,7 @@ function App() {
   }
 
   if (authProvider.isLoading) {
-    return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><LoadingSpinner /></div>
+    return <div className="min-h-screen bg-paper flex items-center justify-center"><LoadingSpinner /></div>
   }
   if (!authProvider.isAuthenticated) return <SignIn />
   if (location.pathname === '/oauth/consent') {
@@ -78,8 +76,6 @@ function App() {
     <AuthContext.Provider value={authProvider}>
       <Layout
         userName={userName}
-        userRole={userRole}
-        notificationCount={notificationCount}
         onLogout={handleLogout}
       >
         <Routes>

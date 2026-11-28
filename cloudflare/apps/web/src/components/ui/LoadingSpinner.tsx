@@ -20,10 +20,10 @@ export function LoadingSpinner({
     <div className={`flex flex-col items-center justify-center gap-4 ${className}`}>
       <div className="animate-spin-slow">
         <div
-          className={`${sizes[size]} border-cyan-500 border-r-transparent rounded-full`}
+          className={`${sizes[size]} border-lemon border-r-transparent rounded-full`}
         />
       </div>
-      {text && <p className="text-sm text-slate-400">{text}</p>}
+      {text && <p className="text-sm text-muted">{text}</p>}
     </div>
   )
 }
