@@ -216,22 +216,32 @@ struct SpendChartDetail: View {
     }
 }
 
-/// Purchases from the small threshold in planned classes that no Buy check explains.
+/// Purchases from the small threshold in planned classes that no Buy check explains. Tap one to
+/// tag it: what it served, its project and whether it was worth it.
 struct UnplannedView: View {
     @EnvironmentObject private var ledger: Ledger
+    @State private var tagging: Transaction?
 
     var body: some View {
         List(ledger.unplannedThisMonth) { line in
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(line.merchant ?? line.category)
-                    Text("\(line.booked_on) · \(line.category)").font(.caption).foregroundStyle(.secondary)
+            Button { if line.split != true { tagging = line } } label: {
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text(line.merchant ?? line.category)
+                        Text("\(line.booked_on) · \(line.category)").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text(Money.format(line.outflow, line.currency)).monospacedDigit()
                 }
-                Spacer()
-                Text(Money.format(line.outflow, line.currency)).monospacedDigit()
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
         .navigationTitle("No Buy check")
+        .sheet(item: $tagging) { line in
+            TagLineForm(lineId: line.id, shop: line.merchant ?? line.category,
+                        amount: Money.format(line.outflow, line.currency), date: line.booked_on)
+        }
     }
 }
 

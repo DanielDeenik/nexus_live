@@ -393,12 +393,88 @@ struct SundayReviewView: View {
     }
 }
 
+/// One picker per tag dimension (tags.dimensions); "Rules decide" leaves it to the Buy check,
+/// the charge's tag and the rules.
+struct TagPickers: View {
+    let choices: [TagChoice]
+    @Binding var picks: [String: String]
+
+    var body: some View {
+        ForEach(choices) { choice in
+            Picker(choice.label, selection: Binding(get: { picks[choice.key] ?? "" }, set: { picks[choice.key] = $0 })) {
+                Text("Rules decide").tag("")
+                ForEach(choice.values, id: \.self) { Text($0.label).tag($0.value) }
+                if let current = picks[choice.key], !current.isEmpty, !choice.values.contains(where: { $0.value == current }) {
+                    Text(current).tag(current)
+                }
+            }
+        }
+    }
+}
+
+/// Tags for one bank line from anywhere the line shows: what it served, its project and whether it
+/// was worth it. "Always for this shop" puts the tags on the shop's rule.
+struct TagLineForm: View {
+    @EnvironmentObject private var ledger: Ledger
+    @Environment(\.dismiss) private var dismiss
+    let lineId: String
+    let shop: String
+    let amount: String
+    let date: String
+    @State private var before: [String: String] = [:]
+    @State private var picks: [String: String] = [:]
+    @State private var always = false
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent("Shop", value: shop)
+                    LabeledContent("Amount", value: amount)
+                    LabeledContent("Date", value: date)
+                }
+                Section {
+                    TagPickers(choices: ledger.tagChoices, picks: $picks)
+                    Toggle("Always for this shop", isOn: $always)
+                }
+            }
+            .navigationTitle("Tags")
+            .task { await load() }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task {
+                            do {
+                                try await ledger.saveTags([lineId], before: before, picks: picks, always: always)
+                                dismiss()
+                            } catch { self.error = error.localizedDescription }
+                        }
+                    }
+                    .disabled(Tags.changes(from: before, to: picks).isEmpty)
+                }
+            }
+            .errorAlert($error)
+        }
+    }
+
+    private func load() async {
+        do {
+            before = Tags.picks(try await ledger.lineTags(lineId))
+            picks = before
+        } catch { self.error = error.localizedDescription }
+    }
+}
+
 struct ConfirmLineForm: View {
     @EnvironmentObject private var ledger: Ledger
     @Environment(\.dismiss) private var dismiss
     let line: ReviewLine
     @State private var category = ""
     @State private var always = true
+    @State private var before: [String: String] = [:]
+    @State private var picks: [String: String] = [:]
     @State private var error: String?
 
     var body: some View {
@@ -414,10 +490,20 @@ struct ConfirmLineForm: View {
                         Text("Pick one").tag("")
                         ForEach(ledger.categories, id: \.self) { Text($0).tag($0) }
                     }
+                }
+                if !ledger.tagChoices.isEmpty {
+                    Section("Tags") { TagPickers(choices: ledger.tagChoices, picks: $picks) }
+                }
+                Section {
                     Toggle("Always for this shop", isOn: $always)
+                } footer: {
+                    Text("Saves the category and the tags as one rule for this shop.")
                 }
             }
             .navigationTitle("Category")
+            .task {
+                if let tags = try? await ledger.lineTags(line.id) { before = Tags.picks(tags); picks = before }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -425,6 +511,7 @@ struct ConfirmLineForm: View {
                         Task {
                             do {
                                 try await ledger.confirm(line, category: category, always: always)
+                                try await ledger.saveTags([line.id], before: before, picks: picks, always: always)
                                 dismiss()
                             } catch { self.error = error.localizedDescription }
                         }

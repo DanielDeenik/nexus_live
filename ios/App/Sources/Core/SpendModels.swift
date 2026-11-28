@@ -265,3 +265,57 @@ struct MonthSpend: Identifiable, Equatable {
     let cap: Double
     var id: Date { month }
 }
+
+/// A tag dimension and the values it takes, from nx_tag_choices (tags.dimensions in app_config).
+struct TagChoice: Codable, Identifiable, Equatable {
+    struct Value: Codable, Equatable, Hashable {
+        let value: String
+        let label: String
+    }
+    let key: String
+    let label: String
+    let values: [Value]
+    var id: String { key }
+}
+
+/// A tag on one bank line (nx_line_tags). source: hand, buy_check, recurring or rule.
+struct LineTag: Codable, Equatable {
+    let dimension: String
+    let value: String
+    let source: String
+}
+
+/// A rule to save from a slipping tag: the proposal's if and then, and the tag it corrects.
+struct RuleDraft: Identifiable, Equatable {
+    var condition: String
+    var then: String
+    var cue: String?
+    var tagDimension: String?
+    var tagValue: String?
+    var id: String { [tagDimension ?? "", tagValue ?? "", condition].joined(separator: "|") }
+}
+
+enum Tags {
+    /// What a line form saves: each dimension whose pick changed. An empty pick means "the rules
+    /// decide" and goes out as nil, which hands the dimension back to the Buy check, the charge and the rules.
+    static func changes(from before: [String: String], to picks: [String: String]) -> [(dimension: String, value: String?)] {
+        picks.keys.sorted().compactMap { key in
+            let pick = picks[key] ?? ""
+            guard pick != (before[key] ?? "") else { return nil }
+            return (key, pick.isEmpty ? nil : pick)
+        }
+    }
+
+    /// The picks a line form starts from: the line's tags, by dimension.
+    static func picks(_ tags: [LineTag]) -> [String: String] {
+        Dictionary(tags.map { ($0.dimension, $0.value) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// The draft a Slipping row opens in the rule form.
+    static func draft(from item: Glance.Item) -> RuleDraft? {
+        guard let rule = item.rule else { return nil }
+        let tag = GlanceMath.tag(of: item.key)
+        return RuleDraft(condition: rule.condition, then: rule.then, cue: rule.cue,
+                         tagDimension: tag?.dimension, tagValue: tag?.value)
+    }
+}

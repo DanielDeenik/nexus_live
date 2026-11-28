@@ -87,6 +87,7 @@ struct RootView: View {
             .sheet(isPresented: $router.showReview) { NavigationStack { SundayReviewView() } }
             .sheet(isPresented: $router.showClose) { NavigationStack { CloseView() } }
             .sheet(isPresented: $router.showPurchases) { NavigationStack { PurchaseReviewView() } }
+            .sheet(item: $router.ruleDraft) { draft in RuleForm(draft: draft) }
             .onAppear { opened = true }
             .task {
                 UsageClock.shared.start()

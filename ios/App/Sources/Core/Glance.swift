@@ -23,6 +23,7 @@ struct Glance: Decodable {
     }
 
     /// A row that is off your own plan or rule. `action`, `link` and `due` are set when there is something to do.
+    /// A tag that is slipping (`link` "rule") carries the if/then rule the server proposes.
     struct Item: Decodable, Identifiable {
         let key: String
         let title: String
@@ -32,7 +33,23 @@ struct Glance: Decodable {
         let action: String?
         let link: String?
         let due: String?
+        let rule: Proposal?
         var id: String { key }
+    }
+
+    /// The correction nx_glance proposes for a slipping tag: an implementation intention with its cue,
+    /// what it is worth a month and the goal it serves.
+    struct Proposal: Decodable {
+        let condition: String
+        let then: String
+        let cue: String?
+        let eur_month: Double?
+        let goal: String?
+
+        enum CodingKeys: String, CodingKey {
+            case condition = "if"
+            case then, cue, eur_month, goal
+        }
     }
 
     struct Better: Decodable, Identifiable {
@@ -161,6 +178,13 @@ enum GlanceMath {
     static func shown(_ slipping: Glance.Slipping) -> (rows: [Glance.Item], rest: Int) {
         let rows = Array(slipping.items.prefix(max(slipping.shown, 0)))
         return (rows, slipping.items.count - rows.count)
+    }
+
+    /// The tag a Slipping row is about, from its key "tag:<dimension>:<value>".
+    static func tag(of key: String) -> (dimension: String, value: String)? {
+        let parts = key.split(separator: ":", maxSplits: 2, omittingEmptySubsequences: false)
+        guard parts.count == 3, parts[0] == "tag", !parts[1].isEmpty, !parts[2].isEmpty else { return nil }
+        return (String(parts[1]), String(parts[2]))
     }
 
     /// The address of a page of the web app, when the server names one.
