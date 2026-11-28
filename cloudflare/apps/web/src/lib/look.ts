@@ -1,11 +1,12 @@
 // Look-through: turns the one answer of nx_look() into the three rings and the
-// eight tables of the page. Pure, so it is checked in supabase/tests/look_web_test.ts.
+// tables of the page (eight, and By tag once lines carry tags). Pure, so it is checked in supabase/tests/look_web_test.ts.
 // The figures and the wording of the phone come from the database; this file only
 // lays the same facts out as rows. Money reads as the database words it (€1,234),
 // so a sentence from the server and a cell from here never differ in style.
 
 export interface LookSlice { key: string; label: string; amount: number }
-export interface LookItem { key: string; title: string; now: string; short: string; detail: string; action?: string; link?: string; due?: string }
+export interface LookProposal { if: string; then: string; cue: string | null; eur_month: number | null; goal: string | null }
+export interface LookItem { key: string; title: string; now: string; short: string; detail: string; action?: string; link?: string; due?: string; rule?: LookProposal | null }
 export interface LookAccount { label: string; kind: string; balance: number; last_booked: string | null }
 export interface LookReceivable { number: string | null; period: string | null; hours: number | null; amount: number; currency: string; amount_eur: number | null; due: string | null }
 export interface LookInvestment { label: string; currency: string; amount: number; amount_eur: number | null; rate: number | null; rate_date: string | null; as_of: string | null; positions: number | null }
@@ -14,6 +15,10 @@ export interface LookInvoice { number: string | null; period: string | null; iss
 export interface LookRecurring { key: string; label: string; cadence: string; amount: number | null; per_year: number | null; next_due: string | null; call: string | null; proposed_call: string | null; overdue: boolean }
 export interface LookDayItem { label: string; amount: number; call?: string | null; proposed_call?: string | null; payment?: boolean }
 export interface LookDay { date: string; items: LookDayItem[]; balance: number }
+export interface LookTagRow { value: string | null; label: string | null; mtd: number; avg: number | null; landing: number; slip: number; slipping: boolean; lines: number; proposal: LookProposal | null }
+export interface LookTagDimension { key: string; label: string; rows: LookTagRow[] }
+export interface LookTagEffect { id: string; dimension: string; value: string; if_condition: string | null; since: string; before_month: number | null; since_month: number | null }
+export interface LookTags { average_months: number; tolerance_pct: number; dimensions: LookTagDimension[]; without_tag: Record<string, number>; effects: LookTagEffect[] }
 type Figures = Record<string, number | boolean | null | undefined | { rate: number }[]>
 
 export interface Look {
@@ -59,6 +64,7 @@ export interface Look {
     }
     recurring: { rows: LookRecurring[]; per_year: number; count: number }
     calendar: null | { start: number; until: string; days: LookDay[]; first_negative: string | null; low: number | null; low_date: string | null }
+    tags?: LookTags
   }
 }
 
@@ -210,6 +216,37 @@ function livingTopic(look: Look): Topic {
   }
 }
 
+/** Spend per tag value against its own average, the same figures Slipping uses, and the rules you took. */
+function tagsTopic(look: Look): Topic | null {
+  const t = look.facts.tags
+  if (!t) return null
+  const month = monthName(look.facts.as_of)
+  const rows: Topic['rows'] = []
+  for (const d of t.dimensions) {
+    for (const r of d.rows) {
+      if (r.value == null) continue
+      rows.push([`${d.label}: ${r.label ?? r.value}`,
+        `${r.avg != null && r.avg > 0 ? `Average ${eur0(r.avg)}` : 'No average yet'}. ${month} so far ${eur0(r.mtd)}, ${r.lines} ${r.lines === 1 ? 'line' : 'lines'}${r.slipping ? '. Slipping' : ''}`,
+        eur0(r.landing)])
+    }
+  }
+  for (const e of t.effects) {
+    const dim = t.dimensions.find((d) => d.key === e.dimension)
+    const value = dim?.rows.find((r) => r.value === e.value)?.label ?? e.value
+    rows.push([e.if_condition ?? `${dim?.label ?? e.dimension}: ${value}`,
+      `Rule since ${dayShort(e.since, look.facts.as_of)}. ${e.before_month != null ? `${eur0(e.before_month)} a month before` : 'No month before'}`,
+      e.since_month != null ? `${eur0(e.since_month)} a month` : ''])
+  }
+  if (rows.length === 0) return null
+  const open = t.dimensions.map((d) => [d.label, t.without_tag?.[d.key] ?? 0] as const).filter(([, c]) => c > 0)
+  const without = open.length ? ` Lines of ${month} without a tag: ${open.map(([l, c]) => `${l} ${c}`).join(', ')}. Tag them on the Review page.` : ''
+  return {
+    key: 'tags', label: 'By tag', title: 'Spend by tag',
+    note: `Each value against its own average of ${t.average_months} ${t.average_months === 1 ? 'month' : 'months'}, after refunds; slipping when the month lands more than ${t.tolerance_pct}% above it.${without}`,
+    cols: ['Tag', `Average and ${month}`, 'By month end'], rows,
+  }
+}
+
 function leversTopic(look: Look): Topic | null {
   const { month: m, assignment: a, hold, as_of } = look.facts
   if (!m || !a) return null
@@ -237,7 +274,7 @@ function leversTopic(look: Look): Topic | null {
 
 function slippingTopic(look: Look): Topic {
   const s = look.glance.slipping
-  const rows: Topic['rows'] = s.items.map((i) => [i.title, i.detail, i.now])
+  const rows: Topic['rows'] = s.items.map((i) => [i.title, i.rule ? `${i.detail} Proposed rule: if ${i.rule.if}, then ${i.rule.then}.` : i.detail, i.now])
   for (const b of s.better) rows.push([b.title, b.detail, 'better'])
   return {
     key: 'slipping', label: 'Slipping', title: 'Slipping',
@@ -316,7 +353,7 @@ function recurringTopic(look: Look): Topic {
 
 /** The tables under the rings, in the order of the menu. A table with nothing behind it is left out. */
 export function topics(look: Look): Topic[] {
-  return [holdTopic(look), taxTopic(look), livingTopic(look), leversTopic(look), slippingTopic(look), assignmentTopic(look), calendarTopic(look), recurringTopic(look)]
+  return [holdTopic(look), taxTopic(look), livingTopic(look), tagsTopic(look), leversTopic(look), slippingTopic(look), assignmentTopic(look), calendarTopic(look), recurringTopic(look)]
     .filter((t): t is Topic => t !== null)
 }
 

@@ -5,6 +5,7 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { supabase } from '../lib/supabase'
 import { REASON_TEXT, type ReasonCode } from '@fiscal'
 import { type ReviewItem, callNexus, evidenceUrl } from '../lib/nexus'
+import { eur2 } from '../lib/look'
 
 const TREATMENTS = [
   ['fully_deductible', 'Fully deductible'],
@@ -154,6 +155,113 @@ function InvoiceDecision({ item, onDone }: { item: ReviewItem; onDone: () => voi
   )
 }
 
+interface TagChoice { key: string; label: string; values: { value: string; label: string }[] }
+interface TagLine { id: string; booked_on: string; amount: number; currency: string; merchant: string | null; payee: string | null; category: string; nx_line_tags: { dimension: string; value: string }[] }
+
+const shopOf = (l: TagLine) => l.merchant ?? l.payee ?? 'Unknown shop'
+
+/** Spending of this month in the planned classes that has no tag yet in one dimension: pick the
+ *  lines, pick a value, tag them in one go. "Always for these shops" puts it on each shop's rule. */
+function LineTags() {
+  const [choices, setChoices] = useState<TagChoice[]>([])
+  const [lines, setLines] = useState<TagLine[] | null>(null)
+  const [dimension, setDimension] = useState('')
+  const [value, setValue] = useState('')
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [always, setAlways] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const load = useCallback(async () => {
+    try {
+      const { data: c, error: ce } = await supabase.rpc('nx_tag_choices')
+      if (ce) throw ce
+      const { data: cfg, error: fe } = await supabase.from('app_config').select('value').eq('key', 'budget.planned_classes').single()
+      if (fe) throw fe
+      const now = new Date()
+      const since = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)).toISOString().slice(0, 10)
+      const { data, error } = await supabase.from('nx_transactions')
+        .select('id,booked_on,amount,currency,merchant,payee,category,nx_line_tags(dimension,value)')
+        .lt('amount', 0).gte('booked_on', since).in('class', JSON.parse(cfg.value) as string[])
+        .order('booked_on', { ascending: false })
+      if (error) throw error
+      setChoices(c as TagChoice[])
+      setDimension((d) => d || (c as TagChoice[])[0]?.key || '')
+      setLines(data as TagLine[])
+      setPicked(new Set())
+    } catch (e) { setErr((e as Error).message) }
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  if (err && !lines) return <Card><p className="text-sm text-danger-400">{err}</p></Card>
+  if (!lines || choices.length === 0) return null
+  const choice = choices.find((c) => c.key === dimension)
+  const open = lines.filter((l) => !l.nx_line_tags.some((t) => t.dimension === dimension))
+  const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })
+
+  const save = async () => {
+    setBusy(true); setErr('')
+    try {
+      const chosen = open.filter((l) => picked.has(l.id))
+      const byShop = new Map<string, string[]>()
+      for (const l of chosen) byShop.set(shopOf(l), [...(byShop.get(shopOf(l)) ?? []), l.id])
+      // One call per shop with Always, since the rule belongs to a shop; one call for all without.
+      const groups = always ? [...byShop.values()] : [chosen.map((l) => l.id)]
+      for (const ids of groups) {
+        const { error } = await supabase.rpc('nx_set_line_tags', { p_txns: ids, p_dimension: dimension, p_value: value, p_always: always })
+        if (error) throw error
+      }
+      setValue('')
+      await load()
+    } catch (e) { setErr((e as Error).message) } finally { setBusy(false) }
+  }
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-400">Bank lines</p>
+          <p className="text-base font-medium text-slate-50">{open.length} {open.length === 1 ? 'line' : 'lines'} this month without {choice?.label ?? 'a tag'}</p>
+        </div>
+        <label className="text-xs text-slate-400">Tag
+          <select value={dimension} onChange={(e) => { setDimension(e.target.value); setValue(''); setPicked(new Set()) }} className={`${input} block mt-1`}>
+            {choices.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+          </select>
+        </label>
+      </div>
+      {open.length > 0 && (
+        <>
+          <ul className="divide-y divide-slate-800 mb-3">
+            {open.map((l) => (
+              <li key={l.id} className="flex items-center gap-3 py-2 text-sm">
+                <input type="checkbox" checked={picked.has(l.id)} onChange={() => toggle(l.id)} className="rounded bg-slate-900 border-slate-600" />
+                <span className="flex-1 text-slate-200">{shopOf(l)} <span className="text-slate-500">· {l.booked_on} · {l.category}</span></span>
+                <span className="tabular-nums text-slate-200">{eur2(-l.amount)}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="text-xs text-slate-400">{choice?.label}
+              <select value={value} onChange={(e) => setValue(e.target.value)} className={`${input} block mt-1`}>
+                <option value="">Pick one</option>
+                {choice?.values.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+              </select>
+            </label>
+            <label className="text-xs text-slate-300 flex items-center gap-2 pb-2">
+              <input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} className="rounded bg-slate-900 border-slate-600" />
+              Always for these shops
+            </label>
+            <button disabled={busy || !value || picked.size === 0} onClick={save} className="rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm px-4 py-2">
+              Tag {picked.size} {picked.size === 1 ? 'line' : 'lines'}
+            </button>
+          </div>
+        </>
+      )}
+      {err && <p className="text-sm text-danger-400 mt-2">{err}</p>}
+    </Card>
+  )
+}
+
 export function Review() {
   const [items, setItems] = useState<ReviewItem[] | null>(null)
   const [error, setError] = useState('')
@@ -176,6 +284,7 @@ export function Review() {
         <h1 className="text-2xl font-bold text-slate-50">Review</h1>
         <p className="text-sm text-slate-400">The agents stop here. Nothing below counts toward a filing until you decide.</p>
       </div>
+      <LineTags />
       {items.length === 0 && <Card><p className="text-sm text-success-400 flex items-center gap-2"><CheckCircle2 size={14} /> Nothing waiting.</p></Card>}
       {items.map((item) => (
         <Card key={item.id}>
