@@ -7,9 +7,9 @@
   "name": "nexuslive",
   "compatibility_date": "2026-11-01",
   "build": {
-    // pnpm finds the workspace in cloudflare/ and installs it from the lockfile; the build
-    // type-checks before vite writes dist/.
-    "command": "pnpm install --frozen-lockfile && pnpm run build"
+    // pnpm finds the workspace in cloudflare/ and installs it (pnpm-lock.yaml is not committed,
+    // see cloudflare/.gitignore); the build type-checks before vite writes dist/.
+    "command": "pnpm install --no-frozen-lockfile && pnpm run build"
   },
   "assets": {
     "directory": "./dist",

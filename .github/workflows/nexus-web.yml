@@ -28,8 +28,9 @@ jobs:
       - uses: pnpm/action-setup@v4
         with: { version: 9 }
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm, cache-dependency-path: cloudflare/pnpm-lock.yaml }
-      - run: pnpm install --frozen-lockfile
+        with: { node-version: 22 }
+      # pnpm-lock.yaml is not committed (cloudflare/.gitignore), so the install resolves fresh.
+      - run: pnpm install --no-frozen-lockfile
       - uses: denoland/setup-deno@v2
         with: { deno-version: v2.x }
       - name: Supabase and web tests

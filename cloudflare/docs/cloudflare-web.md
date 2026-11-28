@@ -18,11 +18,11 @@ Workers and Pages, open **nexuslive**, then Settings, Build.
 
 1. Git repository: this repository (already connected).
 2. Root directory: `cloudflare/apps/web`
-3. Build command: leave empty. `wrangler.jsonc` runs `pnpm install --frozen-lockfile && pnpm run build` itself.
+3. Build command: leave empty. `wrangler.jsonc` runs `pnpm install --no-frozen-lockfile && pnpm run build` itself.
 4. Deploy command: `npx wrangler deploy` (the default).
 5. Non-production branch deploy command: `npx wrangler versions upload` (the default; gives a preview link per branch).
 6. Production branch: the branch that holds the web app. Today that is `feat/supabase-foundation`; switch it to `main` once that branch is merged.
-7. Build watch paths, include: `cloudflare/apps/web/*`, `cloudflare/packages/*`, `cloudflare/supabase/functions/_shared/fiscal/*`, `cloudflare/pnpm-lock.yaml`.
+7. Build watch paths, include: `cloudflare/apps/web/*`, `cloudflare/packages/*`, `cloudflare/supabase/functions/_shared/fiscal/*`.
 8. Retry the last build (Deployments, then Retry) or push a change. When it is green the app answers on the Worker's `workers.dev` address.
 
 ## Supabase settings for each new address
