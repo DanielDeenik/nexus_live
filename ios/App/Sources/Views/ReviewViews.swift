@@ -27,8 +27,8 @@ struct PurchaseReviewView: View {
         return (zip(dates, series.now).map { ChartPoint(date: $0, value: $1) }, zip(dates, series.afterCuts).map { ChartPoint(date: $0, value: $1) })
     }
 
-    private func section(_ title: String, _ rows: [RecurringCharge]) -> some View {
-        Section(title) {
+    private func section(_ title: String, _ rows: [RecurringCharge], footer: String? = nil) -> some View {
+        Section {
             ForEach(rows) { charge in
                 NavigationLink { RecurringDetail(charge: charge) } label: { RecurringRow(charge: charge) }
                     .swipeActions(edge: .trailing) {
@@ -39,6 +39,10 @@ struct PurchaseReviewView: View {
                         Button("Keep") { set(charge, "keep") }.tint(.green)
                     }
             }
+        } header: {
+            Text(title)
+        } footer: {
+            if let footer { Text(footer) }
         }
     }
 
@@ -68,14 +72,24 @@ struct PurchaseReviewView: View {
             if ledger.recurring.isEmpty {
                 Text("Recurring charges appear after the next bank sync or import.").foregroundStyle(.secondary)
             }
-            let open = ledger.recurring.filter { $0.call == nil }
+            let today = Day.string(Date())
+            let running = ledger.recurring.filter { Subscriptions.group($0, today: today) != .ended }
+            let bunq = running.filter { Subscriptions.group($0, today: today) == .onBunq && !$0.isCut }
+            if !bunq.isEmpty {
+                section("Still on bunq: move or cancel", bunq,
+                        footer: "bunq closes. Move each one to ABN AMRO, Wise or Amex, or cancel it.")
+            }
+            let rest = running.filter { !bunq.map(\.id).contains($0.id) }
+            let open = rest.filter { $0.call == nil }
             if !open.isEmpty { section("To decide", open) }
-            let cuts = ledger.recurring.filter(\.isCut)
+            let cuts = rest.filter(\.isCut)
             if !cuts.isEmpty { section("Cancel", cuts) }
-            let business = ledger.recurring.filter { $0.call == "move_business" }
+            let business = rest.filter { $0.call == "move_business" }
             if !business.isEmpty { section("Move to business", business) }
-            let keep = ledger.recurring.filter { $0.call == "keep" }
+            let keep = rest.filter { $0.call == "keep" }
             if !keep.isEmpty { section("Keep", keep) }
+            let ended = ledger.recurring.filter { Subscriptions.group($0, today: today) == .ended }
+            if !ended.isEmpty { section("Ended", ended) }
         }
         .navigationTitle("Purchase review")
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
@@ -104,6 +118,9 @@ struct RecurringRow: View {
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text(charge.per_year.map { Money.format($0, ledger.baseCurrency) + " a year" } ?? "").font(.caption.monospacedDigit())
+                if Subscriptions.isFailing(charge) {
+                    Text("Payment failing").font(.caption2.bold()).foregroundStyle(.red)
+                }
                 if let call = charge.shownCall {
                     Text((charge.call == nil ? "Suggested: " : "") + (callLabels[call] ?? call))
                         .font(.caption2.bold())
@@ -118,6 +135,7 @@ struct RecurringRow: View {
         if let amount = charge.amount { parts.append(Money.format(amount, ledger.baseCurrency)) }
         if let status = charge.status { parts.append(statusLabels[status] ?? status) }
         else if let next = charge.next_due { parts.append("next \(next)") }
+        if let from = charge.paid_from ?? charge.paying_account { parts.append(from) }
         return parts.joined(separator: " · ")
     }
 }
@@ -150,7 +168,23 @@ struct RecurringDetail: View {
                 LabeledContent("Paid this year", value: Money.format(charge.paid_this_year, ledger.baseCurrency))
                 if let last = charge.last_charge { LabeledContent("Last charge", value: last) }
                 if let next = charge.next_due { LabeledContent("Next charge", value: next) }
+                if let from = charge.paid_from ?? charge.paying_account { LabeledContent("Paid from", value: from) }
                 if let note = charge.note { Text(note).font(.caption).foregroundStyle(.secondary) }
+            }
+            let links = Subscriptions.links(for: charge, routes: ledger.routes)
+            if charge.call != "cancel", links.manage != nil || links.cancel != nil {
+                Section {
+                    if let manage = links.manage {
+                        Button { openURL(manage) } label: { Label("Open the account page", systemImage: "person.crop.circle") }
+                    }
+                    if let cancel = links.cancel {
+                        Button { openURL(cancel) } label: {
+                            Label(links.cancelAtBank ? "Block it at the bank" : "Open the cancel page", systemImage: "arrow.up.right.square")
+                        }
+                    }
+                } footer: {
+                    Text("Opens the merchant's own page. Cancelling stays your action; set your call above to track it.")
+                }
             }
             Section("Your call") {
                 Picker("Call", selection: $call) {
@@ -186,6 +220,9 @@ struct RecurringDetail: View {
             Section("Cancel it: \(route.label)") {
                 if let steps = route.steps { Text(steps) }
                 if let trap = route.trap { Label(trap, systemImage: "exclamationmark.triangle").font(.callout).foregroundStyle(.orange) }
+                if let manage = Subscriptions.links(for: charge, routes: ledger.routes).manage, route.route != "apple" {
+                    Button { openURL(manage) } label: { Label("Open the account page", systemImage: "person.crop.circle") }
+                }
                 if let link = route.url, let url = URL(string: link) {
                     Button { openURL(url) } label: { Label(route.route == "bank" ? "Open the bank" : "Open the cancel page", systemImage: "arrow.up.right.square") }
                 }
@@ -356,12 +393,88 @@ struct SundayReviewView: View {
     }
 }
 
+/// One picker per tag dimension (tags.dimensions); "Rules decide" leaves it to the Buy check,
+/// the charge's tag and the rules.
+struct TagPickers: View {
+    let choices: [TagChoice]
+    @Binding var picks: [String: String]
+
+    var body: some View {
+        ForEach(choices) { choice in
+            Picker(choice.label, selection: Binding(get: { picks[choice.key] ?? "" }, set: { picks[choice.key] = $0 })) {
+                Text("Rules decide").tag("")
+                ForEach(choice.values, id: \.self) { Text($0.label).tag($0.value) }
+                if let current = picks[choice.key], !current.isEmpty, !choice.values.contains(where: { $0.value == current }) {
+                    Text(current).tag(current)
+                }
+            }
+        }
+    }
+}
+
+/// Tags for one bank line from anywhere the line shows: what it served, its project and whether it
+/// was worth it. "Always for this shop" puts the tags on the shop's rule.
+struct TagLineForm: View {
+    @EnvironmentObject private var ledger: Ledger
+    @Environment(\.dismiss) private var dismiss
+    let lineId: String
+    let shop: String
+    let amount: String
+    let date: String
+    @State private var before: [String: String] = [:]
+    @State private var picks: [String: String] = [:]
+    @State private var always = false
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent("Shop", value: shop)
+                    LabeledContent("Amount", value: amount)
+                    LabeledContent("Date", value: date)
+                }
+                Section {
+                    TagPickers(choices: ledger.tagChoices, picks: $picks)
+                    Toggle("Always for this shop", isOn: $always)
+                }
+            }
+            .navigationTitle("Tags")
+            .task { await load() }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task {
+                            do {
+                                try await ledger.saveTags([lineId], before: before, picks: picks, always: always)
+                                dismiss()
+                            } catch { self.error = error.localizedDescription }
+                        }
+                    }
+                    .disabled(Tags.changes(from: before, to: picks).isEmpty)
+                }
+            }
+            .errorAlert($error)
+        }
+    }
+
+    private func load() async {
+        do {
+            before = Tags.picks(try await ledger.lineTags(lineId))
+            picks = before
+        } catch { self.error = error.localizedDescription }
+    }
+}
+
 struct ConfirmLineForm: View {
     @EnvironmentObject private var ledger: Ledger
     @Environment(\.dismiss) private var dismiss
     let line: ReviewLine
     @State private var category = ""
     @State private var always = true
+    @State private var before: [String: String] = [:]
+    @State private var picks: [String: String] = [:]
     @State private var error: String?
 
     var body: some View {
@@ -377,10 +490,20 @@ struct ConfirmLineForm: View {
                         Text("Pick one").tag("")
                         ForEach(ledger.categories, id: \.self) { Text($0).tag($0) }
                     }
+                }
+                if !ledger.tagChoices.isEmpty {
+                    Section("Tags") { TagPickers(choices: ledger.tagChoices, picks: $picks) }
+                }
+                Section {
                     Toggle("Always for this shop", isOn: $always)
+                } footer: {
+                    Text("Saves the category and the tags as one rule for this shop.")
                 }
             }
             .navigationTitle("Category")
+            .task {
+                if let tags = try? await ledger.lineTags(line.id) { before = Tags.picks(tags); picks = before }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -388,6 +511,7 @@ struct ConfirmLineForm: View {
                         Task {
                             do {
                                 try await ledger.confirm(line, category: category, always: always)
+                                try await ledger.saveTags([line.id], before: before, picks: picks, always: always)
                                 dismiss()
                             } catch { self.error = error.localizedDescription }
                         }

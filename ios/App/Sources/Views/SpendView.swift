@@ -100,7 +100,9 @@ struct SpendView: View {
                     Label("Purchase review", systemImage: "arrow.triangle.2.circlepath")
                     Spacer()
                     let open = ledger.recurring.filter { $0.call == nil }.count
-                    if open > 0 { Text(String(open)).font(.caption.bold()).foregroundStyle(.orange) }
+                    let bunq = ledger.recurring.filter { Subscriptions.group($0, today: Day.string(Date())) == .onBunq && !$0.isCut }.count
+                    if bunq > 0 { Text("\(bunq) on bunq").font(.caption.bold()).foregroundStyle(.orange) }
+                    else if open > 0 { Text(String(open)).font(.caption.bold()).foregroundStyle(.orange) }
                 }
             }
             let unplanned = ledger.unplannedThisMonth
@@ -214,22 +216,32 @@ struct SpendChartDetail: View {
     }
 }
 
-/// Purchases from the small threshold in planned classes that no Buy check explains.
+/// Purchases from the small threshold in planned classes that no Buy check explains. Tap one to
+/// tag it: what it served, its project and whether it was worth it.
 struct UnplannedView: View {
     @EnvironmentObject private var ledger: Ledger
+    @State private var tagging: Transaction?
 
     var body: some View {
         List(ledger.unplannedThisMonth) { line in
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(line.merchant ?? line.category)
-                    Text("\(line.booked_on) · \(line.category)").font(.caption).foregroundStyle(.secondary)
+            Button { if line.split != true { tagging = line } } label: {
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text(line.merchant ?? line.category)
+                        Text("\(line.booked_on) · \(line.category)").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text(Money.format(line.outflow, line.currency)).monospacedDigit()
                 }
-                Spacer()
-                Text(Money.format(line.outflow, line.currency)).monospacedDigit()
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
         .navigationTitle("No Buy check")
+        .sheet(item: $tagging) { line in
+            TagLineForm(lineId: line.id, shop: line.merchant ?? line.category,
+                        amount: Money.format(line.outflow, line.currency), date: line.booked_on)
+        }
     }
 }
 

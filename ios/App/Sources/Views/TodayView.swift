@@ -102,6 +102,7 @@ func follow(_ item: Glance.Item, in glance: Glance, router: AppRouter, openURL: 
     case "review": router.showReview = true
     case "close": router.showClose = true
     case "purchases": router.showPurchases = true
+    case "rule": router.ruleDraft = Tags.draft(from: item)
     case "time":
         if let url = GlanceMath.webURL(glance.web_url, path: "/time/entries") { openURL(url) }
     default: break

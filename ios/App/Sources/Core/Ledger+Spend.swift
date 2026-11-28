@@ -157,9 +157,9 @@ extension Ledger {
         do {
             receipts = try await backend.select("nx_receipts",
                 "select=id,source,kind,merchant,total,currency,order_date,received_at,txn_id,match_status&order=received_at.desc&limit=200")
-            recurring = try await backend.select("nx_recurring", "select=*&order=per_year.desc.nullslast,label.asc")
+            recurring = try await backend.select("nx_subscriptions", "select=*&order=per_year.desc.nullslast,label.asc")
             routes = try await backend.select("nx_cancel_routes",
-                "select=id,priority,pattern,label,route,url,steps,trap,notice_to&order=priority.asc,label.asc")
+                "select=id,priority,pattern,label,route,url,steps,trap,notice_to,manage_url&order=priority.asc,label.asc")
             alerts = try await backend.select("nx_alerts", "select=id,kind,title,detail,txn_id,created_at,seen_at&order=created_at.desc&limit=100")
             taps = try await backend.select("nx_wallet_taps",
                 "select=id,tapped_at,merchant,amount,currency,card,planned,food,txn_id&order=tapped_at.desc&limit=200")
@@ -168,6 +168,8 @@ extension Ledger {
                 "select=id,booked_on,amount,currency,merchant,payee,category,class,review_status&or=(review_status.eq.needs_review,category.eq.Uncategorised,category.like.To%20check*)&order=booked_on.desc,id.desc&limit=200")
             let raw = try await backend.rpc("nx_measures", [:])
             measures = try JSONDecoder().decode(ServerMeasures.self, from: JSONSerialization.data(withJSONObject: raw))
+            let choices = try await backend.rpc("nx_tag_choices", [:])
+            tagChoices = try JSONDecoder().decode([TagChoice].self, from: JSONSerialization.data(withJSONObject: choices))
             spendError = nil
         } catch {
             spendError = error.localizedDescription
@@ -225,10 +227,11 @@ extension Ledger {
     }
 
     func saveRoute(id: String?, priority: Int, pattern: String, label: String, route: String,
-                   url: String, steps: String, trap: String, noticeTo: String) async throws {
+                   url: String, manageURL: String = "", steps: String, trap: String, noticeTo: String) async throws {
         let row: [String: Any] = [
             "priority": priority, "pattern": pattern, "label": label, "route": route,
-            "url": url.isEmpty ? NSNull() : url, "steps": steps.isEmpty ? NSNull() : steps,
+            "url": url.isEmpty ? NSNull() : url, "manage_url": manageURL.isEmpty ? NSNull() : manageURL,
+            "steps": steps.isEmpty ? NSNull() : steps,
             "trap": trap.isEmpty ? NSNull() : trap, "notice_to": noticeTo.isEmpty ? NSNull() : noticeTo
         ]
         if let id { try await backend.update("nx_cancel_routes", id: id, row) } else { try await backend.insert("nx_cancel_routes", row) }
@@ -314,6 +317,30 @@ extension Ledger {
             _ = try await backend.rpc("nx_reclassify", [:])
         }
         await reload()
+    }
+
+    // MARK: Tags
+
+    /// The tags on one line, by dimension.
+    func lineTags(_ lineId: String) async throws -> [LineTag] {
+        try await backend.select("nx_line_tags", "select=dimension,value,source&txn_id=eq.\(lineId)")
+    }
+
+    /// Tags lines by hand; nil hands the dimension back to the rules. With always, the tag also
+    /// goes on the shop's rule, the same one "Always for this shop" makes for the category.
+    func setTag(_ lineIds: [String], dimension: String, value: String?, always: Bool) async throws {
+        _ = try await backend.rpc("nx_set_line_tags", [
+            "p_txns": lineIds, "p_dimension": dimension, "p_value": value.map { $0 as Any } ?? NSNull(), "p_always": always
+        ])
+    }
+
+    /// Saves what changed in a line form's tag picks, then reloads the figures that use them.
+    func saveTags(_ lineIds: [String], before: [String: String], picks: [String: String], always: Bool) async throws {
+        let changes = Tags.changes(from: before, to: picks)
+        for change in changes {
+            try await setTag(lineIds, dimension: change.dimension, value: change.value, always: always)
+        }
+        if !changes.isEmpty { await reloadGlance() }
     }
 
     // MARK: Monthly close
