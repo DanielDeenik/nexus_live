@@ -13,18 +13,18 @@ export const ImportChip = ({ status }: { status: string }) => <Chip tone={STATUS
 
 /** Horizontal bars for a share (0 to 1) or a count; the label keeps its own line on phones. */
 export function BarList({ items, empty = 'Nothing yet.' }: { items: { label: string; value: number | null; text: string }[]; empty?: string }) {
-  if (!items.length) return <p className="text-sm text-slate-500">{empty}</p>
+  if (!items.length) return <p className="text-sm text-muted">{empty}</p>
   const max = Math.max(...items.map((i) => i.value ?? 0), 0)
   return (
     <ul className="space-y-2">
       {items.map((i) => (
         <li key={i.label} className="text-sm">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="min-w-0 truncate text-slate-200" title={i.label}>{i.label}</span>
-            <span className="shrink-0 tabular-nums text-slate-400">{i.text}</span>
+            <span className="min-w-0 truncate text-ink" title={i.label}>{i.label}</span>
+            <span className="shrink-0 tabular-nums text-muted">{i.text}</span>
           </div>
-          <div className="mt-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-            <div className="h-full rounded-full bg-sky-600" style={{ width: `${max > 0 && i.value != null ? Math.max(2, (i.value / max) * 100) : 0}%` }} />
+          <div className="mt-1 h-1.5 rounded-full bg-chip overflow-hidden">
+            <div className="h-full rounded-full bg-ink" style={{ width: `${max > 0 && i.value != null ? Math.max(2, (i.value / max) * 100) : 0}%` }} />
           </div>
         </li>
       ))}
@@ -76,7 +76,7 @@ export function ImportCard({ onDone }: { onDone?: () => void }) {
     <Card className="p-4 sm:p-6">
       <CardHeader title="Import" subtitle="Content analytics export, data archive, or profile analytics screenshots" />
       <div className="flex flex-wrap items-end gap-3">
-        <label className="block text-xs text-slate-400">
+        <label className="block text-xs text-muted">
           Kind
           <select className={`mt-1 block ${input}`} value={hint} onChange={(e) => setHint(e.target.value as '' | ImportHint)} disabled={!!busy}>
             {HINTS.map((h) => <option key={h.id} value={h.id}>{h.label}</option>)}
@@ -87,13 +87,13 @@ export function ImportCard({ onDone }: { onDone?: () => void }) {
           <Upload size={14} className={busy ? 'animate-pulse' : ''} /> {busy ? `Importing ${busy}` : 'Choose files'}
         </button>
       </div>
-      <p className="mt-3 text-xs text-slate-400">
+      <p className="mt-3 text-xs text-muted">
         Files go to your private folder. From the archive only connections and inbound message details are kept (no email addresses, at most a short snippet per message). Importing the same file again updates what is there.
       </p>
       {results.length > 0 && (
         <ul className="mt-4 space-y-2">
           {results.map((r, i) => (
-            <li key={`${r.name}-${i}`} className={`flex gap-2 rounded-lg border p-3 text-sm ${r.ok ? 'border-success-500/40 bg-success-500/10 text-success-200' : 'border-danger-500/40 bg-danger-500/10 text-danger-200'}`}>
+            <li key={`${r.name}-${i}`} className={`flex gap-2 rounded-lg border p-3 text-sm ${r.ok ? 'border-good bg-good-soft text-good' : 'border-bad bg-bad-soft text-bad'}`}>
               {r.ok ? <CheckCircle2 size={16} className="mt-0.5 shrink-0" /> : <XCircle size={16} className="mt-0.5 shrink-0" />}
               <div className="min-w-0 break-words">
                 <span className="font-medium">{r.name}</span>{r.status && r.status !== 'succeeded' && r.ok ? ` (${r.status})` : ''}: {r.text}

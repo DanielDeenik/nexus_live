@@ -61,12 +61,12 @@ export function RecruiterOverview() {
       />
 
       {result && (
-        <p className={`text-sm break-words rounded-lg border p-3 ${result.ok ? 'border-success-500/40 bg-success-500/10 text-success-300' : 'border-danger-500/40 bg-danger-500/10 text-danger-300'}`}>{result.text}</p>
+        <p className={`text-sm break-words rounded-lg border p-3 ${result.ok ? 'border-good bg-good-soft text-good' : 'border-bad bg-bad-soft text-bad'}`}>{result.text}</p>
       )}
       <ErrorNote message={error} />
 
       {failed(run) && (
-        <div className="rounded-xl border border-danger-500/40 bg-danger-500/10 p-4 text-sm text-danger-200 flex gap-2">
+        <div className="rounded-xl border border-bad bg-bad-soft p-4 text-sm text-bad flex gap-2">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           <p className="min-w-0 break-words">
             The last intake run failed ({when(run!.started_at)}): {run!.error_message ?? 'no message'}.{' '}
@@ -87,8 +87,8 @@ export function RecruiterOverview() {
       </div>
 
       <Card className="p-4 sm:p-6">
-        <div className="flex gap-2 text-sm text-slate-300">
-          <Info size={16} className="mt-0.5 shrink-0 text-sky-400" />
+        <div className="flex gap-2 text-sm text-body">
+          <Info size={16} className="mt-0.5 shrink-0 text-lemon-ink" />
           <p>Nothing is sent for you. Replies and CVs are saved as drafts in your Gmail; you read and send them yourself. Calls are invitations in Google Calendar that you accept or decline there.</p>
         </div>
       </Card>
@@ -97,38 +97,38 @@ export function RecruiterOverview() {
         <CardHeader title="Submissions" subtitle="Newest first" />
         <div className="relative overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-400 border-b border-slate-700/50">
+            <thead className="text-left text-muted border-b border-line">
               <tr>
                 <th className={th}>Received</th><th className={th}>Status</th><th className={th}>Who</th><th className={th}>Kind</th>
                 <th className={th}>Role</th><th className={th}>Drafted</th><th className={th}>Call</th>
               </tr>
             </thead>
-            <tbody className="text-slate-200">
+            <tbody className="text-ink">
               {subs?.map((s) => {
                 const drafts = s.outcome?.drafts ?? []
                 return (
-                  <tr key={s.id} className="border-b border-slate-800/60">
+                  <tr key={s.id} className="border-b border-line">
                     <td className={`${td} whitespace-nowrap tabular-nums`}>{when(s.received_at)}</td>
                     <td className={`${td} min-w-[9rem]`}>
                       <SubmissionChip status={s.status} />
-                      {s.outcome?.score != null && <div className="mt-1 text-xs text-slate-400 tabular-nums">Score {Math.round(s.outcome.score)}</div>}
-                      {s.error && <div className="mt-1 text-xs text-danger-300 max-w-[14rem] break-words">{s.error}</div>}
+                      {s.outcome?.score != null && <div className="mt-1 text-xs text-muted tabular-nums">Score {Math.round(s.outcome.score)}</div>}
+                      {s.error && <div className="mt-1 text-xs text-bad max-w-[14rem] break-words">{s.error}</div>}
                     </td>
                     <td className={`${td} min-w-[10rem]`}>
                       <div>{s.name ?? '-'}</div>
-                      <div className="text-xs text-slate-400 break-all">{[s.company, s.email].filter(Boolean).join(', ')}</div>
+                      <div className="text-xs text-muted break-all">{[s.company, s.email].filter(Boolean).join(', ')}</div>
                     </td>
                     <td className={`${td} whitespace-nowrap`}>{s.kind}</td>
-                    <td className={`${td} min-w-[8rem]`}>{s.role ?? (s.kind === 'question' ? <span className="text-slate-400">{s.question?.slice(0, 80) ?? '-'}</span> : '-')}</td>
-                    <td className={`${td} min-w-[11rem] text-slate-300 break-words`}>
-                      {drafts.length ? drafts.map((d) => <div key={d.id}><span className="text-slate-400">To {d.to}:</span> {d.subject}</div>) : '-'}
+                    <td className={`${td} min-w-[8rem]`}>{s.role ?? (s.kind === 'question' ? <span className="text-muted">{s.question?.slice(0, 80) ?? '-'}</span> : '-')}</td>
+                    <td className={`${td} min-w-[11rem] text-body break-words`}>
+                      {drafts.length ? drafts.map((d) => <div key={d.id}><span className="text-muted">To {d.to}:</span> {d.subject}</div>) : '-'}
                     </td>
                     <td className={`${td} whitespace-nowrap`}>{s.outcome?.call_at ? when(s.outcome.call_at) : '-'}</td>
                   </tr>
                 )
               })}
-              {subs && subs.length === 0 && <tr><td className={`${td} text-slate-400`} colSpan={7}>No submissions yet.</td></tr>}
-              {!subs && !error && <tr><td className={`${td} text-slate-400`} colSpan={7}>Loading.</td></tr>}
+              {subs && subs.length === 0 && <tr><td className={`${td} text-muted`} colSpan={7}>No submissions yet.</td></tr>}
+              {!subs && !error && <tr><td className={`${td} text-muted`} colSpan={7}>Loading.</td></tr>}
             </tbody>
           </table>
         </div>

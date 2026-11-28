@@ -5,21 +5,21 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { type TaxFiling, callNexus, eur, hrs, loadFilings } from '../lib/nexus'
 
 const STATUS: Record<TaxFiling['status'], string> = {
-  needs_review: 'text-warning-400', approved: 'text-sky-400', filed: 'text-success-400', superseded: 'text-slate-500',
+  needs_review: 'text-lemon-ink', approved: 'text-lemon-ink', filed: 'text-good', superseded: 'text-muted',
 }
 
 function VatFigures({ f }: { f: Record<string, unknown> }) {
   const boxes = (f.boxes ?? {}) as Record<string, { base_eur: number; vat_eur: number; items: number }>
   return (
     <table className="w-full text-sm mt-2">
-      <thead className="text-left text-slate-400"><tr><th className="py-1">Box</th><th className="text-right">Base</th><th className="text-right">VAT</th></tr></thead>
-      <tbody className="text-slate-200">
+      <thead className="text-left text-muted"><tr><th className="py-1">Box</th><th className="text-right">Base</th><th className="text-right">VAT</th></tr></thead>
+      <tbody className="text-ink">
         {Object.entries(boxes).sort().map(([k, b]) => <tr key={k}><td className="py-1 font-mono">{k}</td><td className="text-right tabular-nums">{eur(b.base_eur)}</td><td className="text-right tabular-nums">{eur(b.vat_eur)}</td></tr>)}
-        <tr className="border-t border-slate-700/50"><td className="py-1 font-mono">5b</td><td /><td className="text-right tabular-nums">{eur(Number(f.input_vat_5b ?? 0))}</td></tr>
+        <tr className="border-t border-line"><td className="py-1 font-mono">5b</td><td /><td className="text-right tabular-nums">{eur(Number(f.input_vat_5b ?? 0))}</td></tr>
         <tr><td className="py-1 font-semibold">5g payable</td><td /><td className="text-right tabular-nums font-semibold">{eur(Number(f.payable_5g ?? 0))}</td></tr>
       </tbody>
       {(f.not_reported as { items: number; base_eur: number } | undefined)?.items ? (
-        <caption className="caption-bottom text-left text-xs text-slate-400 pt-2">
+        <caption className="caption-bottom text-left text-xs text-muted pt-2">
           Not in the return: {eur((f.not_reported as { base_eur: number }).base_eur)} of B2B services to non-EU clients (taxed in the client's country).
         </caption>
       ) : null}
@@ -44,12 +44,12 @@ function IncomeFigures({ f }: { f: Record<string, unknown> }) {
   return (
     <>
       <table className="w-full text-sm mt-2">
-        <thead className="text-left text-slate-400"><tr><th className="py-1" /><th className="text-right">Year to date</th><th className="text-right">Projected</th></tr></thead>
-        <tbody className="text-slate-200">
+        <thead className="text-left text-muted"><tr><th className="py-1" /><th className="text-right">Year to date</th><th className="text-right">Projected</th></tr></thead>
+        <tbody className="text-ink">
           {rows.map(([l, a, b]) => <tr key={l}><td className="py-1">{l}</td><td className="text-right tabular-nums">{a != null ? eur(a) : '-'}</td><td className="text-right tabular-nums">{b != null ? eur(b) : '-'}</td></tr>)}
         </tbody>
       </table>
-      <p className="text-xs text-slate-400 mt-2">
+      <p className="text-xs text-muted mt-2">
         {ledger ? `${hrs(ledger.billed_hours + ledger.non_billable_hours)} hours logged. ` : ''}
         Reserve target {eur(Number(f.reserve_target_eur ?? 0))}.
       </p>
@@ -67,9 +67,9 @@ function MarkFiled({ f, onDone }: { f: TaxFiling; onDone: () => void }) {
   }
   return (
     <div className="flex flex-wrap items-center gap-2 mt-3">
-      <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Belastingdienst reference" className="rounded-lg bg-slate-900 border-slate-700 text-slate-100 text-sm" />
-      <button onClick={save} className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-3 py-2">I filed this</button>
-      {err && <span className="text-sm text-danger-400">{err}</span>}
+      <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Belastingdienst reference" className="rounded-lg bg-card border-line text-ink text-sm" />
+      <button onClick={save} className="rounded-lg bg-ink hover:bg-night-2 text-white text-sm px-3 py-2">I filed this</button>
+      {err && <span className="text-sm text-bad">{err}</span>}
     </div>
   )
 }
@@ -94,15 +94,16 @@ export function TaxFilings() {
   if (!filings) return <div className="flex justify-center p-12"><LoadingSpinner /></div>
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-50">Tax filings</h1>
-          <p className="text-sm text-slate-400">Drafts computed from your approved books. You approve, then file with the Belastingdienst yourself.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">Tax filings</h1>
+          <div className="lemon-rule" aria-hidden="true" />
+          <p className="mt-3 text-sm text-muted">Drafts computed from your approved books. You approve, then file with the Belastingdienst yourself.</p>
         </div>
-        <button disabled={busy} onClick={refresh} className="rounded-lg border border-slate-600 text-slate-200 text-sm px-3 py-2 flex items-center gap-2"><RefreshCw size={14} className={busy ? 'animate-spin' : ''} /> Recompute drafts</button>
+        <button disabled={busy} onClick={refresh} className="rounded-lg border border-line text-ink text-sm px-3 py-2 flex items-center gap-2"><RefreshCw size={14} className={busy ? 'animate-spin' : ''} /> Recompute drafts</button>
       </div>
-      {msg && <p className="text-sm text-slate-300">{msg}</p>}
-      {filings.length === 0 && <Card><p className="text-sm text-slate-400">No drafts yet. Recompute to create this quarter's VAT and this year's income tax drafts.</p></Card>}
+      {msg && <p className="text-sm text-body">{msg}</p>}
+      {filings.length === 0 && <Card><p className="text-sm text-muted">No drafts yet. Recompute to create this quarter's VAT and this year's income tax drafts.</p></Card>}
       <div className="grid gap-6 xl:grid-cols-2">
         {filings.map((f) => (
           <Card key={f.id}>
@@ -114,7 +115,7 @@ export function TaxFilings() {
             {f.kind === 'vat_quarter' ? <VatFigures f={f.figures} /> : <IncomeFigures f={f.figures} />}
             {f.warnings.length > 0 && (
               <ul className="mt-3 space-y-1">
-                {f.warnings.map((w, i) => <li key={i} className={`text-xs ${w.severity === 'block' ? 'text-danger-400' : w.severity === 'warn' ? 'text-warning-300' : 'text-slate-400'}`}>{w.message}</li>)}
+                {f.warnings.map((w, i) => <li key={i} className={`text-xs ${w.severity === 'block' ? 'text-bad' : w.severity === 'warn' ? 'text-lemon-ink' : 'text-muted'}`}>{w.message}</li>)}
               </ul>
             )}
             {f.status === 'approved' && <MarkFiled f={f} onDone={load} />}

@@ -17,7 +17,7 @@ function AppRow({ a }: { a: Application }) {
   }
   const toggle = (k: 'letter' | 'cv') => setOpen(open === k ? '' : k)
   const tab = (k: 'letter' | 'cv', label: string) => (
-    <button onClick={() => toggle(k)} aria-expanded={open === k} className="inline-flex items-center gap-1 text-sm text-sky-300 hover:text-sky-200">
+    <button onClick={() => toggle(k)} aria-expanded={open === k} className="inline-flex items-center gap-1 text-sm text-lemon-ink hover:text-ink">
       {open === k ? <ChevronDown size={14} /> : <ChevronRight size={14} />} {label}
     </button>
   )
@@ -26,8 +26,8 @@ function AppRow({ a }: { a: Application }) {
     <li className="py-4 space-y-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-slate-100 font-medium break-words">{a.role_title ?? 'Untitled role'}{a.company ? <span className="text-slate-400 font-normal">, {a.company}</span> : null}</p>
-          <p className="text-xs text-slate-400 break-all">{a.recipient_email ? `To ${a.recipient_email}. ` : ''}Made {day(a.created_at)}</p>
+          <p className="text-ink font-medium break-words">{a.role_title ?? 'Untitled role'}{a.company ? <span className="text-muted font-normal">, {a.company}</span> : null}</p>
+          <p className="text-xs text-muted break-all">{a.recipient_email ? `To ${a.recipient_email}. ` : ''}Made {day(a.created_at)}</p>
         </div>
         <div className="flex items-center gap-2">
           <ApplicationChip status={a.status} />
@@ -52,10 +52,10 @@ export function Applications() {
       <PageHeader title="Applications" subtitle="Tailored CVs and cover letters. Drafts wait in your Gmail until you send them." />
       <Card className="p-4 sm:p-6">
         <ErrorNote message={error} />
-        <ul className="divide-y divide-slate-800/60">
+        <ul className="divide-y divide-line">
           {rows?.map((a) => <AppRow key={a.id} a={a} />)}
-          {rows && rows.length === 0 && <li className="py-2 text-sm text-slate-400">No applications yet.</li>}
-          {!rows && !error && <li className="py-2 text-sm text-slate-400">Loading.</li>}
+          {rows && rows.length === 0 && <li className="py-2 text-sm text-muted">No applications yet.</li>}
+          {!rows && !error && <li className="py-2 text-sm text-muted">Loading.</li>}
         </ul>
       </Card>
     </div>

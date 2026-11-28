@@ -2,84 +2,105 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
+/* The LensIQ look for Nexus live. Colours and fonts come from src/lib/theme.ts through
+   tailwind.config.ts; this file only names the shared pieces. Fonts load in index.html. */
+
 @layer base {
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+  html {
+    color-scheme: light;
+  }
 
   body {
-    @apply bg-slate-950 text-slate-50 font-sans;
-    font-family: 'Inter', sans-serif;
+    @apply bg-paper text-body font-sans antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display text-ink;
   }
 
   .font-mono-num {
     @apply font-mono;
-    font-family: 'JetBrains Mono', monospace;
     font-variant-numeric: tabular-nums;
   }
 }
 
 @layer components {
-  /* Glass morphism cards */
+  /* Cards: white on the paper ground with a hairline, as on lensiq.company */
   .glass {
-    @apply bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl;
+    @apply bg-card border border-line rounded-[10px];
   }
 
   .glass-dark {
-    @apply bg-slate-900/50 backdrop-blur-sm border border-slate-800/50 rounded-xl;
+    @apply bg-card border border-line rounded-[10px];
+  }
+
+  /* The mono uppercase label above a heading */
+  .eyebrow {
+    @apply font-mono text-xs uppercase tracking-[0.12em] text-muted;
+  }
+
+  /* The double lemon rule under a page heading */
+  .lemon-rule {
+    @apply mt-3 h-[6px] w-14 border-y-2 border-lemon;
+  }
+
+  /* Tile with the lemon top edge */
+  .tile {
+    @apply bg-card border border-line rounded-[10px] border-t-[3px] border-t-lemon;
   }
 
   /* Status badges */
   .badge-paid {
-    @apply bg-emerald-500/20 text-emerald-300 border border-emerald-500/30;
+    @apply bg-good-soft text-good border border-good/30;
   }
 
   .badge-pending {
-    @apply bg-amber-500/20 text-amber-300 border border-amber-500/30;
+    @apply bg-lemon-soft text-lemon-ink border border-lemon;
   }
 
   .badge-overdue {
-    @apply bg-red-500/20 text-red-300 border border-red-500/30;
+    @apply bg-bad-soft text-bad border border-bad/30;
   }
 
   .badge-active {
-    @apply bg-emerald-500/20 text-emerald-300 border border-emerald-500/30;
+    @apply bg-good-soft text-good border border-good/30;
   }
 
   .badge-proposed {
-    @apply bg-blue-500/20 text-blue-300 border border-blue-500/30;
+    @apply bg-lemon-soft text-lemon-ink border border-lemon;
   }
 
   .badge-cold {
-    @apply bg-slate-700/50 text-slate-300 border border-slate-600/50;
+    @apply bg-chip text-body border border-line;
   }
 
-  /* Button states */
+  /* Buttons: ink primary, white secondary with a hairline, quiet ghost */
   .btn-base {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 inline-flex items-center gap-2 whitespace-nowrap;
+    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200 inline-flex items-center gap-2 whitespace-nowrap;
   }
 
   .btn-primary {
-    @apply btn-base bg-cyan-600 hover:bg-cyan-500 text-slate-950 hover:shadow-lg hover:shadow-cyan-500/20;
+    @apply btn-base bg-ink hover:bg-night-2 text-white;
   }
 
   .btn-secondary {
-    @apply btn-base bg-slate-700 hover:bg-slate-600 text-slate-50 border border-slate-600;
+    @apply btn-base bg-card hover:bg-chip text-ink border border-line;
   }
 
   .btn-danger {
-    @apply btn-base bg-red-600 hover:bg-red-500 text-slate-50;
+    @apply btn-base bg-bad hover:opacity-90 text-white;
   }
 
   .btn-ghost {
-    @apply btn-base bg-transparent hover:bg-slate-800/50 text-slate-300 hover:text-slate-50;
+    @apply btn-base bg-transparent hover:bg-chip text-body hover:text-ink;
   }
 
-  /* Smooth transitions */
   .transition-all-smooth {
     @apply transition-all duration-300 ease-out;
   }
 
-  /* Animations */
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -112,7 +133,8 @@
   }
 
   @keyframes pulse-soft {
-    0%, 100% {
+    0%,
+    100% {
       opacity: 1;
     }
     50% {
@@ -136,41 +158,36 @@
     animation: pulse-soft 2s ease-in-out infinite;
   }
 
-  /* Scrollbar styling */
   ::-webkit-scrollbar {
     @apply w-2 h-2;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-slate-900/50;
+    @apply bg-paper;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-slate-700 rounded-full hover:bg-slate-600;
+    @apply bg-line rounded-full hover:bg-muted;
   }
 }
 
-/* Recharts custom styles */
+/* Recharts on the white card */
 .recharts-surface {
   background-color: transparent !important;
 }
 
 .recharts-cartesian-axis-tick-value {
-  @apply fill-slate-400 font-mono-num text-xs;
+  @apply fill-muted font-mono-num text-xs;
 }
 
 .recharts-tooltip {
   outline: none !important;
-  background-color: rgba(15, 23, 42, 0.95) !important;
-  border: 1px solid rgba(51, 65, 85, 0.5) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5) !important;
-}
-
-.recharts-tooltip-label {
-  @apply text-slate-400 text-sm;
 }
 
 .recharts-default-tooltip {
-  @apply text-xs;
+  @apply text-xs shadow-sm;
+}
+
+.recharts-tooltip-label {
+  @apply text-muted text-sm;
 }

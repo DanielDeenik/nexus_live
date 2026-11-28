@@ -6,20 +6,20 @@ import { Prose, ScoreBar } from '../../components/recruiter/bits'
 import { type FitReport, type Requirement, assessSpec, day, listFitReports } from '../../lib/recruiter'
 
 function RequirementTable({ rows, empty }: { rows: Requirement[]; empty: string }) {
-  if (!rows.length) return <p className="text-sm text-slate-400">{empty}</p>
+  if (!rows.length) return <p className="text-sm text-muted">{empty}</p>
   return (
     <div className="relative overflow-x-auto">
       <table className="w-full text-sm">
-        <thead className="text-left text-slate-400 border-b border-slate-700/50">
+        <thead className="text-left text-muted border-b border-line">
           <tr><th className={th}>Requirement</th><th className={th}>Must or nice</th><th className={th}>Area</th><th className={th}>Tier</th><th className={`${th} text-right`}>Weight</th></tr>
         </thead>
-        <tbody className="text-slate-200">
+        <tbody className="text-ink">
           {rows.map((r, i) => (
-            <tr key={i} className="border-b border-slate-800/60">
+            <tr key={i} className="border-b border-line">
               <td className={`${td} min-w-[14rem]`}>{r.text}</td>
               <td className={td}>{r.must_have ? <Chip tone="warn">must</Chip> : <Chip>nice</Chip>}</td>
-              <td className={`${td} whitespace-nowrap text-slate-300`}>{r.area_label ?? r.area_id ?? '-'}</td>
-              <td className={`${td} whitespace-nowrap text-slate-300`}>{r.tier ?? '-'}</td>
+              <td className={`${td} whitespace-nowrap text-body`}>{r.area_label ?? r.area_id ?? '-'}</td>
+              <td className={`${td} whitespace-nowrap text-body`}>{r.tier ?? '-'}</td>
               <td className={`${td} text-right tabular-nums`}>{r.tier_weight ?? '-'}</td>
             </tr>
           ))}
@@ -35,12 +35,12 @@ function ReportRow({ r }: { r: FitReport }) {
     <li className="py-4">
       <button onClick={() => setOpen(!open)} className="w-full text-left" aria-expanded={open}>
         <div className="flex items-start gap-2">
-          {open ? <ChevronDown size={16} className="mt-1 shrink-0 text-slate-400" /> : <ChevronRight size={16} className="mt-1 shrink-0 text-slate-400" />}
+          {open ? <ChevronDown size={16} className="mt-1 shrink-0 text-muted" /> : <ChevronRight size={16} className="mt-1 shrink-0 text-muted" />}
           <div className="min-w-0 flex-1 grid gap-2 md:grid-cols-[1fr_12rem] md:items-center">
             <div className="min-w-0">
-              <p className="text-slate-100 font-medium break-words">{r.role_title ?? 'Untitled role'}{r.company ? <span className="text-slate-400 font-normal">, {r.company}</span> : null}</p>
-              <p className="text-xs text-slate-400">{day(r.created_at)}{r.verdict ? `. ${r.verdict}` : ''}</p>
-              {r.centre_of_gravity && <p className="mt-1 text-sm text-slate-300 break-words">Centre of gravity: {r.centre_of_gravity}</p>}
+              <p className="text-ink font-medium break-words">{r.role_title ?? 'Untitled role'}{r.company ? <span className="text-muted font-normal">, {r.company}</span> : null}</p>
+              <p className="text-xs text-muted">{day(r.created_at)}{r.verdict ? `. ${r.verdict}` : ''}</p>
+              {r.centre_of_gravity && <p className="mt-1 text-sm text-body break-words">Centre of gravity: {r.centre_of_gravity}</p>}
             </div>
             <div className="flex items-center gap-2">
               <ScoreBar score={r.score} match={r.is_match} />
@@ -51,9 +51,9 @@ function ReportRow({ r }: { r: FitReport }) {
       </button>
       {open && (
         <div className="mt-4 space-y-4 pl-6">
-          <div><h4 className="text-sm font-semibold text-slate-200 mb-2">Requirements</h4><RequirementTable rows={r.requirements ?? []} empty="No requirements parsed." /></div>
-          <div><h4 className="text-sm font-semibold text-slate-200 mb-2">Gaps</h4><RequirementTable rows={r.gaps ?? []} empty="No gaps found." /></div>
-          {r.report && <div><h4 className="text-sm font-semibold text-slate-200 mb-2">Report</h4><Prose text={r.report} /></div>}
+          <div><h4 className="text-sm font-semibold text-ink mb-2">Requirements</h4><RequirementTable rows={r.requirements ?? []} empty="No requirements parsed." /></div>
+          <div><h4 className="text-sm font-semibold text-ink mb-2">Gaps</h4><RequirementTable rows={r.gaps ?? []} empty="No gaps found." /></div>
+          {r.report && <div><h4 className="text-sm font-semibold text-ink mb-2">Report</h4><Prose text={r.report} /></div>}
         </div>
       )}
     </li>
@@ -95,11 +95,11 @@ export function FitReports() {
           <button disabled={busy || !spec.trim()} className={btnPrimary}><Gauge size={14} /> {busy ? 'Assessing' : 'Assess'}</button>
         </form>
         {result && (
-          <div className="mt-5 space-y-3 border-t border-slate-700/50 pt-4">
+          <div className="mt-5 space-y-3 border-t border-line pt-4">
             <div className="flex flex-wrap items-center gap-3">
               <div className="w-48"><ScoreBar score={result.score} match={result.is_match} /></div>
               {result.is_match ? <Chip tone="good">match</Chip> : <Chip>no match</Chip>}
-              <span className="text-sm text-slate-300">{result.verdict}</span>
+              <span className="text-sm text-body">{result.verdict}</span>
             </div>
             <Prose text={result.report} />
           </div>
@@ -109,10 +109,10 @@ export function FitReports() {
       <Card className="p-4 sm:p-6">
         <CardHeader title="Reports" subtitle="Newest first. Open one for requirements and gaps." />
         <ErrorNote message={error} />
-        <ul className="divide-y divide-slate-800/60">
+        <ul className="divide-y divide-line">
           {rows?.map((r) => <ReportRow key={r.id} r={r} />)}
-          {rows && rows.length === 0 && <li className="py-2 text-sm text-slate-400">No fit reports yet.</li>}
-          {!rows && !error && <li className="py-2 text-sm text-slate-400">Loading.</li>}
+          {rows && rows.length === 0 && <li className="py-2 text-sm text-muted">No fit reports yet.</li>}
+          {!rows && !error && <li className="py-2 text-sm text-muted">Loading.</li>}
         </ul>
       </Card>
     </div>

@@ -8,7 +8,7 @@ import { type Profile, callNexus, loadProfile, loadRegions } from '../../lib/nex
 import { ModelsCard } from './ModelsCard'
 
 interface Connection { provider: 'google' | 'wise'; status: string; account_label: string | null; last_error: string | null; settings: Record<string, unknown>; connected_at: string }
-const input = 'rounded-lg bg-slate-900 border-slate-700 text-slate-100 text-sm'
+const input = 'rounded-lg bg-card border-line text-ink text-sm'
 
 /** Agents section of Settings: work calendar, Google and Wise. */
 export function AgentsSection() {
@@ -64,60 +64,60 @@ export function AgentsSection() {
   return (
     <section id="agents" className="space-y-6 scroll-mt-20">
       <div>
-        <h2 className="text-lg font-semibold text-slate-50">Agents</h2>
-        <p className="text-sm text-slate-400">Your calendar for capacity forecasts, and the sources the expense agent reads.</p>
+        <h2 className="text-lg font-semibold text-ink">Agents</h2>
+        <p className="text-sm text-muted">Your calendar for capacity forecasts, and the sources the expense agent reads.</p>
       </div>
-      {msg && <p className="text-sm text-slate-300">{msg}</p>}
+      {msg && <p className="text-sm text-body">{msg}</p>}
 
       <Card>
         <CardHeader title="Work calendar" subtitle="Holidays follow your client's region" />
         <div className="flex flex-wrap items-end gap-3">
-          <label className="text-xs text-slate-400">Region
+          <label className="text-xs text-muted">Region
             <select value={profile.work_calendar_region ?? ''} onChange={(e) => setProfile({ ...profile, work_calendar_region: e.target.value || null })} className={`${input} block mt-1`}>
               <option value="">From latest invoice</option>
               {regions.map((r) => <option key={r}>{r}</option>)}
             </select>
           </label>
-          <label className="text-xs text-slate-400">Standard hours per day
+          <label className="text-xs text-muted">Standard hours per day
             <input type="number" min="1" max="24" step="0.5" value={profile.standard_hours_per_day ?? ''} onChange={(e) => setProfile({ ...profile, standard_hours_per_day: e.target.value ? Number(e.target.value) : null })} className={`${input} block w-28 mt-1`} />
           </label>
-          <label className="text-xs text-slate-300 flex items-center gap-2 pb-2">
-            <input type="checkbox" checked={profile.startersaftrek_eligible} onChange={(e) => setProfile({ ...profile, startersaftrek_eligible: e.target.checked })} className="rounded bg-slate-900 border-slate-600" />
+          <label className="text-xs text-body flex items-center gap-2 pb-2">
+            <input type="checkbox" checked={profile.startersaftrek_eligible} onChange={(e) => setProfile({ ...profile, startersaftrek_eligible: e.target.checked })} className="rounded bg-card border-line" />
             Startersaftrek applies this year
           </label>
-          <button onClick={saveProfile} className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2">Save</button>
+          <button onClick={saveProfile} className="rounded-lg bg-ink hover:bg-night-2 text-white text-sm px-4 py-2">Save</button>
         </div>
       </Card>
 
       <ModelsCard />
 
       <Card>
-        <CardHeader title="Google (Gmail and Drive)" subtitle="Read-only. Finds invoices and receipts in your inbox and one Drive folder." action={google ? <span className="text-xs text-success-400 flex items-center gap-1"><CheckCircle2 size={12} /> connected</span> : null} />
-        {google?.last_error && <p className="text-sm text-warning-300 flex items-center gap-2 mb-3"><AlertTriangle size={14} /> Last run: {google.last_error}</p>}
+        <CardHeader title="Google (Gmail and Drive)" subtitle="Read-only. Finds invoices and receipts in your inbox and one Drive folder." action={google ? <span className="text-xs text-good flex items-center gap-1"><CheckCircle2 size={12} /> connected</span> : null} />
+        {google?.last_error && <p className="text-sm text-lemon-ink flex items-center gap-2 mb-3"><AlertTriangle size={14} /> Last run: {google.last_error}</p>}
         <div className="flex flex-wrap items-center gap-3">
-          <button onClick={() => run(async () => { const r = await callNexus<{ url: string }>('integrations', { action: 'google_start' }); window.location.href = r.url }, '')} className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2 flex items-center gap-2"><Link2 size={14} /> {google ? 'Reconnect' : 'Connect Google'}</button>
-          {google && <button onClick={() => run(() => callNexus('integrations', { action: 'disconnect', provider: 'google' }), 'Google disconnected.')} className="text-sm text-slate-400 underline">Disconnect</button>}
+          <button onClick={() => run(async () => { const r = await callNexus<{ url: string }>('integrations', { action: 'google_start' }); window.location.href = r.url }, '')} className="rounded-lg bg-ink hover:bg-night-2 text-white text-sm px-4 py-2 flex items-center gap-2"><Link2 size={14} /> {google ? 'Reconnect' : 'Connect Google'}</button>
+          {google && <button onClick={() => run(() => callNexus('integrations', { action: 'disconnect', provider: 'google' }), 'Google disconnected.')} className="text-sm text-muted underline">Disconnect</button>}
         </div>
         {google && (
           <div className="flex flex-wrap items-end gap-2 mt-4">
-            <label className="text-xs text-slate-400 flex-1">Drive receipts folder id (the part after /folders/ in its URL)
+            <label className="text-xs text-muted flex-1">Drive receipts folder id (the part after /folders/ in its URL)
               <input value={folder} onChange={(e) => setFolder(e.target.value)} className={`${input} block w-full mt-1`} />
             </label>
-            <button onClick={() => run(() => callNexus('integrations', { action: 'google_settings', drive_folder_id: folder }), 'Drive folder saved.')} className="rounded-lg border border-slate-600 text-slate-200 text-sm px-3 py-2">Save folder</button>
+            <button onClick={() => run(() => callNexus('integrations', { action: 'google_settings', drive_folder_id: folder }), 'Drive folder saved.')} className="rounded-lg border border-line text-ink text-sm px-3 py-2">Save folder</button>
           </div>
         )}
       </Card>
 
       <Card>
-        <CardHeader title="Wise" subtitle="Read-only token. Card payments are matched to receipts; unmatched ones ask for evidence." action={wise ? <span className="text-xs text-success-400 flex items-center gap-1"><CheckCircle2 size={12} /> {wise.account_label}</span> : null} />
-        {wise?.last_error && <p className="text-sm text-warning-300 flex items-center gap-2 mb-3"><AlertTriangle size={14} /> Last run: {wise.last_error}</p>}
+        <CardHeader title="Wise" subtitle="Read-only token. Card payments are matched to receipts; unmatched ones ask for evidence." action={wise ? <span className="text-xs text-good flex items-center gap-1"><CheckCircle2 size={12} /> {wise.account_label}</span> : null} />
+        {wise?.last_error && <p className="text-sm text-lemon-ink flex items-center gap-2 mb-3"><AlertTriangle size={14} /> Last run: {wise.last_error}</p>}
         <div className="flex flex-wrap items-end gap-2">
-          <label className="text-xs text-slate-400 flex-1">Personal API token (read only)
+          <label className="text-xs text-muted flex-1">Personal API token (read only)
             <input type="password" value={wiseToken} onChange={(e) => setWiseToken(e.target.value)} className={`${input} block w-full mt-1`} autoComplete="off" />
           </label>
-          <button onClick={() => run(async () => { await callNexus('integrations', { action: 'wise_connect', token: wiseToken }); setWiseToken('') }, 'Wise connected.')} className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2">{wise ? 'Replace token' : 'Connect Wise'}</button>
+          <button onClick={() => run(async () => { await callNexus('integrations', { action: 'wise_connect', token: wiseToken }); setWiseToken('') }, 'Wise connected.')} className="rounded-lg bg-ink hover:bg-night-2 text-white text-sm px-4 py-2">{wise ? 'Replace token' : 'Connect Wise'}</button>
         </div>
-        <p className="text-xs text-slate-500 mt-2">Tokens are stored encrypted in Supabase Vault and never returned to the browser.</p>
+        <p className="text-xs text-muted mt-2">Tokens are stored encrypted in Supabase Vault and never returned to the browser.</p>
       </Card>
     </section>
   )

@@ -46,9 +46,9 @@ function ProjectForm({ areas, editing, onDone, onCancel }: { areas: Area[]; edit
         <Field label="End date"><input type="date" value={p.end_date ?? ''} onChange={(e) => set('end_date', e.target.value || null)} className={`${input} w-full`} /></Field>
         <Field label="Archived on"><input type="date" value={p.archived_at?.slice(0, 10) ?? ''} onChange={(e) => set('archived_at', e.target.value || null)} className={`${input} w-full`} /></Field>
       </div>
-      <label className="flex items-center gap-2 text-sm text-slate-200">
-        <input type="checkbox" checked={p.billable} onChange={(e) => set('billable', e.target.checked)} className="rounded bg-slate-900 border-slate-600 text-sky-600" />
-        Billable <span className="text-xs text-slate-400">(compared with what you invoiced)</span>
+      <label className="flex items-center gap-2 text-sm text-ink">
+        <input type="checkbox" checked={p.billable} onChange={(e) => set('billable', e.target.checked)} className="rounded bg-card border-line text-lemon-ink" />
+        Billable <span className="text-xs text-muted">(compared with what you invoiced)</span>
       </label>
       <Field label="Description"><textarea rows={2} value={p.description ?? ''} onChange={(e) => set('description', text(e.target.value))} className={`${input} w-full`} /></Field>
       <ErrorNote message={err} />
@@ -75,7 +75,7 @@ function NamedPanel({ title, table, rows, onChange }: { title: string; table: 'd
   return (
     <Card className="p-4 sm:p-6 min-w-0">
       <CardHeader title={title} />
-      <ul className="divide-y divide-slate-800/60">
+      <ul className="divide-y divide-line">
         {rows.map((r) => (
           <li key={r.id} className="py-2">
             {editId === r.id ? (
@@ -90,18 +90,18 @@ function NamedPanel({ title, table, rows, onChange }: { title: string; table: 'd
             ) : (
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm text-slate-100 break-words">{r.name}</p>
-                  {r.description && <p className="text-xs text-slate-400 break-words">{r.description}</p>}
+                  <p className="text-sm text-ink break-words">{r.name}</p>
+                  {r.description && <p className="text-xs text-muted break-words">{r.description}</p>}
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <button className={btnIcon} onClick={() => { setEditId(r.id); setDraft({ name: r.name, description: r.description ?? '' }) }} aria-label={`Rename ${r.name}`}><Pencil size={15} /></button>
-                  <button className={`${btnIcon} hover:text-danger-400`} onClick={() => window.confirm(`Delete ${r.name}?`) && run(() => deleteNamed(table, r.id))} aria-label={`Delete ${r.name}`}><Trash2 size={15} /></button>
+                  <button className={`${btnIcon} hover:text-bad`} onClick={() => window.confirm(`Delete ${r.name}?`) && run(() => deleteNamed(table, r.id))} aria-label={`Delete ${r.name}`}><Trash2 size={15} /></button>
                 </div>
               </div>
             )}
           </li>
         ))}
-        {rows.length === 0 && <li className="py-2 text-sm text-slate-400">None yet.</li>}
+        {rows.length === 0 && <li className="py-2 text-sm text-muted">None yet.</li>}
       </ul>
       <form
         className="mt-3 grid gap-2 grid-cols-1 sm:grid-cols-[1fr_1fr_auto]"
@@ -156,7 +156,7 @@ export function TimeProjects() {
 
       {form && (
         <Card className="p-4 sm:p-6">
-          <h3 className="text-lg font-semibold text-slate-50 mb-3">{form.editing ? `Edit ${form.editing.name}` : 'New project'}</h3>
+          <h3 className="text-lg font-semibold text-ink mb-3">{form.editing ? `Edit ${form.editing.name}` : 'New project'}</h3>
           <ProjectForm key={form.editing?.id ?? 'new'} areas={areas} editing={form.editing} onDone={() => { setForm(null); load() }} onCancel={() => setForm(null)} />
         </Card>
       )}
@@ -169,37 +169,37 @@ export function TimeProjects() {
               {areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </Field>
-          <label className="flex items-center gap-2 text-sm text-slate-200 pb-2">
-            <input type="checkbox" checked={onlyUnmapped} onChange={(e) => setParam('needs_mapping', e.target.checked ? '1' : '')} className="rounded bg-slate-900 border-slate-600 text-sky-600" />
+          <label className="flex items-center gap-2 text-sm text-ink pb-2">
+            <input type="checkbox" checked={onlyUnmapped} onChange={(e) => setParam('needs_mapping', e.target.checked ? '1' : '')} className="rounded bg-card border-line text-lemon-ink" />
             Needs mapping only {unmappedCount > 0 && <Chip tone="warn">{unmappedCount}</Chip>}
           </label>
         </div>
         <div className="relative overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-400 border-b border-slate-700/50">
+            <thead className="text-left text-muted border-b border-line">
               <tr>
                 <th className={th}>Name</th><th className={th}>Area</th><th className={th}>Client</th><th className={th}>Billable</th>
                 <th className={th}>Relay project</th><th className={th}><span className="sr-only">Edit</span></th>
               </tr>
             </thead>
-            <tbody className="text-slate-200">
+            <tbody className="text-ink">
               {shown.map((p) => (
-                <tr key={p.id} className="border-b border-slate-800/60">
+                <tr key={p.id} className="border-b border-line">
                   <td className={`${td} min-w-[9rem]`}>
-                    <button onClick={() => edit(p)} className="text-left hover:text-cyan-300">{p.name}</button>
+                    <button onClick={() => edit(p)} className="text-left hover:text-ink">{p.name}</button>
                     {p.needs_mapping ? <div className="mt-1"><Chip tone="warn">Needs mapping</Chip></div> : p.archived_at ? <div className="mt-1"><Chip>Archived</Chip></div> : null}
                   </td>
-                  <td className={`${td} whitespace-nowrap text-slate-300`}>{p.aow_id ? areaName.get(p.aow_id) ?? '-' : '-'}</td>
-                  <td className={`${td} whitespace-nowrap text-slate-300`}>{p.client ?? '-'}</td>
-                  <td className={td}>{p.billable ? <span className="text-success-400">Yes</span> : <span className="text-slate-500">No</span>}</td>
-                  <td className={`${td} font-mono text-xs text-slate-300 whitespace-nowrap`}>{p.relay_key ?? '-'}</td>
+                  <td className={`${td} whitespace-nowrap text-body`}>{p.aow_id ? areaName.get(p.aow_id) ?? '-' : '-'}</td>
+                  <td className={`${td} whitespace-nowrap text-body`}>{p.client ?? '-'}</td>
+                  <td className={td}>{p.billable ? <span className="text-good">Yes</span> : <span className="text-muted">No</span>}</td>
+                  <td className={`${td} font-mono text-xs text-body whitespace-nowrap`}>{p.relay_key ?? '-'}</td>
                   <td className={`${td} text-right`}>
                     <button className={btnIcon} onClick={() => edit(p)} aria-label={`Edit ${p.name}`}><Pencil size={15} /></button>
                   </td>
                 </tr>
               ))}
-              {projects && shown.length === 0 && <tr><td className={`${td} text-slate-400`} colSpan={6}>No projects{onlyUnmapped || areaFilter ? ' match' : ' yet'}.</td></tr>}
-              {!projects && !error && <tr><td className={`${td} text-slate-400`} colSpan={6}>Loading.</td></tr>}
+              {projects && shown.length === 0 && <tr><td className={`${td} text-muted`} colSpan={6}>No projects{onlyUnmapped || areaFilter ? ' match' : ' yet'}.</td></tr>}
+              {!projects && !error && <tr><td className={`${td} text-muted`} colSpan={6}>Loading.</td></tr>}
             </tbody>
           </table>
         </div>

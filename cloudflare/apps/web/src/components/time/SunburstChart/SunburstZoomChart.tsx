@@ -26,6 +26,7 @@ import * as d3 from 'd3'
 import { Download } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { hrs } from '../../../lib/nexus'
+import { categorical, chart } from '../../../lib/theme'
 
 export interface TreeNode {
   name: string
@@ -79,7 +80,9 @@ export function SunburstZoomChart({ data, onDownload }: { data: TreeNode; onDown
     const hierarchy = d3.hierarchy(data).sum((d) => d.value ?? 0).sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
     const root = d3.partition<TreeNode>().size([2 * Math.PI, hierarchy.height + 1])(hierarchy) as Node
     root.each((d) => { (d as Node).current = d })
-    const color = d3.scaleOrdinal<string, string>(d3.quantize(d3.interpolateRainbow, (data.children?.length ?? 0) + 1))
+    // Fixed categorical order from lib/theme; past its length the rest share the neutral ink.
+    const order = (data.children ?? []).map((c) => c.name)
+    const color = (name: string) => categorical[order.indexOf(name)] ?? chart.neutral
 
     d3.select(el).selectAll('svg').remove()
     const svg = d3.select(el).append('svg')
@@ -100,7 +103,7 @@ export function SunburstZoomChart({ data, onDownload }: { data: TreeNode; onDown
 
     const total = g.append('text')
       .attr('text-anchor', 'middle').attr('dominant-baseline', 'central')
-      .attr('fill', '#f1f5f9').style('font-size', '14px').style('font-weight', '600')
+      .attr('fill', chart.centre).style('font-size', '14px').style('font-weight', '600')
     const setTotal = (n: Node) => { if (n.children) total.text(`${round1(d3.sum(n.children, (c) => c.value ?? 0))} h`) }
     setTotal(root)
 
@@ -118,7 +121,7 @@ export function SunburstZoomChart({ data, onDownload }: { data: TreeNode; onDown
     const label = g.append('g').attr('pointer-events', 'none').attr('text-anchor', 'middle').style('user-select', 'none')
       .selectAll<SVGTextElement, Node>('text').data(nodes).join('text')
       .attr('dy', '0.35em')
-      .attr('fill', '#f8fafc')
+      .attr('fill', chart.labelOnFill)
       .attr('fill-opacity', (d) => +labelVisible(d.current))
       .attr('transform', (d) => labelTransform(d.current))
       .text((d) => (d.data.name.length > maxChars ? `${d.data.name.slice(0, maxChars - 3)}...` : d.data.name))
@@ -158,16 +161,16 @@ export function SunburstZoomChart({ data, onDownload }: { data: TreeNode; onDown
     <div className="relative w-full max-w-[560px] mx-auto">
       <div ref={boxRef} className="w-full aspect-square" aria-label="Hours by group, click a ring to zoom in, click the centre to zoom out" role="img" />
       {onDownload && (
-        <button onClick={onDownload} className="absolute top-0 right-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-700/50" title="Download CSV" aria-label="Download CSV">
+        <button onClick={onDownload} className="absolute top-0 right-0 p-1.5 rounded-lg text-muted hover:text-ink hover:bg-chip" title="Download CSV" aria-label="Download CSV">
           <Download size={18} />
         </button>
       )}
       {hover && (
         <div
-          className="pointer-events-none absolute z-10 rounded-lg border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs text-slate-200 shadow-lg"
+          className="pointer-events-none absolute z-10 rounded-lg border border-line bg-card px-3 py-2 text-xs text-ink shadow-lg"
           style={{ left: Math.min(hover.x + 12, width - 160), top: hover.y + 12, maxWidth: 200 }}
         >
-          {hover.names.map((n, i) => <div key={i} className={i === hover.names.length - 1 ? 'font-semibold text-slate-50' : 'text-slate-400'}>{n}</div>)}
+          {hover.names.map((n, i) => <div key={i} className={i === hover.names.length - 1 ? 'font-semibold text-ink' : 'text-muted'}>{n}</div>)}
           <div className="mt-1 tabular-nums">{round1(hover.value)} h of {round1(hover.parentValue)} h</div>
           <div className="tabular-nums">{hover.parentValue > 0 ? ((hover.value / hover.parentValue) * 100).toFixed(1) : '0'}%</div>
         </div>

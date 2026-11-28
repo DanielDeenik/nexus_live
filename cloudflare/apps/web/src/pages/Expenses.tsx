@@ -6,7 +6,7 @@ import { type ExpenseRecord, callNexus, eur, loadExpenses, loadParams, money, up
 import { deductibleEur, reclaimableVatEur, type FiscalParams } from '@fiscal'
 
 const STATUS: Record<string, string> = {
-  booked: 'text-success-400', approved: 'text-success-400', needs_review: 'text-warning-400', rejected: 'text-slate-500', proposed: 'text-slate-400',
+  booked: 'text-good', approved: 'text-good', needs_review: 'text-lemon-ink', rejected: 'text-muted', proposed: 'text-muted',
 }
 
 export function Expenses() {
@@ -58,37 +58,38 @@ export function Expenses() {
   } : null, [yearRows, p])
 
   if (!rows) return <div className="flex justify-center p-12"><LoadingSpinner /></div>
-  const input = 'rounded-lg bg-slate-900 border-slate-700 text-slate-100 text-sm'
+  const input = 'rounded-lg bg-card border-line text-ink text-sm'
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-50">Expenses</h1>
-          <p className="text-sm text-slate-400">The expense agent reads each document, classifies it and books it or asks you.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">Expenses</h1>
+          <div className="lemon-rule" aria-hidden="true" />
+          <p className="mt-3 text-sm text-muted">The expense agent reads each document, classifies it and books it or asks you.</p>
         </div>
         <div className="flex gap-2">
           <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={input}>{[year - 1, year, year + 1].map((y) => <option key={y}>{y}</option>)}</select>
-          <button disabled={busy} onClick={collect} className="rounded-lg border border-slate-600 text-slate-200 text-sm px-3 py-2 flex items-center gap-2"><RefreshCw size={14} className={busy ? 'animate-spin' : ''} /> Collect now</button>
+          <button disabled={busy} onClick={collect} className="rounded-lg border border-line text-ink text-sm px-3 py-2 flex items-center gap-2"><RefreshCw size={14} className={busy ? 'animate-spin' : ''} /> Collect now</button>
         </div>
       </div>
 
       <Card>
         <CardHeader title="Add receipts" subtitle="PDF or photo of receipts and supplier invoices. Invoices you sent are uploaded on Income & Tax or Time." />
         <div className="flex flex-wrap items-center gap-3">
-          <label className={`rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2 flex items-center gap-2 cursor-pointer ${busy ? 'opacity-60 pointer-events-none' : ''}`}>
+          <label className={`rounded-lg bg-ink hover:bg-night-2 text-white text-sm px-4 py-2 flex items-center gap-2 cursor-pointer ${busy ? 'opacity-60 pointer-events-none' : ''}`}>
             <Upload size={14} /> Choose files
             <input type="file" multiple accept="application/pdf,image/*" className="hidden" onChange={(e) => onFiles(e.target.files)} />
           </label>
         </div>
-        {log.length > 0 && <ul className="mt-4 space-y-1 text-sm text-slate-300">{log.map((l, i) => <li key={i}>{l}</li>)}</ul>}
+        {log.length > 0 && <ul className="mt-4 space-y-1 text-sm text-body">{log.map((l, i) => <li key={i}>{l}</li>)}</ul>}
       </Card>
 
       {totals && (
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="glass p-5"><p className="text-xs uppercase tracking-wide text-slate-400">Deductible costs {year}</p><p className="mt-2 text-2xl font-semibold text-slate-50 tabular-nums">{eur(totals.deductible)}</p><p className="text-xs text-slate-400 mt-1">approved and booked only; assets via depreciation</p></div>
-          <div className="glass p-5"><p className="text-xs uppercase tracking-wide text-slate-400">Reclaimable VAT {year}</p><p className="mt-2 text-2xl font-semibold text-slate-50 tabular-nums">{eur(totals.vat)}</p></div>
-          <div className="glass p-5"><p className="text-xs uppercase tracking-wide text-slate-400">Waiting for review</p><p className="mt-2 text-2xl font-semibold text-slate-50 tabular-nums">{totals.pending}</p></div>
+          <div className="glass p-5"><p className="text-xs uppercase tracking-wide text-muted">Deductible costs {year}</p><p className="mt-2 text-2xl font-semibold text-ink tabular-nums">{eur(totals.deductible)}</p><p className="text-xs text-muted mt-1">approved and booked only; assets via depreciation</p></div>
+          <div className="glass p-5"><p className="text-xs uppercase tracking-wide text-muted">Reclaimable VAT {year}</p><p className="mt-2 text-2xl font-semibold text-ink tabular-nums">{eur(totals.vat)}</p></div>
+          <div className="glass p-5"><p className="text-xs uppercase tracking-wide text-muted">Waiting for review</p><p className="mt-2 text-2xl font-semibold text-ink tabular-nums">{totals.pending}</p></div>
         </div>
       )}
 
@@ -96,15 +97,15 @@ export function Expenses() {
         <CardHeader title="Ledger" subtitle={`${yearRows.length} expenses in ${year}`} />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-400 border-b border-slate-700/50">
+            <thead className="text-left text-muted border-b border-line">
               <tr><th className="py-2 pr-4">Date</th><th className="pr-4">Vendor</th><th className="pr-4">What</th><th className="pr-4">Treatment</th><th className="pr-4 text-right">Amount</th><th className="pr-4 text-right">Deductible</th><th>Status</th></tr>
             </thead>
-            <tbody className="text-slate-200">
+            <tbody className="text-ink">
               {yearRows.map((e) => (
-                <tr key={e.id} className="border-b border-slate-800/60" title={e.rationale ?? ''}>
+                <tr key={e.id} className="border-b border-line" title={e.rationale ?? ''}>
                   <td className="py-2 pr-4 tabular-nums">{e.date}</td>
                   <td className="pr-4">{e.vendor ?? '-'}</td>
-                  <td className="pr-4 text-slate-400">{e.description ?? e.category}</td>
+                  <td className="pr-4 text-muted">{e.description ?? e.category}</td>
                   <td className="pr-4">{(e.treatment ?? 'unknown').replace(/_/g, ' ')}{e.business_use_pct < 1 ? ` (${Math.round(e.business_use_pct * 100)}%)` : ''}</td>
                   <td className="pr-4 text-right tabular-nums">{money(e.amount, e.currency)}</td>
                   <td className="pr-4 text-right tabular-nums">{p ? eur(deductibleEur(e, p)) : '-'}</td>

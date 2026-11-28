@@ -60,15 +60,15 @@ export function Roles() {
           </Field>
         </div>
         <ErrorNote message={error} />
-        <ul className="divide-y divide-slate-800/60">
+        <ul className="divide-y divide-line">
           {rows?.map((r) => (
             <li key={r.id} className="py-4 space-y-2">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                 <div className="min-w-0 sm:flex-1">
                   {r.link
-                    ? <a href={r.link} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-100 hover:text-cyan-300 break-words">{r.title}<ExternalLink size={13} className="inline ml-1 -mt-0.5" /></a>
-                    : <span className="font-medium text-slate-100 break-words">{r.title}</span>}
-                  <p className="text-xs text-slate-400 break-words">
+                    ? <a href={r.link} target="_blank" rel="noopener noreferrer" className="font-medium text-ink hover:text-ink break-words">{r.title}<ExternalLink size={13} className="inline ml-1 -mt-0.5" /></a>
+                    : <span className="font-medium text-ink break-words">{r.title}</span>}
+                  <p className="text-xs text-muted break-words">
                     {[r.company, r.posted_at ? `posted ${day(r.posted_at)}` : `seen ${day(r.first_seen_at)}`, r.source_ids?.length ? `via ${r.source_ids.join(', ')}` : null].filter(Boolean).join('. ')}
                   </p>
                 </div>
@@ -78,10 +78,10 @@ export function Roles() {
                   <div className="w-36"><ScoreBar score={r.score} /></div>
                 </div>
               </div>
-              {r.snippet && <p className="text-sm text-slate-300 break-words">{r.snippet}</p>}
+              {r.snippet && <p className="text-sm text-body break-words">{r.snippet}</p>}
               {!!r.matched?.length && (
                 <div className="flex flex-wrap gap-1">
-                  {r.matched.map((m, i) => <span key={i} className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-xs text-slate-300">{m.keyword} <span className="text-slate-500">+{m.pts}</span></span>)}
+                  {r.matched.map((m, i) => <span key={i} className="rounded border border-line bg-chip px-1.5 py-0.5 text-xs text-body">{m.keyword} <span className="text-muted">+{m.pts}</span></span>)}
                 </div>
               )}
               <div className="flex flex-wrap gap-2">
@@ -90,14 +90,14 @@ export function Roles() {
                     key={a.status}
                     disabled={busy === r.id || r.status === a.status}
                     onClick={() => mark(r, a.status)}
-                    className={`rounded-lg border px-2.5 py-1 text-xs disabled:opacity-40 ${a.status === 'dismissed' ? 'border-slate-600 text-slate-300 hover:bg-slate-700/40' : 'border-sky-500/40 text-sky-300 hover:bg-sky-500/10'}`}
+                    className={`rounded-lg border px-2.5 py-1 text-xs disabled:opacity-40 ${a.status === 'dismissed' ? 'border-line text-body hover:bg-chip' : 'border-lemon text-lemon-ink hover:bg-lemon-soft'}`}
                   >{a.label}</button>
                 ))}
               </div>
             </li>
           ))}
-          {rows && rows.length === 0 && <li className="py-2 text-sm text-slate-400">No roles{tier || status || min ? ' match these filters' : ' yet'}.</li>}
-          {!rows && !error && <li className="py-2 text-sm text-slate-400">Loading.</li>}
+          {rows && rows.length === 0 && <li className="py-2 text-sm text-muted">No roles{tier || status || min ? ' match these filters' : ' yet'}.</li>}
+          {!rows && !error && <li className="py-2 text-sm text-muted">Loading.</li>}
         </ul>
       </Card>
     </div>

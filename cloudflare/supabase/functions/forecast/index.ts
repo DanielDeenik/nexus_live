@@ -10,6 +10,7 @@
 // wage tax withheld and prepayments, plus the buffer in app_config.
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { adminClient, authorize } from "../_shared/client.ts";
+import { asRun } from "../_shared/harness.ts";
 import { type AppConfig, loadConfig } from "../_shared/config.ts";
 import { json, preflight } from "../_shared/cors.ts";
 import { backfillInvoiceFx, loadForecastData, loadParams, loadTaxData } from "../_shared/taxData.ts";
@@ -57,6 +58,8 @@ async function forUser(db: SupabaseClient, cfg: AppConfig, params: Map<number, F
   return { forecast, reserves: reserves.sort((a, b) => a.year - b.year), what_if: whatIf ? buildForecast(data, whatIf) : null };
 }
 
+const forecastSummary = (r: Awaited<ReturnType<typeof forUser>>) => ({ year: r.forecast.year, reserve_eur: r.forecast.reserve_eur });
+
 export async function handler(req: Request): Promise<Response> {
   const pf = preflight(req);
   if (pf) return pf;
@@ -68,13 +71,18 @@ export async function handler(req: Request): Promise<Response> {
     const cfg = await loadConfig(db);
     const params = await loadParams(db);
     const today = new Date().toISOString().slice(0, 10);
-    if (who.kind === "user") return json(await forUser(db, cfg, params, who.id, today, readWhatIf(body.what_if)));
+    if (who.kind === "user") {
+      // A screen showing the forecast refreshes it on every view; only an
+      // explicit run (record_run, from Claude Code) is logged as an agent run.
+      const compute = () => forUser(db, cfg, params, who.id, today, readWhatIf(body.what_if));
+      return json(body.record_run === true ? await asRun(db, who.id, "forecast", "manual", null, compute, { summarize: forecastSummary }) : await compute());
+    }
     const users = ((await db.from("profiles").select("id")).data ?? []).map((r) => r.id as string);
     let refreshed = 0;
     const failed: string[] = [];
     for (const u of users) {
       try {
-        await forUser(db, cfg, params, u, today, null);
+        await asRun(db, u, "forecast", "cron", null, () => forUser(db, cfg, params, u, today, null), { summarize: forecastSummary });
         refreshed++;
       } catch (e) {
         failed.push((e as Error).message);

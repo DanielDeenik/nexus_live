@@ -50,7 +50,7 @@ export function FlowBlocks() {
         <ErrorNote message={error} />
         <div className="relative overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-400 border-b border-slate-700/50">
+            <thead className="text-left text-muted border-b border-line">
               <tr>
                 <th className={th}>Started</th><th className={th}>Project</th><th className={th}>Goal</th>
                 <th className={`${th} text-right`}>Minutes</th><th className={`${th} text-right`}>Planned</th>
@@ -58,24 +58,24 @@ export function FlowBlocks() {
                 <th className={th}>Challenge</th><th className={th}>Triggers</th><th className={th}>Note</th>
               </tr>
             </thead>
-            <tbody className="text-slate-200">
+            <tbody className="text-ink">
               {data?.rows.map((b) => (
-                <tr key={b.id} className="border-b border-slate-800/60">
+                <tr key={b.id} className="border-b border-line">
                   <td className={`${td} whitespace-nowrap tabular-nums`}>{when(b.started_at)}</td>
                   <td className={`${td} whitespace-nowrap`}>{b.project_id ? projectName.get(b.project_id) ?? '-' : '-'}</td>
                   <td className={`${td} min-w-[12rem]`}>{b.goal ?? ''}</td>
                   <td className={`${td} text-right tabular-nums`}>{b.minutes}</td>
-                  <td className={`${td} text-right tabular-nums text-slate-400`}>{b.planned_min ?? '-'}</td>
+                  <td className={`${td} text-right tabular-nums text-muted`}>{b.planned_min ?? '-'}</td>
                   <td className={`${td} text-right tabular-nums`}>{b.depth != null ? `${b.depth} / 5` : '-'}</td>
-                  <td className={td}>{b.interrupted ? <span className="text-warning-300">Yes</span> : b.interrupted === false ? <span className="text-slate-500">No</span> : '-'}</td>
-                  <td className={`${td} text-right tabular-nums text-slate-400`}>{b.recovery_min ?? '-'}</td>
-                  <td className={`${td} min-w-[8rem] text-slate-300`}>{b.challenge ?? ''}</td>
-                  <td className={`${td} min-w-[8rem] text-slate-300`}>{triggersText(b.triggers)}</td>
-                  <td className={`${td} min-w-[12rem] text-slate-300`}>{b.note ?? ''}</td>
+                  <td className={td}>{b.interrupted ? <span className="text-lemon-ink">Yes</span> : b.interrupted === false ? <span className="text-muted">No</span> : '-'}</td>
+                  <td className={`${td} text-right tabular-nums text-muted`}>{b.recovery_min ?? '-'}</td>
+                  <td className={`${td} min-w-[8rem] text-body`}>{b.challenge ?? ''}</td>
+                  <td className={`${td} min-w-[8rem] text-body`}>{triggersText(b.triggers)}</td>
+                  <td className={`${td} min-w-[12rem] text-body`}>{b.note ?? ''}</td>
                 </tr>
               ))}
-              {data && data.rows.length === 0 && <tr><td className={`${td} text-slate-400`} colSpan={11}>No flow blocks{from || before ? ' in this range' : ' yet'}.</td></tr>}
-              {!data && !error && <tr><td className={`${td} text-slate-400`} colSpan={11}>Loading.</td></tr>}
+              {data && data.rows.length === 0 && <tr><td className={`${td} text-muted`} colSpan={11}>No flow blocks{from || before ? ' in this range' : ' yet'}.</td></tr>}
+              {!data && !error && <tr><td className={`${td} text-muted`} colSpan={11}>Loading.</td></tr>}
             </tbody>
           </table>
         </div>

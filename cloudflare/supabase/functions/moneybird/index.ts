@@ -13,6 +13,7 @@
 // Moneybird. Tolerances, window, start date and pace come from app_config.
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { adminClient, authorize } from "../_shared/client.ts";
+import { asRun } from "../_shared/harness.ts";
 import { type AppConfig, loadConfig, need } from "../_shared/config.ts";
 import { type Connection, connections, markConnection, readSecret } from "../_shared/connect.ts";
 import { json, preflight } from "../_shared/cors.ts";
@@ -224,7 +225,8 @@ export async function handler(req: Request): Promise<Response> {
       const conn = (await connections(db, userId)).get("moneybird");
       if (!conn || conn.status === "revoked") { out.push({ user: userId.slice(0, 8), skipped: "not connected" }); continue; }
       try {
-        out.push({ user: userId.slice(0, 8), ...(await syncUser(db, cfg, userId, conn)) });
+        const trigger = who.kind === "service" ? "cron" : "manual";
+        out.push({ user: userId.slice(0, 8), ...(await asRun(db, userId, "moneybird_sync", trigger, null, () => syncUser(db, cfg, userId, conn), { summarize: (r) => r })) });
       } catch (e) {
         await markConnection(db, userId, "moneybird", { status: "error", last_error: (e as Error).message });
         out.push({ user: userId.slice(0, 8), error: (e as Error).message });

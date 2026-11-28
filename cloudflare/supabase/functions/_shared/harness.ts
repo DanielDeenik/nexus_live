@@ -68,6 +68,35 @@ export class AgentRun {
   }
 }
 
+/** Runs one agent's work for one user as a traced run, for agents whose work
+ *  is a single call. `problems` names failures the work reported without
+ *  throwing (a bank that would not sync, a stage that failed), so the run
+ *  shows as partial rather than succeeded. */
+export async function asRun<T>(
+  db: SupabaseClient,
+  userId: string,
+  agentId: string,
+  trigger: Trigger,
+  input: unknown,
+  work: () => Promise<T>,
+  opts: { summarize?: (r: T) => unknown; problems?: (r: T) => string[] } = {},
+): Promise<T> {
+  const run = await AgentRun.start(db, userId, agentId, trigger, input);
+  try {
+    const r = (await run.step(agentId, work, { summarize: opts.summarize })) as T;
+    const t = new Date().toISOString();
+    for (const p of opts.problems?.(r) ?? []) {
+      run.steps.push({ name: "reported", started_at: t, ms: 0, ok: false, error: p.slice(0, 2000) });
+      run.count("step_errors");
+    }
+    await run.finish();
+    return r;
+  } catch (e) {
+    await run.finish(e);
+    throw e;
+  }
+}
+
 /** Opens a review item unless one is already open for the same subject. */
 export async function openReview(
   db: SupabaseClient,
